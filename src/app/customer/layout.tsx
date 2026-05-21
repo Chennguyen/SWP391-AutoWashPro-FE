@@ -1,0 +1,15 @@
+import { ReactNode } from "react";
+import { DashboardSidebar } from "@/components/customer/DashboardSidebar";
+
+export default function CustomerLayout({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900">
+      <DashboardSidebar />
+
+      {/* Main content wrapper */}
+      <div className="flex-1 min-w-0">
+        {children}
+      </div>
+    </div>
+  );
+}
