@@ -1,5 +1,4 @@
 import {
-  Bell,
   Star,
   AlertTriangle,
   CalendarDays,
@@ -13,7 +12,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { UserMenu } from "@/components/customer/UserMenu";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const CUSTOMER = {
@@ -84,24 +82,13 @@ const QUICK_ACTIONS = [
 
 export function DashboardHeader() {
   return (
-    <header className="flex items-center justify-between gap-4 mb-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Chào mừng trở lại, <span className="text-[#2563EB]">{CUSTOMER.name}</span>
-        </h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Đây là tổng quan chăm sóc xe của bạn.
-        </p>
-      </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <button
-          aria-label="Thông báo"
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors"
-        >
-          <Bell size={16} />
-        </button>
-        <UserMenu user={CUSTOMER} />
-      </div>
+    <header className="mb-8">
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+        Chào mừng trở lại, <span className="text-[#2563EB]">{CUSTOMER.name}</span>
+      </h1>
+      <p className="text-sm text-slate-500 mt-0.5">
+        Đây là tổng quan chăm sóc xe của bạn.
+      </p>
     </header>
   );
 }

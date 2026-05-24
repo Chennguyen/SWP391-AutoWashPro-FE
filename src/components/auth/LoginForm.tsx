@@ -2,38 +2,21 @@
 
 import { useState, FormEvent } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AuthInput } from "@/components/auth/AuthInput";
-import { SocialButton } from "@/components/auth/SocialButton";
-import { AuthDivider } from "@/components/auth/AuthDivider";
-
-/* ───── Google icon SVG ───── */
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path
-        d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"
-        fill="#34A853"
-      />
-      <path
-        d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z"
-        fill="#EA4335"
-      />
-    </svg>
-  );
-}
+import { loginUser } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/api-error";
 
 export function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Show success toast if redirected from signup
+  const justRegistered = searchParams.get("registered") === "1";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; global?: string }>({});
   const [loading, setLoading] = useState(false);
 
   function validate() {
@@ -46,7 +29,7 @@ export function LoginForm() {
     return newErrors;
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
@@ -55,12 +38,74 @@ export function LoginForm() {
     }
     setErrors({});
     setLoading(true);
-    // TODO: connect to auth API
-    setTimeout(() => setLoading(false), 1500);
+
+    try {
+      const result = await loginUser(email, password);
+
+      if (result.data?.access_token) {
+        const token = result.data.access_token;
+        localStorage.setItem("token", token);
+
+        // Decode JWT payload (middle part of the token)
+        try {
+          const payloadBase64 = token.split(".")[1];
+          // Fix base64 padding and decode
+          const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const decoded = JSON.parse(jsonPayload);
+
+          const role = decoded["Role"] || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+          const userId = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"];
+          const userEmail = decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"];
+
+          if (role) localStorage.setItem("role", role);
+          if (userId) localStorage.setItem("userId", userId);
+          if (userEmail) localStorage.setItem("email", userEmail);
+
+          // Redirect based on role
+          if (role?.toLowerCase() === "admin") {
+            router.push("/admin/dashboard");
+          } else {
+            router.push("/customer");
+          }
+        } catch (e) {
+          console.error("Failed to parse JWT token", e);
+          router.push("/customer"); // default fallback
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // 401 — wrong credentials: highlight both fields
+        if (err.status === 401) {
+          setErrors({ email: " ", password: err.message });
+        } else {
+          setErrors({ global: err.message });
+        }
+      } else {
+        setErrors({ global: "Không thể kết nối đến máy chủ. Vui lòng thử lại." });
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <>
+      {/* Success banner after signup redirect */}
+      {justRegistered && (
+        <div
+          role="status"
+          className="mb-4 flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
+        >
+          <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          <span>Đăng ký thành công! Đăng nhập để tiếp tục.</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         <AuthInput
           id="login-email"
@@ -69,8 +114,11 @@ export function LoginForm() {
           placeholder="ban@example.com"
           autoComplete="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          error={errors.email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+          }}
+          error={errors.email?.trim() ? errors.email : undefined}
         />
 
         <AuthInput
@@ -80,7 +128,10 @@ export function LoginForm() {
           placeholder="••••••••"
           autoComplete="current-password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+          }}
           error={errors.password}
           rightLabel={
             <Link href="#" className="hover:underline">
@@ -88,6 +139,19 @@ export function LoginForm() {
             </Link>
           }
         />
+
+        {/* Global error (server 500, network, etc.) */}
+        {errors.global && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+          >
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <span>{errors.global}</span>
+          </div>
+        )}
 
         {/* Submit */}
         <button
@@ -109,17 +173,6 @@ export function LoginForm() {
           )}
         </button>
       </form>
-
-      <AuthDivider label="Hoặc tiếp tục với" />
-
-      {/* Social login */}
-      <SocialButton
-        icon={<GoogleIcon />}
-        onClick={() => {/* TODO: Google OAuth */}}
-        id="login-google-btn"
-      >
-        Tiếp tục bằng Google
-      </SocialButton>
     </>
   );
 }
