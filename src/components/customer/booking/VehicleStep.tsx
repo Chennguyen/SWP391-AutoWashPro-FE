@@ -1,27 +1,69 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getVehicles } from "@/lib/api/vehicle";
-import type { Vehicle } from "@/types/vehicle";
-import { VEHICLE_TYPE_LABELS } from "@/types/vehicle";
-import { Car, CheckCircle2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-
-const TYPE_ICON: Record<string, string> = {
-  SEDAN: "🚗",
-  SUV: "🚙",
-  HATCHBACK: "🚘",
-  PICKUP: "🛻",
-  MOTORBIKE: "🏍",
-  OTHER: "🚐",
-};
+import { Car, CheckCircle2, RefreshCw } from "lucide-react";
+import { ApiError } from "@/lib/api/api-error";
+import { getBookings } from "@/lib/api/booking";
+import { getVehicles } from "@/lib/api/vehicle";
+import type { CustomerBooking } from "@/types/booking";
+import type { Vehicle } from "@/types/vehicle";
 
 interface VehicleStepProps {
   token: string;
   selected: Vehicle | null;
-  onSelect: (v: Vehicle) => void;
+  onSelect: (vehicle: Vehicle) => void;
   onNext: () => void;
   onBack: () => void;
+  onUnauthorized: () => void;
+}
+
+const ACTIVE_BOOKING_STATUSES = new Set([
+  "available",
+  "pending",
+  "confirmed",
+  "checkin",
+  "check-in",
+  "inprogress",
+  "in-progress",
+  "đã đặt",
+  "da dat",
+  "đã xác nhận",
+  "dang xu ly",
+  "đang xử lý",
+]);
+
+function toISODate(date: Date): string {
+  return date.toISOString().split("T")[0] ?? "";
+}
+
+function isActiveBooking(booking: CustomerBooking): boolean {
+  const status = booking.status.trim().toLowerCase();
+  if (status.includes("cancel") || status.includes("hủy") || status.includes("huỷ")) {
+    return false;
+  }
+  if (status.includes("complete") || status.includes("completed") || status.includes("hoàn thành")) {
+    return false;
+  }
+
+  return ACTIVE_BOOKING_STATUSES.has(status) || Boolean(status);
+}
+
+function normalizePlate(value: string) {
+  return value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
+
+function buildBookedVehicleMap(bookings: CustomerBooking[]) {
+  const ids = new Set<string>();
+  const plates = new Set<string>();
+
+  for (const booking of bookings) {
+    if (!isActiveBooking(booking)) continue;
+    if (booking.vehicleId) ids.add(booking.vehicleId);
+    if (booking.vehicleLicensePlate) plates.add(normalizePlate(booking.vehicleLicensePlate));
+  }
+
+  return { ids, plates };
 }
 
 export function VehicleStep({
@@ -30,102 +72,182 @@ export function VehicleStep({
   onSelect,
   onNext,
   onBack,
+  onUnauthorized,
 }: VehicleStepProps) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [activeBookings, setActiveBookings] = useState<CustomerBooking[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const bookedVehicles = useMemo(
+    () => buildBookedVehicleMap(activeBookings),
+    [activeBookings],
+  );
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    getVehicles(token)
-      .then((data) => { if (!cancelled) setVehicles(data); })
-      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : "Không thể tải danh sách xe."); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [token]);
+    try {
+      const from = new Date();
+      const to = new Date();
+      to.setDate(to.getDate() + 365);
+
+      const [nextVehicles, nextBookings] = await Promise.all([
+        getVehicles(token, 1, 20),
+        getBookings(token, toISODate(from), toISODate(to), 1, 100),
+      ]);
+
+      setVehicles(nextVehicles);
+      setActiveBookings(nextBookings.filter(isActiveBooking));
+    } catch (loadError) {
+      if (loadError instanceof ApiError && loadError.status === 401) {
+        onUnauthorized();
+        return;
+      }
+
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Không thể tải danh sách xe.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [onUnauthorized, token]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadData]);
+
+  function isVehicleBooked(vehicle: Vehicle): boolean {
+    return (
+      bookedVehicles.ids.has(vehicle.id) ||
+      bookedVehicles.plates.has(normalizePlate(vehicle.licensePlate))
+    );
+  }
+
+  const selectedBlocked = selected ? isVehicleBooked(selected) : false;
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Chọn xe của bạn</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Chọn xe cần rửa trong lần đặt lịch này.</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-950">Chọn xe của bạn</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Xe đang có lịch active sẽ bị khóa để tránh đặt trùng.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadData}
+          disabled={loading}
+          title="Tải lại danh sách xe"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
+          <span className="sr-only">Tải lại danh sách xe</span>
+        </button>
       </div>
 
-      {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 rounded-2xl bg-slate-100 animate-pulse" />
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-28 animate-pulse rounded-lg bg-slate-100" />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          ⚠ {error}
+      {error ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
         </div>
-      )}
+      ) : null}
 
-      {!loading && !error && vehicles.length === 0 && (
+      {!loading && !error && vehicles.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-center">
-          <Car size={36} className="text-slate-200 mb-4" />
-          <p className="text-slate-500 font-medium mb-1">Bạn chưa có xe nào được đăng ký.</p>
-          <p className="text-slate-400 text-sm mb-5">Thêm xe trước khi đặt lịch.</p>
+          <Car size={38} className="mb-4 text-slate-200" aria-hidden />
+          <p className="font-semibold text-slate-600">Bạn chưa có xe nào được đăng ký.</p>
+          <p className="mt-1 text-sm text-slate-400">Thêm xe trước khi đặt lịch.</p>
           <Link
             href="/customer/info"
-            className="px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition-all"
+            className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            + Thêm xe ngay
+            Thêm xe ngay
           </Link>
         </div>
-      )}
+      ) : null}
 
-      {!loading && !error && vehicles.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {vehicles.map((v) => {
-            const isSelected = selected?.id === v.id;
+      {vehicles.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {vehicles.map((vehicle) => {
+            const isSelected = selected?.id === vehicle.id;
+            const booked = isVehicleBooked(vehicle);
+
             return (
               <button
-                key={v.id}
-                onClick={() => onSelect(v)}
+                key={vehicle.id}
+                type="button"
+                onClick={() => !booked && onSelect(vehicle)}
+                disabled={booked}
                 aria-pressed={isSelected}
-                className={`w-full text-left p-5 rounded-2xl border-2 transition-all
-                  ${isSelected
-                    ? "border-slate-900 bg-slate-50 shadow-md"
-                    : "border-slate-100 bg-white hover:border-slate-300"
-                  }`}
+                className={`rounded-lg border-2 p-5 text-left transition ${
+                  booked
+                    ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                    : isSelected
+                      ? "border-slate-950 bg-slate-50 shadow-sm"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <span className="text-2xl mb-2 block" aria-hidden>{TYPE_ICON[v.vehicleType] ?? "🚗"}</span>
-                    <p className="font-bold text-slate-900">{v.plateNumber}</p>
-                    <p className="text-sm text-slate-500 mt-0.5">{v.brand} {v.model} · {v.color}</p>
-                    <span className="text-[11px] font-bold tracking-widest uppercase text-slate-400 mt-1 inline-block">
-                      {VEHICLE_TYPE_LABELS[v.vehicleType]}
-                    </span>
+                  <div className="min-w-0">
+                    <Car size={22} className={booked ? "mb-2 text-slate-300" : "mb-2 text-blue-600"} aria-hidden />
+                    <p className={booked ? "font-bold text-slate-400" : "font-bold text-slate-950"}>
+                      {vehicle.licensePlate}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {vehicle.brand} {vehicle.model} - {vehicle.color}
+                    </p>
+                    {booked ? (
+                      <p className="mt-2 text-xs font-semibold text-slate-400">
+                        Xe này đang có lịch active
+                      </p>
+                    ) : null}
                   </div>
-                  {isSelected && <CheckCircle2 size={20} className="text-emerald-500 shrink-0" aria-hidden />}
+                  {isSelected && !booked ? (
+                    <CheckCircle2 size={20} className="shrink-0 text-emerald-500" aria-hidden />
+                  ) : null}
                 </div>
               </button>
             );
           })}
         </div>
-      )}
+      ) : null}
+
+      {selectedBlocked ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Xe đã chọn đang có lịch active. Vui lòng chọn xe khác.
+        </div>
+      ) : null}
 
       <div className="flex justify-between pt-2">
         <button
+          type="button"
           onClick={onBack}
-          className="px-6 py-3 rounded-full border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+          className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
         >
-          ← Quay lại
+          Quay lại
         </button>
         <button
+          type="button"
           onClick={onNext}
-          disabled={!selected}
-          className="px-8 py-3 rounded-full bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          disabled={!selected || selectedBlocked}
+          className="rounded-lg bg-slate-950 px-8 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Tiếp tục →
+          Tiếp tục
         </button>
       </div>
     </div>

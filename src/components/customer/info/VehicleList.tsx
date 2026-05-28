@@ -1,149 +1,300 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { getVehicles } from "@/lib/api/vehicle";
+import { useRef, useState } from "react";
+import { ArrowLeft, Car, ImageIcon, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ApiError } from "@/lib/api/api-error";
+import { deleteVehicle, getVehicle } from "@/lib/api/vehicle";
 import type { Vehicle } from "@/types/vehicle";
-import { VEHICLE_TYPE_LABELS } from "@/types/vehicle";
 import { AddVehicleForm } from "./AddVehicleForm";
-import Link from "next/link";
-import { Car, Plus, X } from "lucide-react";
 
 interface VehicleListProps {
   token: string;
-  initialVehicles: Vehicle[];
+  vehicles: Vehicle[];
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => Promise<void>;
+  onUnauthorized: () => void;
 }
 
-const TYPE_ICON: Record<string, string> = {
-  SEDAN: "🚗",
-  SUV: "🚙",
-  HATCHBACK: "🚘",
-  PICKUP: "🛻",
-  MOTORBIKE: "🏍",
-  OTHER: "🚐",
-};
+type FormMode =
+  | { type: "closed" }
+  | { type: "create" }
+  | { type: "edit"; vehicle: Vehicle };
 
-export function VehicleList({ token, initialVehicles }: VehicleListProps) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles);
-  const [showForm, setShowForm] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+export function VehicleList({
+  token,
+  vehicles,
+  loading,
+  error,
+  onRefresh,
+  onUnauthorized,
+}: VehicleListProps) {
+  const [formMode, setFormMode] = useState<FormMode>({ type: "closed" });
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const activeDetailIdRef = useRef<string | null>(null);
 
-  // Called after successful vehicle add to re-fetch the updated list
-  const handleVehicleAdded = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const updated = await getVehicles(token);
-      setVehicles(updated);
-    } catch {
-      // vehicle was still added — list will show on next full page load
-    } finally {
-      setRefreshing(false);
-      setShowForm(false);
+  const formTitle = formMode.type === "edit" ? "Sửa thông tin xe" : "Thêm xe mới";
+  const isDetailOpen = selectedVehicle !== null;
+
+  async function handleOpenDetail(vehicle: Vehicle) {
+    if (!vehicle.id) {
+      setActionError("Không tìm thấy mã xe để tải chi tiết.");
+      return;
     }
-  }, [token]);
+
+    setActionError(null);
+    setFormMode({ type: "closed" });
+    setSelectedVehicle(vehicle);
+    activeDetailIdRef.current = vehicle.id;
+    setDetailLoading(false);
+  }
+
+  async function handleDelete(vehicle: Vehicle) {
+    if (!vehicle.id) {
+      setActionError("Không tìm thấy mã xe để xóa.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Xóa xe ${vehicle.licensePlate}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    setActionError(null);
+    setDeletingId(vehicle.id);
+    try {
+      await deleteVehicle(token, vehicle.id);
+      setSelectedVehicle(null);
+      activeDetailIdRef.current = null;
+      setFormMode({ type: "closed" });
+      await onRefresh();
+    } catch (deleteError) {
+      if (deleteError instanceof ApiError && deleteError.status === 401) {
+        onUnauthorized();
+        return;
+      }
+
+      setActionError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Không thể xóa xe, vui lòng thử lại.",
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleFormSuccess() {
+    const editedVehicleId = formMode.type === "edit" ? formMode.vehicle.id : null;
+    setFormMode({ type: "closed" });
+    await onRefresh();
+
+    if (editedVehicleId) {
+      try {
+        const detail = await getVehicle(token, editedVehicleId);
+        activeDetailIdRef.current = editedVehicleId;
+        setSelectedVehicle(detail);
+      } catch {
+        activeDetailIdRef.current = null;
+        setSelectedVehicle(null);
+      }
+    }
+  }
+
+  function handleBackToList() {
+    setSelectedVehicle(null);
+    activeDetailIdRef.current = null;
+    setFormMode({ type: "closed" });
+    setActionError(null);
+  }
 
   return (
-    <section
-      className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
-      aria-label="Quản lý xe"
-    >
-      {/* Section header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <Car size={16} className="text-slate-400" aria-hidden />
-          <h2 className="text-sm font-semibold text-slate-700">
-            Xe của tôi
-            {!refreshing && (
-              <span className="ml-1.5 text-slate-400 font-normal">
-                ({vehicles.length})
-              </span>
-            )}
-            {refreshing && (
-              <span className="ml-2 text-slate-400 font-normal text-xs">
-                đang cập nhật...
-              </span>
-            )}
+    <section aria-label="Thông tin xe" className="space-y-4">
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-950">
+            {isDetailOpen ? "Chi tiết xe" : "Thông tin xe"}
           </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {isDetailOpen
+              ? "Xem thông tin xe, sửa hoặc xóa xe đang chọn."
+              : "Quản lý danh sách xe dùng để đặt lịch rửa xe."}
+          </p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all
-            ${showForm
-              ? "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-              : "bg-slate-900 text-white border-slate-900 hover:bg-slate-700"
-            }`}
-        >
-          {showForm ? <><X size={14} /> Huỷ</> : <><Plus size={14} /> Thêm xe</>}
-        </button>
-      </div>
-
-      {/* Section body */}
-      <div className="p-6 space-y-5">
-        {/* Add vehicle form */}
-        {showForm && (
-          <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
-            <h3 className="text-sm font-semibold text-slate-700 mb-4">
-              Thêm xe mới
-            </h3>
-            <AddVehicleForm token={token} onSuccess={handleVehicleAdded} />
-          </div>
-        )}
-
-        {/* Vehicle grid */}
-        {vehicles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Car size={40} className="text-slate-200 mb-4" />
-            <p className="text-slate-500 font-medium mb-1">Chưa có xe nào được đăng ký</p>
-            <p className="text-slate-400 text-sm mb-6">
-              Thêm xe để bắt đầu đặt lịch rửa xe nhanh hơn.
-            </p>
-            {!showForm && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-6 py-2.5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition-all"
-              >
-                + Thêm xe ngay
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {vehicles.map((v) => (
-              <div
-                key={v.id}
-                className="bg-slate-50 rounded-2xl border border-slate-100 p-5 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <span className="text-2xl" aria-hidden>
-                    {TYPE_ICON[v.vehicleType] ?? "🚗"}
-                  </span>
-                  <span className="text-[11px] font-bold tracking-widest uppercase text-slate-400 border border-slate-200 rounded-full px-2.5 py-0.5">
-                    {VEHICLE_TYPE_LABELS[v.vehicleType]}
-                  </span>
-                </div>
-                <p className="text-base font-bold text-slate-900 mb-0.5">
-                  {v.plateNumber}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {v.brand} {v.model}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">Màu: {v.color}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* CTA to booking */}
-        {vehicles.length > 0 && (
-          <div className="pt-4 border-t border-slate-100">
-            <Link
-              href="/customer/booking"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 transition-all"
+        <div className="flex gap-2">
+          {isDetailOpen ? (
+            <button
+              type="button"
+              onClick={handleBackToList}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
             >
-              Đặt lịch ngay →
-            </Link>
-          </div>
-        )}
+              <ArrowLeft size={16} aria-hidden />
+              Danh sách xe
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={loading}
+                title="Tải lại danh sách xe"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
+                <span className="sr-only">Tải lại danh sách xe</span>
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormMode((current) =>
+                    current.type === "create" ? { type: "closed" } : { type: "create" },
+                  )
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                {formMode.type === "create" ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
+                {formMode.type === "create" ? "Đóng" : "Thêm xe"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {formMode.type !== "closed" ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <h3 className="mb-4 text-sm font-semibold text-slate-800">{formTitle}</h3>
+          <AddVehicleForm
+            token={token}
+            vehicle={formMode.type === "edit" ? formMode.vehicle : undefined}
+            onCancel={() => setFormMode({ type: "closed" })}
+            onSuccess={handleFormSuccess}
+            onUnauthorized={onUnauthorized}
+          />
+        </div>
+      ) : null}
+
+      {error ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      {actionError ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      ) : null}
+
+      {isDetailOpen && selectedVehicle ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Car size={20} className="text-blue-600" aria-hidden />
+                <h3 className="truncate text-2xl font-black text-slate-950">
+                  {selectedVehicle.licensePlate}
+                </h3>
+              </div>
+              {detailLoading ? (
+                <p className="mt-3 text-sm text-slate-500">Đang tải thông tin xe...</p>
+              ) : (
+                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hãng xe</p>
+                    <p className="mt-2 font-bold text-slate-950">{selectedVehicle.brand}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Dòng xe</p>
+                    <p className="mt-2 font-bold text-slate-950">{selectedVehicle.model}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Màu xe</p>
+                    <p className="mt-2 font-bold text-slate-950">{selectedVehicle.color}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormMode({ type: "edit", vehicle: selectedVehicle })}
+                title="Sửa xe"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+              >
+                <Pencil size={17} aria-hidden />
+                <span className="sr-only">Sửa xe</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(selectedVehicle)}
+                disabled={deletingId === selectedVehicle.id}
+                title="Xóa xe"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 size={17} aria-hidden />
+                <span className="sr-only">Xóa xe</span>
+              </button>
+            </div>
+          </div>
+
+          {selectedVehicle.licensePlateImageUrl ? (
+            <a
+              href={selectedVehicle.licensePlateImageUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              <ImageIcon size={15} aria-hidden />
+              Xem ảnh biển số
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!isDetailOpen && loading && vehicles.length === 0 ? (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-32 animate-pulse rounded-lg border border-slate-200 bg-slate-100" />
+          ))}
+        </div>
+      ) : null}
+
+      {!isDetailOpen && !loading && vehicles.length === 0 && !error ? (
+        <div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-200 bg-white px-6 py-12 text-center">
+          <Car size={40} className="mb-3 text-slate-300" aria-hidden />
+          <p className="font-semibold text-slate-700">Chưa có xe nào được đăng ký</p>
+          <p className="mt-1 text-sm text-slate-500">Thêm xe đầu tiên để quản lý nhanh hơn.</p>
+        </div>
+      ) : null}
+
+      {!isDetailOpen && vehicles.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {vehicles.map((vehicle) => (
+            <button
+              key={`${vehicle.id}-${vehicle.licensePlate}`}
+              type="button"
+              onClick={() => handleOpenDetail(vehicle)}
+              className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-blue-300 hover:bg-blue-50/40"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Car size={18} className="text-blue-600" aria-hidden />
+                  <h3 className="truncate text-lg font-bold text-slate-950">
+                    {vehicle.licensePlate}
+                  </h3>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {vehicle.brand} {vehicle.model}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">Màu: {vehicle.color}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

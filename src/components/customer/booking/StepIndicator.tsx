@@ -1,6 +1,3 @@
-// StepIndicator — pure display, no interactivity needed → Server Component compatible
-// (used inside a Client Component parent, but doesn't need "use client" itself)
-
 interface Step {
   number: number;
   label: string;
@@ -22,61 +19,60 @@ interface StepIndicatorProps {
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
     <nav aria-label="Tiến trình đặt lịch" className="w-full">
-      {/* Desktop: full labels */}
-      <ol className="hidden sm:flex items-center w-full">
-        {STEPS.map((step, idx) => {
+      <ol className="hidden items-start sm:flex">
+        {STEPS.map((step, index) => {
           const done = step.number < currentStep;
           const active = step.number === currentStep;
+
           return (
-            <li key={step.number} className="flex items-center flex-1">
-              <div className="flex flex-col items-center">
+            <li key={step.number} className="flex flex-1 items-start">
+              <div className="flex min-w-20 flex-col items-center">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all
-                    ${done
-                      ? "bg-emerald-500 border-emerald-500 text-white"
-                      : active
-                      ? "bg-slate-900 border-slate-900 text-white"
-                      : "bg-white border-slate-200 text-slate-400"
-                    }`}
+                  className={`flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-bold transition ${
+                    active
+                      ? "border-slate-950 bg-slate-950 text-white"
+                      : done
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-slate-200 bg-white text-slate-400"
+                  }`}
                   aria-current={active ? "step" : undefined}
                 >
                   {done ? "✓" : step.number}
                 </div>
                 <span
-                  className={`mt-1.5 text-[11px] font-semibold tracking-wide whitespace-nowrap
-                    ${active ? "text-slate-900" : done ? "text-emerald-600" : "text-slate-400"}`}
+                  className={`mt-2 text-center text-xs font-bold ${
+                    active ? "text-slate-950" : done ? "text-blue-600" : "text-slate-400"
+                  }`}
                 >
                   {step.label}
                 </span>
               </div>
-              {idx < STEPS.length - 1 && (
+              {index < STEPS.length - 1 ? (
                 <div
-                  className={`flex-1 h-0.5 mx-2 mt-[-18px] transition-colors
-                    ${step.number < currentStep ? "bg-emerald-400" : "bg-slate-100"}`}
+                  className={`mt-5 h-0.5 flex-1 rounded-full ${
+                    step.number < currentStep ? "bg-blue-200" : "bg-slate-100"
+                  }`}
                 />
-              )}
+              ) : null}
             </li>
           );
         })}
       </ol>
 
-      {/* Mobile: compact progress */}
-      <div className="sm:hidden flex items-center justify-between">
-        <span className="text-sm font-semibold text-slate-900">
-          Bước {currentStep} / {STEPS.length}:{" "}
-          <span className="text-slate-600">{STEPS[currentStep - 1]?.label}</span>
-        </span>
-        <div className="flex gap-1">
-          {STEPS.map((s) => (
+      <div className="sm:hidden">
+        <div className="mb-2 flex items-center justify-between text-sm font-semibold">
+          <span className="text-slate-950">
+            Bước {currentStep}/{STEPS.length}
+          </span>
+          <span className="text-slate-500">{STEPS[currentStep - 1]?.label}</span>
+        </div>
+        <div className="grid grid-cols-6 gap-1">
+          {STEPS.map((step) => (
             <div
-              key={s.number}
-              className={`h-1.5 w-5 rounded-full transition-all
-                ${s.number < currentStep
-                  ? "bg-emerald-400"
-                  : s.number === currentStep
-                  ? "bg-slate-900 w-8"
-                  : "bg-slate-100"
-                }`}
+              key={step.number}
+              className={`h-1.5 rounded-full ${
+                step.number <= currentStep ? "bg-slate-950" : "bg-slate-100"
+              }`}
             />
           ))}
         </div>

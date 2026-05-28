@@ -92,10 +92,17 @@ export interface LoginResult {
   success: boolean;
   message: string;
   data: {
-    access_token: string;
-    isVerify: boolean;
+    access_token?: string;
+    Access_token?: string;
+    accessToken?: string;
+    isVerify?: boolean;
   } | null;
 }
+
+type LoginErrorBody = Partial<LoginResult> & {
+  errors?: Record<string, string[]>;
+  title?: string;
+};
 
 /**
  * POST /api/v1/auth/login
@@ -103,7 +110,7 @@ export interface LoginResult {
  */
 export async function loginUser(email: string, password: string): Promise<LoginResult> {
   const form = new FormData();
-  form.append("Email", email.trim());
+  form.append("Identifier", email.trim());
   form.append("Password", password);
 
   const res = await fetch(`${apiBase()}/api/v1/auth/login`, {
@@ -120,20 +127,33 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     throw new ApiError("Không thể kết nối đến máy chủ. Vui lòng thử lại.", res.status);
   }
 
-  if (!res.ok || !body.success) {
+  if (!res.ok || !body?.success) {
     const { ApiError } = await import("./api-error");
 
-    // Map common backend error messages to Vietnamese
-    const raw = body?.message ?? (body as any)?.errors?.detail ?? `Lỗi ${res.status}`;
-    let message = raw;
+    let message = `Lỗi ${res.status}`;
+    
+    // Parse backend problem details errors object if it exists
+    const errorBody = body as LoginErrorBody;
+    if (errorBody?.errors && typeof errorBody.errors === "object") {
+       const allErrors = Object.values(errorBody.errors as Record<string, string[]>)
+         .flat()
+         .join(" ");
+       if (allErrors) message = allErrors;
+    } else if (body?.message) {
+       message = body.message;
+    } else if (errorBody?.title) {
+       message = errorBody.title;
+    }
 
-    if (raw.toLowerCase().includes("invalid email or password")) {
+    const raw = message.toLowerCase();
+
+    if (raw.includes("invalid email or password")) {
       message = "Email hoặc mật khẩu không đúng.";
-    } else if (raw.toLowerCase().includes("account") && raw.toLowerCase().includes("lock")) {
+    } else if (raw.includes("account") && raw.includes("lock")) {
       message = "Tài khoản đã bị khoá. Vui lòng liên hệ hỗ trợ.";
-    } else if (raw.toLowerCase().includes("not found")) {
+    } else if (raw.includes("not found")) {
       message = "Tài khoản không tồn tại.";
-    } else if (raw.toLowerCase().includes("unexpected error")) {
+    } else if (raw.includes("unexpected error")) {
       message = "Có lỗi hệ thống xảy ra. Vui lòng thử lại sau.";
     }
 
@@ -142,4 +162,3 @@ export async function loginUser(email: string, password: string): Promise<LoginR
 
   return body;
 }
-

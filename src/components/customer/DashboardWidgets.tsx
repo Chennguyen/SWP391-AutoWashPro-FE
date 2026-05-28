@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Star,
   AlertTriangle,
@@ -81,10 +84,21 @@ const QUICK_ACTIONS = [
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 export function DashboardHeader() {
+  const [name, setName] = useState(CUSTOMER.name);
+
+  useEffect(() => {
+    const email = window.localStorage.getItem("email");
+    if (email) {
+      const username = email.split("@")[0];
+      const capitalized = username.charAt(0).toUpperCase() + username.slice(1);
+      setName(capitalized);
+    }
+  }, []);
+
   return (
     <header className="mb-8">
       <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-        Chào mừng trở lại, <span className="text-[#2563EB]">{CUSTOMER.name}</span>
+        Chào mừng trở lại, <span className="text-[#2563EB]">{name}</span>
       </h1>
       <p className="text-sm text-slate-500 mt-0.5">
         Đây là tổng quan chăm sóc xe của bạn.

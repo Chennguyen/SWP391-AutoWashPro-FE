@@ -1,205 +1,353 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { getSlots } from "@/lib/api/booking";
-import type { BookingSlot } from "@/types/booking";
-import { Calendar } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Calendar, RefreshCw } from "lucide-react";
+import { ApiError } from "@/lib/api/api-error";
+import { getBookings, getSlots } from "@/lib/api/booking";
+import type { BookingSlot, CustomerBooking } from "@/types/booking";
 
-// ─── Slot generation ──────────────────────────────────────────────────────────
-
-function generateAllSlots(): string[] {
+function generateSlots(): string[] {
   const slots: string[] = [];
-  for (let h = 8; h < 17; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+
+  for (let hour = 8; hour < 17; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      slots.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
     }
   }
-  // 08:00 … 16:45
+
   return slots;
 }
 
+function addMinutes(time: string, minutes: number) {
+  const [hour = "0", minute = "0"] = time.split(":");
+  const total = Number(hour) * 60 + Number(minute) + minutes;
+  const nextHour = Math.floor(total / 60);
+  const nextMinute = total % 60;
+
+  return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
+}
+
+function formatSlotRange(slot: string) {
+  return `${slot}-${addMinutes(slot, 15)}`;
+}
+
 function todayISO(): string {
-  return new Date().toISOString().split("T")[0];
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function toDateInput(date: string): string {
-  return date; // already "YYYY-MM-DD"
+function nowHHMM(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function normalizeText(value = ""): string {
+  return value.trim().toLowerCase();
+}
+
+function extractDate(value = ""): string {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match?.[0] ?? "";
+}
+
+function extractHHMM(value = ""): string {
+  const match = value.match(/T?(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return "";
+  }
+
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+}
+
+function isActiveBooking(booking: CustomerBooking): boolean {
+  if (booking.id || booking.startTime) {
+    return true;
+  }
+
+  const status = normalizeText(booking.status);
+  return (
+    !status.includes("cancel") &&
+    !status.includes("hủy") &&
+    !status.includes("huy") &&
+    !status.includes("complete") &&
+    !status.includes("completed")
+  );
+}
 
 interface SlotStepProps {
   token: string;
   branchId: string;
-  selectedDate: string;      // "YYYY-MM-DD"
-  selectedSlot: string;      // "HH:mm"
-  onDateChange: (d: string) => void;
-  onSlotChange: (s: string) => void;
+  branchName: string;
+  notice: string | null;
+  forcedDisabledSlots: string[];
+  selectedDate: string;
+  selectedSlot: string;
+  onDateChange: (date: string) => void;
+  onSlotChange: (slot: string) => void;
   onNext: () => void;
   onBack: () => void;
+  onUnauthorized: () => void;
 }
 
 export function SlotStep({
   token,
   branchId,
+  branchName,
+  notice,
+  forcedDisabledSlots,
   selectedDate,
   selectedSlot,
   onDateChange,
   onSlotChange,
   onNext,
   onBack,
+  onUnauthorized,
 }: SlotStepProps) {
-  const allSlots = useMemo(() => generateAllSlots(), []);
-  const [bookedSlots, setBookedSlots] = useState<Set<string>>(new Set());
+  const allSlots = useMemo(() => generateSlots(), []);
+  const [serverSlots, setServerSlots] = useState<BookingSlot[]>([]);
+  const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const today = todayISO();
   const effectiveDate = selectedDate || today;
+  const currentHHMM = nowHHMM();
+  const availabilityByTime = useMemo(() => {
+    return new Map(serverSlots.map((slot) => [slot.time, slot.available]));
+  }, [serverSlots]);
 
-  // Fetch available slots whenever branchId or date changes
-  useEffect(() => {
-    let cancelled = false;
-    if (!branchId || !effectiveDate) return;
+  const isDisabled = useCallback(
+    (slot: string): boolean => {
+      const apiAvailable = availabilityByTime.get(slot);
+      const forcedDisabled = forcedDisabledSlots.includes(`${effectiveDate}|${slot}`);
+
+      if (forcedDisabled) {
+        return true;
+      }
+
+      if (serverSlots.length > 0 && apiAvailable === undefined) {
+        return true;
+      }
+
+      if (apiAvailable === false) {
+        return true;
+      }
+
+      if (occupiedSlots.has(slot)) {
+        return true;
+      }
+
+      if (effectiveDate === today && slot <= currentHHMM) {
+        return true;
+      }
+
+      return false;
+    },
+    [
+      availabilityByTime,
+      currentHHMM,
+      effectiveDate,
+      forcedDisabledSlots,
+      occupiedSlots,
+      serverSlots.length,
+      today,
+    ],
+  );
+
+  const loadSlots = useCallback(async () => {
+    if (!branchId || !effectiveDate) {
+      return;
+    }
 
     setLoading(true);
     setError(null);
+    try {
+      const [nextSlots, sameDayBookings] = await Promise.all([
+        getSlots(token, branchId, effectiveDate),
+        getBookings(token, effectiveDate, effectiveDate, 1, 100),
+      ]);
+      const normalizedBranchName = normalizeText(branchName);
+      const bookedTimes = sameDayBookings
+        .filter((booking) => {
+          const sameBranchById = booking.branchId ? booking.branchId === branchId : false;
+          const sameBranchByName =
+            !booking.branchId && normalizeText(booking.branchName) === normalizedBranchName;
+          const sameDate =
+            extractDate(booking.bookingDate || booking.startTime) === effectiveDate ||
+            extractDate(booking.startTime) === effectiveDate;
 
-    getSlots(token, branchId, effectiveDate)
-      .then((slots: BookingSlot[]) => {
-        if (cancelled) return;
-        const booked = new Set(
-          slots.filter((s) => !s.available).map((s) => s.time)
-        );
-        setBookedSlots(booked);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Không thể tải slot.");
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
+          return (sameBranchById || sameBranchByName) && sameDate && isActiveBooking(booking);
+        })
+        .map((booking) => extractHHMM(booking.startTime))
+        .filter(Boolean);
 
-    return () => { cancelled = true; };
-  }, [branchId, effectiveDate, token]);
+      setServerSlots(nextSlots);
+      setOccupiedSlots(new Set(bookedTimes));
+    } catch (loadError) {
+      if (loadError instanceof ApiError && loadError.status === 401) {
+        onUnauthorized();
+        return;
+      }
 
-  // Disable past slots for today
-  const nowHHMM = useMemo(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  }, []);
+      setError(
+        loadError instanceof Error ? loadError.message : "Không thể tải slot.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [branchId, branchName, effectiveDate, onUnauthorized, token]);
 
-  function isDisabled(slot: string): boolean {
-    if (bookedSlots.has(slot)) return true;
-    if (effectiveDate === today && slot <= nowHHMM) return true;
-    return false;
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadSlots();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadSlots]);
+
+  useEffect(() => {
+    if (selectedSlot && isDisabled(selectedSlot)) {
+      onSlotChange("");
+    }
+  }, [isDisabled, onSlotChange, selectedSlot]);
+
+  function handleDateChange(date: string) {
+    onDateChange(date);
+    onSlotChange("");
   }
 
-  const hasAnyAvailable = allSlots.some((s) => !isDisabled(s));
+  function handleNext() {
+    if (!selectedDate) {
+      onDateChange(effectiveDate);
+    }
+    onNext();
+  }
+
+  const hasAnyAvailable = allSlots.some((slot) => !isDisabled(slot));
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-slate-900">Chọn ngày và giờ</h2>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Chọn ngày và khung giờ bạn muốn đưa xe đến rửa.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-950">Ngày và khung giờ</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Slot rửa xe kéo dài 15 phút, từ 08:00 đến 17:00.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadSlots}
+          disabled={loading}
+          title="Tải lại slot"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
+          <span className="sr-only">Tải lại slot</span>
+        </button>
       </div>
 
-      {/* Date picker */}
       <div>
-        <label htmlFor="booking-date" className="block text-sm font-medium text-slate-700 mb-1">
-          <Calendar size={14} className="inline mr-1.5" aria-hidden />
-          Ngày đặt lịch
+        <label htmlFor="booking-date" className="mb-2 block text-sm font-semibold text-slate-700">
+          Ngày đặt hẹn <span className="text-orange-500">*</span>
         </label>
-        <input
-          id="booking-date"
-          type="date"
-          min={today}
-          value={effectiveDate}
-          onChange={(e) => {
-            onDateChange(e.target.value);
-            onSlotChange(""); // reset slot when date changes
-          }}
-          className="w-full sm:w-56 rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white"
-        />
+        <div className="relative">
+          <input
+            id="booking-date"
+            type="date"
+            min={today}
+            value={effectiveDate}
+            onChange={(event) => handleDateChange(event.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+          <Calendar size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+        </div>
       </div>
 
-      {/* Slot grid */}
-      {loading && (
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-          {Array.from({ length: 36 }).map((_, i) => (
-            <div key={i} className="h-10 rounded-xl bg-slate-100 animate-pulse" />
+      <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+        Mỗi slot chỉ nhận 1 xe. Các slot màu xám là đã kín hoặc đã qua.
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {Array.from({ length: 12 }).map((_, index) => (
+            <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />
           ))}
         </div>
-      )}
+      ) : null}
 
-      {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          ⚠ {error}
+      {error ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
         </div>
-      )}
+      ) : null}
 
-      {!loading && !error && !hasAnyAvailable && (
-        <div className="py-12 text-center">
-          <p className="text-slate-500 font-medium">Không còn slot trống cho ngày này.</p>
-          <p className="text-slate-400 text-sm mt-1">Vui lòng chọn ngày khác.</p>
+      {notice && !error ? (
+        <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {notice}
         </div>
-      )}
+      ) : null}
 
-      {!loading && !error && hasAnyAvailable && (
-        <>
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+      {!loading && !error ? (
+        <div>
+          <p className="mb-3 text-sm font-semibold text-slate-800">
+            Chọn slot trống <span className="text-orange-500">*</span>
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {allSlots.map((slot) => {
               const disabled = isDisabled(slot);
               const selected = selectedSlot === slot;
+
               return (
                 <button
                   key={slot}
+                  type="button"
                   onClick={() => !disabled && onSlotChange(slot)}
                   disabled={disabled}
+                  aria-disabled={disabled}
                   aria-pressed={selected}
-                  aria-label={`Slot ${slot}${disabled ? " (đã đặt hoặc đã qua)" : ""}`}
-                  className={`py-2.5 text-xs font-semibold rounded-xl border transition-all
-                    ${selected
-                      ? "bg-slate-900 text-white border-slate-900"
+                  title={disabled ? "Slot này không khả dụng" : undefined}
+                  className={`h-14 rounded-lg border text-base font-bold transition ${
+                    selected
+                      ? "border-slate-950 bg-slate-950 text-white shadow-sm"
                       : disabled
-                      ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
-                    }`}
+                        ? "pointer-events-none cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500 opacity-80"
+                        : "border-slate-200 bg-white text-slate-950 hover:border-slate-400"
+                  }`}
                 >
-                  {slot}
+                  {formatSlotRange(slot)}
                 </button>
               );
             })}
           </div>
-
-          <div className="flex gap-4 text-xs text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-slate-900 inline-block" /> Đã chọn
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-slate-50 border border-slate-200 inline-block" /> Đã đặt / Đã qua
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-white border border-slate-300 inline-block" /> Khả dụng
-            </span>
-          </div>
-        </>
-      )}
+          {!hasAnyAvailable ? (
+            <p className="mt-4 text-center text-sm text-slate-500">
+              Không còn slot trống cho ngày này. Vui lòng chọn ngày khác.
+            </p>
+          ) : null}
+          <p className="mt-4 text-sm text-slate-500">
+            Những slot màu xám là đã kín hoặc không đủ khoảng trống.
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex justify-between pt-2">
         <button
+          type="button"
           onClick={onBack}
-          className="px-6 py-3 rounded-full border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+          className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
         >
-          ← Quay lại
+          Quay lại
         </button>
         <button
-          onClick={onNext}
+          type="button"
+          onClick={handleNext}
           disabled={!selectedSlot}
-          className="px-8 py-3 rounded-full bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="rounded-lg bg-slate-950 px-8 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Tiếp tục →
+          Tiếp tục
         </button>
       </div>
     </div>

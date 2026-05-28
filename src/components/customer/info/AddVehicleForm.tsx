@@ -1,158 +1,307 @@
 "use client";
 
-import { useState } from "react";
-import { addVehicle } from "@/lib/api/vehicle";
-import type { AddVehiclePayload, VehicleType } from "@/types/vehicle";
-import { VEHICLE_TYPE_LABELS } from "@/types/vehicle";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ApiError } from "@/lib/api/api-error";
+import { addVehicle, updateVehicle } from "@/lib/api/vehicle";
+import type { UpdateVehiclePayload, Vehicle } from "@/types/vehicle";
 
 interface AddVehicleFormProps {
   token: string;
-  onSuccess: () => void; // callback to parent to refresh vehicle list
+  vehicle?: Vehicle;
+  onCancel: () => void;
+  onSuccess: () => void;
+  onUnauthorized: () => void;
 }
 
-const VEHICLE_TYPES: VehicleType[] = [
-  "SEDAN",
-  "SUV",
-  "HATCHBACK",
-  "PICKUP",
-  "MOTORBIKE",
-  "OTHER",
-];
-
-const INITIAL_FORM: AddVehiclePayload = {
-  plateNumber: "",
-  brand: "",
-  model: "",
-  color: "",
-  vehicleType: "SEDAN",
+type VehicleForm = {
+  licensePlate: string;
+  brand: string;
+  model: string;
+  color: string;
 };
 
-export function AddVehicleForm({ token, onSuccess }: AddVehicleFormProps) {
-  const [form, setForm] = useState<AddVehiclePayload>(INITIAL_FORM);
-  const [errors, setErrors] = useState<Partial<Record<keyof AddVehiclePayload, string>>>({});
-  const [loading, setLoading] = useState(false);
+type FieldName = keyof VehicleForm;
+type FormErrors = Partial<Record<FieldName | "licensePlateImage", string>>;
+
+function formFromVehicle(vehicle?: Vehicle): VehicleForm {
+  return {
+    licensePlate: vehicle?.licensePlate ?? "",
+    brand: vehicle?.brand ?? "",
+    model: vehicle?.model ?? "",
+    color: vehicle?.color ?? "",
+  };
+}
+
+export function AddVehicleForm({
+  token,
+  vehicle,
+  onCancel,
+  onSuccess,
+  onUnauthorized,
+}: AddVehicleFormProps) {
+  const isEditing = Boolean(vehicle);
+  const [form, setForm] = useState<VehicleForm>(() => formFromVehicle(vehicle));
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [imagePreview, setImagePreview] = useState(vehicle?.licensePlateImageUrl ?? "");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
 
-  function validate(): boolean {
-    const next: typeof errors = {};
-    if (!form.plateNumber.trim()) next.plateNumber = "Vui lòng nhập biển số xe.";
-    if (!form.brand.trim()) next.brand = "Vui lòng nhập hãng xe.";
-    if (!form.model.trim()) next.model = "Vui lòng nhập dòng xe.";
-    if (!form.vehicleType) next.vehicleType = "Vui lòng chọn loại xe.";
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  }
+  useEffect(() => {
+    const previewRef = previewUrlRef;
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setServerError(null);
-    setSuccess(false);
-    if (!validate()) return;
+    return () => {
+      if (previewRef.current) {
+        URL.revokeObjectURL(previewRef.current);
+      }
+    };
+  }, []);
 
-    setLoading(true);
-    try {
-      await addVehicle(token, form);
-      setForm(INITIAL_FORM);
-      setErrors({});
-      setSuccess(true);
-      onSuccess(); // trigger vehicle list refresh in parent
-    } catch (err) {
-      setServerError(err instanceof Error ? err.message : "Có lỗi xảy ra, vui lòng thử lại.");
-    } finally {
-      setLoading(false);
+  function updateField(name: FieldName, value: string) {
+    setForm((current) => ({ ...current, [name]: value }));
+    if (errors[name]) {
+      setErrors((current) => ({ ...current, [name]: undefined }));
     }
   }
 
-  const field = (
-    id: keyof AddVehiclePayload,
-    label: string,
-    placeholder: string,
-    type = "text"
-  ) => (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-1">
-        {label} <span className="text-red-500">*</span>
-      </label>
-      <input
-        id={id}
-        type={type}
-        placeholder={placeholder}
-        value={form[id] as string}
-        onChange={(e) => {
-          setForm((prev) => ({ ...prev, [id]: e.target.value }));
-          if (errors[id]) setErrors((prev) => ({ ...prev, [id]: undefined }));
-        }}
-        disabled={loading}
-        className={`w-full rounded-xl border px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all
-          ${errors[id] ? "border-red-400 bg-red-50" : "border-slate-200 bg-white"}`}
-      />
-      {errors[id] && <p className="text-xs text-red-500 mt-1">{errors[id]}</p>}
-    </div>
-  );
+  function validate(): boolean {
+    const nextErrors: FormErrors = {};
+
+    if (!form.licensePlate.trim()) {
+      nextErrors.licensePlate = "Vui lòng nhập biển số xe.";
+    }
+    if (!form.brand.trim()) {
+      nextErrors.brand = "Vui lòng nhập hãng xe.";
+    }
+    if (!form.model.trim()) {
+      nextErrors.model = "Vui lòng nhập dòng xe.";
+    }
+    if (!form.color.trim()) {
+      nextErrors.color = "Vui lòng nhập màu xe.";
+    }
+    if (!isEditing && !imageFile) {
+      nextErrors.licensePlateImage = "Vui lòng chọn ảnh biển số.";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setErrors((current) => ({
+        ...current,
+        licensePlateImage: "Vui lòng chọn file hình ảnh.",
+      }));
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrors((current) => ({
+        ...current,
+        licensePlateImage: "Ảnh biển số tối đa 10 MB.",
+      }));
+      event.target.value = "";
+      return;
+    }
+
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    previewUrlRef.current = objectUrl;
+    setImagePreview(objectUrl);
+    setImageFile(file);
+    setErrors((current) => ({ ...current, licensePlateImage: undefined }));
+    event.target.value = "";
+  }
+
+  function handleRemoveImage() {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+
+    setImagePreview(isEditing ? (vehicle?.licensePlateImageUrl ?? "") : "");
+    setImageFile(null);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setServerError(null);
+
+    if (!validate()) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (vehicle) {
+        const payload: UpdateVehiclePayload = {
+          brand: form.brand.trim(),
+          model: form.model.trim(),
+          color: form.color.trim(),
+        };
+        await updateVehicle(token, vehicle.id, payload);
+      } else if (imageFile) {
+        await addVehicle(token, {
+          licensePlate: form.licensePlate.trim(),
+          brand: form.brand.trim(),
+          model: form.model.trim(),
+          color: form.color.trim(),
+          licensePlateImageFile: imageFile,
+        });
+      }
+
+      onSuccess();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        onUnauthorized();
+        return;
+      }
+
+      setServerError(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra, vui lòng thử lại.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function renderInput(id: FieldName, label: string, placeholder: string) {
+    const readonly = isEditing && id === "licensePlate";
+
+    return (
+      <div>
+        <label htmlFor={id} className="mb-1 block text-sm font-medium text-slate-700">
+          {label} <span className="text-red-500">*</span>
+        </label>
+        <input
+          id={id}
+          value={form[id]}
+          onChange={(event) => updateField(id, event.target.value)}
+          placeholder={placeholder}
+          disabled={saving}
+          readOnly={readonly}
+          className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${
+            errors[id] ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
+          } ${readonly ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""}`}
+        />
+        {errors[id] ? (
+          <p className="mt-1 text-xs text-red-600">{errors[id]}</p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {field("plateNumber", "Biển số xe", "51A-123.45")}
-        {field("brand", "Hãng xe", "Toyota, Honda, Ford...")}
-        {field("model", "Dòng xe", "Camry, Civic, Ranger...")}
-        {field("color", "Màu xe", "Trắng, Đen, Bạc...")}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {renderInput("licensePlate", "Biển số xe", "30A-12345")}
+        {renderInput("brand", "Hãng xe", "Toyota")}
+        {renderInput("model", "Dòng xe", "Camry")}
+        {renderInput("color", "Màu xe", "Black")}
       </div>
 
-      {/* Vehicle Type */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Loại xe <span className="text-red-500">*</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {VEHICLE_TYPES.map((vt) => (
-            <button
-              key={vt}
-              type="button"
-              onClick={() => {
-                setForm((prev) => ({ ...prev, vehicleType: vt }));
-                if (errors.vehicleType) setErrors((prev) => ({ ...prev, vehicleType: undefined }));
-              }}
-              disabled={loading}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-all
-                ${form.vehicleType === vt
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                }`}
+      {!isEditing ? (
+        <div>
+          <p className="mb-1 text-sm font-medium text-slate-700">
+            Ảnh biển số <span className="text-red-500">*</span>
+          </p>
+          <label
+            htmlFor="license-plate-image"
+            className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white p-5 text-center transition hover:border-blue-500 hover:bg-blue-50/40"
+          >
+            <svg
+              className="h-7 w-7 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
             >
-              {VEHICLE_TYPE_LABELS[vt]}
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338 0A4.5 4.5 0 0 1 17.25 19.5H6.75Z"
+              />
+            </svg>
+            <span className="text-sm font-semibold text-slate-700">
+              Nhấn để chọn ảnh biển số
+            </span>
+            <span className="text-xs text-slate-400">PNG, JPG tối đa 10 MB</span>
+          </label>
+          <input
+            id="license-plate-image"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+            disabled={saving}
+          />
+          {errors.licensePlateImage ? (
+            <p className="mt-1 text-xs text-red-600">
+              {errors.licensePlateImage}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {imagePreview ? (
+        <div className="relative w-full overflow-hidden rounded-lg border border-slate-200 bg-white sm:max-w-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imagePreview}
+            alt="Ảnh biển số đã chọn"
+            className="aspect-video w-full object-cover"
+          />
+          {!isEditing || imageFile ? (
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              disabled={saving}
+              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/70 text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Xóa ảnh biển số"
+            >
+              <span aria-hidden>×</span>
             </button>
-          ))}
+          ) : null}
         </div>
-        {errors.vehicleType && (
-          <p className="text-xs text-red-500 mt-1">{errors.vehicleType}</p>
-        )}
+      ) : null}
+
+      {serverError ? (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {serverError}
+        </div>
+      ) : null}
+
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={saving}
+          className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Hủy
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Đang lưu..." : isEditing ? "Lưu thay đổi" : "Thêm xe"}
+        </button>
       </div>
-
-      {/* Server error */}
-      {serverError && (
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          <span className="shrink-0 mt-0.5">⚠</span>
-          <span>{serverError}</span>
-        </div>
-      )}
-
-      {/* Success message */}
-      {success && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-          <span>✓</span>
-          <span>Thêm xe thành công!</span>
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full sm:w-auto px-8 py-3 rounded-full bg-slate-900 text-white text-sm font-bold tracking-wide hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        {loading ? "Đang lưu..." : "Thêm xe"}
-      </button>
     </form>
   );
 }

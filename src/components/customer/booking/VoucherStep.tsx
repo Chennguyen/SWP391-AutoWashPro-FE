@@ -5,6 +5,8 @@ import { validateVoucher } from "@/lib/api/voucher";
 import type { VoucherValidation } from "@/types/booking";
 import { Tag, X } from "lucide-react";
 
+const SERVICE_PRICE = 150_000;
+
 interface VoucherStepProps {
   token: string;
   voucherCode: string;
@@ -33,7 +35,7 @@ export function VoucherStep({
     setError(null);
     onVoucherApplied(null);
     try {
-      const result = await validateVoucher(token, voucherCode.trim());
+      const result = await validateVoucher(token, voucherCode.trim(), SERVICE_PRICE);
       if (result.valid) {
         onVoucherApplied(result);
       } else {

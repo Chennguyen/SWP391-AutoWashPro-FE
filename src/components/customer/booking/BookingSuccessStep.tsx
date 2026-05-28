@@ -1,59 +1,45 @@
-// BookingSuccessStep — pure display, no interactivity needed
-// (lives inside a Client Component parent, but is itself stateless)
-
-import type { BookingResult } from "@/types/booking";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
+import type { BookingResult } from "@/types/booking";
 
 interface BookingSuccessStepProps {
   result: BookingResult;
 }
 
 export function BookingSuccessStep({ result }: BookingSuccessStepProps) {
+  const displayCode = result.confirmationCode ?? result.bookingId;
+
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
-      {/* Icon */}
-      <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center">
-        <CheckCircle2 size={44} className="text-emerald-500" />
+    <div className="flex min-h-96 flex-col items-center justify-center text-center">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+        <CheckCircle2 size={44} className="text-emerald-500" aria-hidden />
       </div>
 
-      {/* Heading */}
-      <div>
-        <h2 className="text-2xl font-extrabold text-slate-900 mb-2">
-          Đặt lịch thành công! 🎉
-        </h2>
-        <p className="text-slate-500 text-sm leading-relaxed max-w-sm mx-auto">
-          Thông tin đặt lịch đã được gửi đến tài khoản của bạn. Chúng tôi sẽ xác nhận lịch hẹn sớm nhất.
-        </p>
-      </div>
+      <h2 className="mt-6 text-2xl font-black text-slate-950">
+        Đặt lịch thành công
+      </h2>
+      <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+        Lịch rửa xe của bạn đã được tạo. Bạn có thể xem lại trong mục lịch đặt
+        sắp tới ở trang chủ.
+      </p>
 
-      {/* Booking ID */}
-      {result.bookingId && (
-        <div className="bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4">
-          <p className="text-xs font-semibold tracking-widest uppercase text-slate-400 mb-1">
+      {displayCode ? (
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-6 py-4">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
             Mã đặt lịch
           </p>
-          <p className="text-lg font-extrabold text-slate-900 font-mono tracking-widest">
-            {result.confirmationCode ?? result.bookingId}
+          <p className="mt-1 font-mono text-lg font-black tracking-wide text-slate-950">
+            {displayCode}
           </p>
         </div>
-      )}
+      ) : null}
 
-      {/* CTAs */}
-      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-        <Link
-          href="/customer/bookings"
-          className="px-7 py-3 rounded-full bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 transition-all text-center"
-        >
-          Xem lịch sử đặt lịch
-        </Link>
-        <Link
-          href="/customer"
-          className="px-7 py-3 rounded-full border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-all text-center"
-        >
-          Quay về trang chính
-        </Link>
-      </div>
+      <Link
+        href="/customer#upcoming-booking"
+        className="mt-8 rounded-lg bg-slate-950 px-7 py-3 text-sm font-bold !text-white transition hover:bg-slate-800"
+      >
+        Xem lịch đặt sắp tới
+      </Link>
     </div>
   );
 }

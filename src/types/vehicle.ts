@@ -11,18 +11,26 @@ export type VehicleType =
 export interface Vehicle {
   id: string;
   plateNumber: string;
+  licensePlate: string;
   brand: string;
   model: string;
   color: string;
   vehicleType: VehicleType;
+  licensePlateImageUrl?: string;
 }
 
 export interface AddVehiclePayload {
-  plateNumber: string;
+  licensePlate: string;
   brand: string;
   model: string;
   color: string;
-  vehicleType: VehicleType;
+  licensePlateImageFile: File;
+}
+
+export interface UpdateVehiclePayload {
+  brand: string;
+  model: string;
+  color: string;
 }
 
 export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
