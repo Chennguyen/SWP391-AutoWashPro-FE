@@ -46,6 +46,7 @@ export type AdminUser = {
   status?: string;
   isVerified: boolean;
   createdAt?: string;
+  faceImages?: string[];
 };
 
 export type AdminBooking = {
@@ -111,10 +112,88 @@ function jsonHeaders(token: string): HeadersInit {
   };
 }
 
+const IMAGE_OBJECT_VALUE_KEYS = [
+  "url",
+  "Url",
+  "URL",
+  "path",
+  "Path",
+  "imageUrl",
+  "ImageUrl",
+  "imageURL",
+  "ImageURL",
+  "imagePath",
+  "ImagePath",
+  "imageLink",
+  "ImageLink",
+  "fileUrl",
+  "FileUrl",
+  "fileURL",
+  "FileURL",
+  "filePath",
+  "FilePath",
+  "blobUrl",
+  "BlobUrl",
+  "src",
+  "Src",
+  "link",
+  "Link",
+];
+
+const NESTED_IMAGE_VALUE_KEYS = [
+  "urls",
+  "Urls",
+  "items",
+  "Items",
+  "images",
+  "Images",
+  "files",
+  "Files",
+  "values",
+  "Values",
+];
+
+function parseJsonLike(value: string): unknown {
+  const trimmed = value.trim();
+  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) return value;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 function asRecord(value: unknown): UnknownRecord {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as UnknownRecord)
+  const parsedValue = typeof value === "string" ? parseJsonLike(value) : value;
+  return parsedValue && typeof parsedValue === "object" && !Array.isArray(parsedValue)
+    ? (parsedValue as UnknownRecord)
     : {};
+}
+
+function readImageValues(value: unknown): string[] {
+  const parsedValue = typeof value === "string" ? parseJsonLike(value) : value;
+
+  if (Array.isArray(parsedValue)) {
+    return parsedValue.flatMap(readImageValues);
+  }
+
+  if (typeof parsedValue === "string") {
+    const trimmed = parsedValue.trim();
+    if (!trimmed) return [];
+    return trimmed
+      .split(/[,;\n]/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  const record = asRecord(parsedValue);
+  if (Object.keys(record).length === 0) return [];
+
+  const directValues = IMAGE_OBJECT_VALUE_KEYS.flatMap((key) => readImageValues(record[key]));
+  if (directValues.length > 0) return directValues;
+
+  return NESTED_IMAGE_VALUE_KEYS.flatMap((key) => readImageValues(record[key]));
 }
 
 function readString(record: UnknownRecord, keys: string[], fallback = ""): string {
@@ -145,6 +224,14 @@ function readBoolean(record: UnknownRecord, keys: string[], fallback = false): b
   }
 
   return fallback;
+}
+
+function readStringArray(record: UnknownRecord, keys: string[]): string[] {
+  for (const key of keys) {
+    const values = readImageValues(record[key]);
+    if (values.length > 0) return values;
+  }
+  return [];
 }
 
 function readNumber(record: UnknownRecord, keys: string[], fallback = 0): number {
@@ -192,10 +279,102 @@ function normalizeBranch(raw: unknown): AdminBranch {
 
 function normalizeUser(raw: unknown): AdminUser {
   const record = asRecord(raw);
-  const firstName = readString(record, ["firstName", "FirstName"]);
-  const lastName = readString(record, ["lastName", "LastName"]);
+  const profileData = asRecord(record.profileData ?? record.ProfileData);
+  const faceData = asRecord(
+    record.faceData ??
+      record.FaceData ??
+      record.faceIdData ??
+      record.FaceIdData ??
+      record.faceIDData ??
+      record.FaceIDData,
+  );
+  const profileFaceData = asRecord(
+    profileData.faceData ??
+      profileData.FaceData ??
+      profileData.faceIdData ??
+      profileData.FaceIdData ??
+      profileData.faceIDData ??
+      profileData.FaceIDData,
+  );
+  const firstName =
+    readString(record, ["firstName", "FirstName"]) ||
+    readString(profileData, ["firstName", "FirstName"]);
+  const lastName =
+    readString(record, ["lastName", "LastName"]) ||
+    readString(profileData, ["lastName", "LastName"]);
   const fullName =
-    readString(record, ["fullName", "FullName"]) || `${firstName} ${lastName}`.trim();
+    readString(record, ["fullName", "FullName"]) ||
+    readString(profileData, ["fullName", "FullName"]) ||
+    `${firstName} ${lastName}`.trim();
+
+  const faceImageKeys = [
+    "faceImageUrls",
+    "FaceImageUrls",
+    "faceImages",
+    "FaceImages",
+    "facialImages",
+    "FacialImages",
+    "faceImgUrls",
+    "FaceImgUrls",
+    "faceImageURL",
+    "FaceImageURL",
+    "faceImageUrl",
+    "FaceImageUrl",
+    "faceIdImageUrl",
+    "FaceIdImageUrl",
+    "faceIDImageUrl",
+    "FaceIDImageUrl",
+    "faceIdImages",
+    "FaceIdImages",
+    "faceIDImages",
+    "FaceIDImages",
+    "faceImage1",
+    "FaceImage1",
+    "faceImage2",
+    "FaceImage2",
+    "faceImage3",
+    "FaceImage3",
+    "faceImageUrl1",
+    "FaceImageUrl1",
+    "faceImageUrl2",
+    "FaceImageUrl2",
+    "faceImageUrl3",
+    "FaceImageUrl3",
+    "faceIdImageUrl1",
+    "FaceIdImageUrl1",
+    "faceIdImageUrl2",
+    "FaceIdImageUrl2",
+    "faceIdImageUrl3",
+    "FaceIdImageUrl3",
+    "imageUrls",
+    "ImageUrls",
+    "images",
+    "Images",
+  ];
+  const rawImages = Array.from(
+    new Set(
+      [record, profileData, faceData, profileFaceData].flatMap((source) =>
+        readStringArray(source, faceImageKeys),
+      ),
+    ),
+  );
+
+  // Convert relative paths to absolute URLs using backend base
+  const base =
+    typeof process !== "undefined"
+      ? (process.env.NEXT_PUBLIC_API_BASE_URL ?? "")
+      : "";
+  const faceImages = rawImages.map((url) => {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) return trimmedUrl;
+    if (/^(https?:|data:|blob:)/i.test(trimmedUrl)) return trimmedUrl;
+    if (!base) return trimmedUrl;
+
+    const normalizedBase = base.replace(/\/$/, "");
+    return trimmedUrl.startsWith("/")
+      ? `${normalizedBase}${trimmedUrl}`
+      : `${normalizedBase}/${trimmedUrl}`;
+  });
 
   return {
     id: readString(record, ["id", "Id", "userId", "UserId"]),
@@ -208,6 +387,7 @@ function normalizeUser(raw: unknown): AdminUser {
     status: readOptionalString(record, ["status", "Status"]),
     isVerified: readBoolean(record, ["isVerified", "IsVerified", "isVerify", "IsVerify"], false),
     createdAt: readOptionalString(record, ["createdAt", "CreatedAt"]),
+    faceImages,
   };
 }
 
@@ -267,12 +447,27 @@ function normalizeSlot(raw: unknown): AdminBookingSlot {
 function normalizeDashboard(raw: unknown): DashboardStats {
   const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
   return {
-    totalBookings: readNumber(record, ["totalBookings", "TotalBookings", "bookingCount", "BookingCount"]),
-    completedBookings: readNumber(record, ["completedBookings", "CompletedBookings"]),
-    cancelledBookings: readNumber(record, ["cancelledBookings", "CancelledBookings"]),
+    totalBookings: readNumber(record, [
+      "totalBookings", "TotalBookings",
+      "bookingCount", "BookingCount",
+      "totalBooking", "TotalBooking",
+    ]),
+    completedBookings: readNumber(record, [
+      "completedBookings", "CompletedBookings",
+      "completedBooking", "CompletedBooking",
+    ]),
+    cancelledBookings: readNumber(record, [
+      "cancelledBookings", "CancelledBookings",
+      "cancelledBooking", "CancelledBooking",
+      "canceledBookings", "CanceledBookings",
+    ]),
     totalRevenue: readNumber(record, ["totalRevenue", "TotalRevenue", "revenue", "Revenue"]),
-    totalUsers: readNumber(record, ["totalUsers", "TotalUsers", "userCount", "UserCount"]),
-    newUsers: readNumber(record, ["newUsers", "NewUsers"]),
+    totalUsers: readNumber(record, [
+      "totalUsers", "TotalUsers",
+      "userCount", "UserCount",
+      "totalUser", "TotalUser",
+    ]),
+    newUsers: readNumber(record, ["newUsers", "NewUsers", "newUser", "NewUser"]),
     ...record,
   };
 }
@@ -477,6 +672,18 @@ export async function completeBooking(token: string, id: string, note: string): 
     cache: "no-store",
     headers: jsonHeaders(token),
     body: JSON.stringify({ Note: note }),
+  });
+  await handleApiResponse<unknown>(res);
+}
+
+export async function checkInAdminBooking(token: string, id: string): Promise<void> {
+  // BE endpoint nằm ở BookingController, KHÔNG phải AdminController.
+  // Đúng path: POST /api/v1/bookings/{id}/check-in
+  // Sai path cũ: POST /api/v1/admin/bookings/{id}/check-in → 404
+  const res = await fetch(`${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {
+    method: "POST",
+    cache: "no-store",
+    headers: authHeaders(token),
   });
   await handleApiResponse<unknown>(res);
 }

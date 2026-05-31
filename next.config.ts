@@ -17,6 +17,22 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${backendApiBaseUrl}/api/:path*`,
       },
+      {
+        source: "/Voucher/:path*",
+        destination: `${backendApiBaseUrl}/Voucher/:path*`,
+      },
+      {
+        source: "/Reward/:path*",
+        destination: `${backendApiBaseUrl}/Reward/:path*`,
+      },
+      {
+        source: "/Tier/:path*",
+        destination: `${backendApiBaseUrl}/Tier/:path*`,
+      },
+      {
+        source: "/Promotion/:path*",
+        destination: `${backendApiBaseUrl}/Promotion/:path*`,
+      },
     ];
   },
 };

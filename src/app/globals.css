@@ -8,6 +8,18 @@
   --color-border-gray: rgba(255, 255, 255, 0.14);
   --color-charcoal: #171717;
   --color-charcoal-light: #262626;
+
+  /* Custom Luxury Theme Definitions */
+  --color-background-outer: #0E0E10;
+  --color-background-main: #161619;
+  --color-background-secondary: #222226;
+
+  --color-gold-primary: #BCA374;
+  --color-gold-light: #D8C49F;
+  --color-gold-deep: #8E744A;
+
+  --color-border-box: #2E2D2B;
+  --color-border-step: #3E3B36;
 }
 
 :root {
@@ -18,6 +30,23 @@
   --muted: #6b7280;
   --border: rgba(255, 255, 255, 0.14);
   --soft: #171717;
+
+  /* AutoWash Pro Luxury Dark Premium Color Palette */
+  --background-outer: #0E0E10;         /* Deepest dark charcoal black */
+  --background-main: #161619;          /* Main panel background */
+  --background-secondary: #222226;     /* Secondary fields/inputs background */
+
+  --gold-primary: #BCA374;             /* Bronze Luxury Gold */
+  --gold-light: #D8C49F;               /* Light Accent Gold */
+  --gold-deep: #8E744A;                /* Deep Gold Hover */
+
+  --text-light: #FFFDF9;               /* Warm Soft White for high contrast headers */
+  --text-body: #C4C0B6;                /* Comfortable silver-gray body text for eye-safety */
+  --text-secondary: #A09C94;           /* Comfortable muted warm text for descriptions */
+
+  --border-box: #2E2D2B;               /* Subtle warm border */
+  --border-step: #3E3B36;              /* Darker border for detail blocks */
+  --border-heading: #BCA374;
 }
 
 * {
@@ -50,4 +79,365 @@ textarea {
 ::selection {
   background: #F5F5F2;
   color: #050505;
+}
+
+/* ==========================================================================
+   AutoWash Pro Luxury Dark Premium Theme Overrides
+   (APPLIES ONLY to Dashboard, Admin & Auth pages containing .bg-background-outer)
+   ========================================================================== */
+
+/* Layout & Page Backgrounds */
+.bg-background-outer,
+main.bg-background-outer {
+  background-color: var(--background-outer) !important;
+  color: var(--text-body) !important;
+}
+
+/* Sidebar, Auth Card & Info panels background */
+.bg-background-outer aside,
+.bg-background-outer .bg-white,
+.bg-background-outer div[class*="bg-white"],
+.bg-background-outer .min-h-\[520px\],
+.bg-background-outer div[class*="min-h-\\[520px\\]"] {
+  background-color: var(--background-main) !important;
+  border-color: var(--border-box) !important;
+}
+
+/* Nested detail boxes & fields background */
+.bg-background-outer .bg-slate-50\/50,
+.bg-background-outer .bg-slate-50,
+.bg-background-outer .bg-slate-100,
+.bg-background-outer div[class*="bg-slate-50"],
+.bg-background-outer div[class*="bg-slate-100"] {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-box) !important;
+}
+
+/* Form input, select, and textarea styling */
+.bg-background-outer input,
+.bg-background-outer select,
+.bg-background-outer textarea {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-step) !important;
+  color: var(--text-light) !important;
+}
+
+.bg-background-outer input::placeholder,
+.bg-background-outer textarea::placeholder {
+  color: #52525B !important; /* Zinc-600 soft placeholder for eye comfort */
+}
+
+.bg-background-outer input:focus,
+.bg-background-outer select:focus,
+.bg-background-outer textarea:focus {
+  border-color: var(--gold-primary) !important;
+  box-shadow: 0 0 0 2px rgba(188, 163, 116, 0.25) !important;
+  outline: none !important;
+}
+
+/* Chrome autofill should preserve the luxury dark input treatment. */
+.bg-background-outer input:-webkit-autofill,
+.bg-background-outer input:-webkit-autofill:hover,
+.bg-background-outer input:-webkit-autofill:focus,
+.bg-background-outer textarea:-webkit-autofill,
+.bg-background-outer textarea:-webkit-autofill:hover,
+.bg-background-outer textarea:-webkit-autofill:focus,
+.bg-background-outer select:-webkit-autofill,
+.bg-background-outer select:-webkit-autofill:hover,
+.bg-background-outer select:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-light) !important;
+  caret-color: var(--text-light) !important;
+  background-color: var(--background-secondary) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--background-secondary) inset !important;
+  box-shadow: 0 0 0 1000px var(--background-secondary) inset !important;
+  transition: background-color 9999s ease-in-out 0s !important;
+}
+
+/* Table row hover fallback for Tailwind v4 opacity/custom-token edge cases. */
+.bg-background-outer table tbody tr:hover,
+.bg-background-outer table tbody tr:hover > th,
+.bg-background-outer table tbody tr:hover > td,
+.bg-background-outer tr[class~="hover:bg-slate-50"]:hover,
+.bg-background-outer tr[class~="hover:bg-slate-50/60"]:hover,
+.bg-background-outer tr[class~="hover:bg-slate-100"]:hover,
+.bg-background-outer tr[class~="hover:bg-slate-200"]:hover {
+  background-color: var(--background-secondary) !important;
+}
+
+.bg-background-outer [class~="hover:bg-slate-50"]:hover,
+.bg-background-outer [class~="hover:bg-slate-50/40"]:hover,
+.bg-background-outer [class~="hover:bg-slate-50/60"]:hover,
+.bg-background-outer [class~="hover:bg-slate-100"]:hover,
+.bg-background-outer [class~="hover:bg-slate-200"]:hover {
+  background-color: var(--background-secondary) !important;
+}
+
+/* Text color overrides */
+/* Titles, Headings, and bold text: Pure white highlight for luxury pop */
+.bg-background-outer .text-slate-900,
+.bg-background-outer .text-slate-950,
+.bg-background-outer .text-slate-800,
+.bg-background-outer .text-black,
+.bg-background-outer .text-gray-900,
+.bg-background-outer h1,
+.bg-background-outer h2,
+.bg-background-outer h3,
+.bg-background-outer h4,
+.bg-background-outer h5,
+.bg-background-outer h6,
+.bg-background-outer strong,
+.bg-background-outer p.font-bold,
+.bg-background-outer div.font-bold,
+.bg-background-outer span.font-bold {
+  color: var(--text-light) !important;
+}
+
+/* Body / normal texts: Eye-friendly warm silver-gray to prevent halation and eye-fatigue */
+.bg-background-outer .text-slate-500,
+.bg-background-outer .text-slate-600,
+.bg-background-outer .text-slate-700,
+.bg-background-outer .text-slate-400,
+.bg-background-outer .text-gray-700,
+.bg-background-outer .text-gray-600,
+.bg-background-outer .text-gray-500,
+.bg-background-outer p:not(.font-bold),
+.bg-background-outer span:not(.font-bold),
+.bg-background-outer label {
+  color: var(--text-secondary) !important;
+}
+
+/* Eye-friendly placeholder text and password view icons */
+.bg-background-outer .text-gray-400,
+.bg-background-outer svg.text-gray-400 {
+  color: #69645B !important;
+}
+
+/* Primary links / Active highlights: Luxury Gold */
+.bg-background-outer .text-blue-600,
+.bg-background-outer .text-blue-500,
+.bg-background-outer .text-\[\#2563EB\],
+.bg-background-outer svg[class*="text-blue-600"],
+.bg-background-outer a[class*="text-\\[#2563EB\\]"],
+.bg-background-outer span[class*="text-\\[#2563EB\\]"] {
+  color: var(--gold-primary) !important;
+}
+
+.bg-background-outer .text-blue-600:hover,
+.bg-background-outer .text-blue-500:hover,
+.bg-background-outer .text-\[\#2563EB\]:hover,
+.bg-background-outer a[class*="text-\\[#2563EB\\]"]:hover {
+  color: var(--gold-light) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 4px !important;
+}
+
+/* Borders */
+.bg-background-outer .border,
+.bg-background-outer .border-slate-100,
+.bg-background-outer .border-slate-200,
+.bg-background-outer .border-gray-100,
+.bg-background-outer .border-gray-200,
+.bg-background-outer div[class*="border-slate-"],
+.bg-background-outer div[class*="border-gray-"] {
+  border-color: var(--border-box) !important;
+}
+
+/* Buttons & Active Elements (Vibrant Gold with Pure White Text `#FFFFFF` for extreme readability) */
+.bg-background-outer .bg-blue-600,
+.bg-background-outer button[class*="bg-blue-600"],
+.bg-background-outer a[class*="bg-blue-600"],
+.bg-background-outer button.bg-blue-600,
+.bg-background-outer a[class*="bg-blue-600"] *,
+.bg-background-outer button.bg-blue-600 *,
+.bg-background-outer input[type="submit"] {
+  background-color: var(--gold-primary) !important;
+  color: #FFFFFF !important;
+  border-color: var(--gold-primary) !important;
+  font-weight: 700 !important;
+}
+
+.bg-background-outer .bg-blue-600:hover,
+.bg-background-outer button[class*="bg-blue-600"]:hover,
+.bg-background-outer a[class*="bg-blue-600"]:hover,
+.bg-background-outer button.bg-blue-600:hover {
+  background-color: var(--gold-light) !important;
+  border-color: var(--gold-light) !important;
+}
+
+/* Active tab indicators in Sidebar or Customer pages */
+.bg-background-outer button.bg-blue-600,
+.bg-background-outer .bg-blue-600.text-white,
+.bg-background-outer button.bg-blue-600 *,
+.bg-background-outer .bg-blue-600.text-white * {
+  background-color: var(--gold-primary) !important;
+  color: #FFFFFF !important;
+}
+
+/* Inactive Sidebar navigation items hover */
+.bg-background-outer .text-slate-600:hover {
+  background-color: var(--background-secondary) !important;
+  color: var(--gold-primary) !important;
+}
+
+/* Expiring/warning badges (off-white on dark background with gold borders) */
+.bg-background-outer .bg-orange-100,
+.bg-background-outer .text-orange-600 {
+  background-color: var(--background-secondary) !important;
+  color: var(--gold-light) !important;
+  border: 1px solid var(--gold-primary) !important;
+}
+
+/* Pure Luxury Gold Accent top line on Cards & Panel Containers */
+.bg-background-outer aside,
+.bg-background-outer .min-h-\[520px\],
+.bg-background-outer div[class*="min-h-\\[520px\\]"],
+.bg-background-outer div[class*="max-w-\\[460px\\]"] {
+  border-top: 3px solid var(--gold-primary) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Membership Card / Loyalty Card Gradient overrides */
+.bg-background-outer div[class*="from-slate-400"],
+.bg-background-outer div[class*="from-yellow-500"],
+.bg-background-outer div[class*="from-purple-700"] {
+  background: linear-gradient(135deg, #1C1C1F 0%, #2A2A2E 50%, #121214 100%) !important;
+  border: 1px solid var(--gold-primary) !important;
+  color: var(--text-light) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+.bg-background-outer div[class*="from-slate-400"] span,
+.bg-background-outer div[class*="from-yellow-500"] span,
+.bg-background-outer div[class*="from-purple-700"] span,
+.bg-background-outer div[class*="from-slate-400"] p,
+.bg-background-outer div[class*="from-yellow-500"] p,
+.bg-background-outer div[class*="from-purple-700"] p {
+  color: var(--text-light) !important;
+}
+
+/* Points badge styling */
+.bg-background-outer .bg-amber-50,
+.bg-background-outer .text-amber-600 {
+  background-color: var(--background-secondary) !important;
+  color: var(--gold-light) !important;
+  border: 1px solid var(--gold-primary) !important;
+}
+
+/* Ordered/Unordered list text */
+.bg-background-outer ol,
+.bg-background-outer ul {
+  color: var(--text-secondary) !important;
+}
+
+/* Loading animations */
+.bg-background-outer .animate-spin {
+  color: var(--gold-primary) !important;
+}
+
+/* ==========================================================================
+   Restoration of Standard Booking Status Badge Colors (Red, Green, Yellow)
+   ========================================================================== */
+
+/* Red Status: Cancelled, Rejected, Failed, etc. */
+.bg-background-outer .text-red-600,
+.bg-background-outer .text-red-700,
+.bg-background-outer .text-red-800,
+.bg-background-outer span[class*="text-red-"],
+.bg-background-outer div[class*="text-red-"] {
+  color: #EF4444 !important; /* Soft bright red */
+}
+.bg-background-outer .bg-red-50,
+.bg-background-outer .bg-red-100,
+.bg-background-outer div[class*="bg-red-"],
+.bg-background-outer span[class*="bg-red-"] {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Green Status: Completed, Active, Verified, Success, etc. */
+.bg-background-outer .text-emerald-600,
+.bg-background-outer .text-emerald-700,
+.bg-background-outer .text-emerald-800,
+.bg-background-outer .text-green-600,
+.bg-background-outer .text-green-700,
+.bg-background-outer span[class*="text-emerald-"],
+.bg-background-outer span[class*="text-green-"],
+.bg-background-outer div[class*="text-emerald-"],
+.bg-background-outer div[class*="text-green-"] {
+  color: #10B981 !important; /* Soft bright green */
+}
+.bg-background-outer .bg-emerald-50,
+.bg-background-outer .bg-emerald-100,
+.bg-background-outer .bg-green-50,
+.bg-background-outer .bg-green-100,
+.bg-background-outer div[class*="bg-emerald-"],
+.bg-background-outer div[class*="bg-green-"],
+.bg-background-outer span[class*="bg-emerald-"],
+.bg-background-outer span[class*="bg-green-"] {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Yellow/Orange Status: Pending, In-progress, Checked-in, etc. */
+.bg-background-outer .text-amber-600,
+.bg-background-outer .text-amber-700,
+.bg-background-outer .text-yellow-600,
+.bg-background-outer .text-yellow-700,
+.bg-background-outer span[class*="text-amber-"],
+.bg-background-outer span[class*="text-yellow-"],
+.bg-background-outer div[class*="text-amber-"],
+.bg-background-outer div[class*="text-yellow-"] {
+  color: #F59E0B !important; /* Soft amber/yellow */
+}
+.bg-background-outer .bg-amber-50,
+.bg-background-outer .bg-amber-100,
+.bg-background-outer .bg-yellow-50,
+.bg-background-outer .bg-yellow-100,
+.bg-background-outer div[class*="bg-amber-"],
+.bg-background-outer div[class*="bg-yellow-"],
+.bg-background-outer span[class*="bg-amber-"],
+.bg-background-outer span[class*="bg-yellow-"] {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+  border: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+
+/* Rank cards: high-contrast luxury treatment for achieved and locked tiers. */
+.bg-background-outer .rank-tier-card {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22) !important;
+}
+
+.bg-background-outer .rank-tier-card-reached {
+  background-color: #222226 !important;
+  border-color: #BCA374 !important;
+}
+
+.bg-background-outer .rank-tier-card-locked {
+  background-color: #161619 !important;
+  border-color: #2E2D2B !important;
+}
+
+.bg-background-outer .rank-tier-card-reached h3,
+.bg-background-outer .rank-tier-card-reached p,
+.bg-background-outer .rank-tier-card-reached span {
+  color: #FFFDF9 !important;
+}
+
+.bg-background-outer .rank-tier-card-locked h3,
+.bg-background-outer .rank-tier-card-locked p,
+.bg-background-outer .rank-tier-card-locked span {
+  color: #C4C0B6 !important;
+}
+
+.bg-background-outer .rank-tier-card-reached svg {
+  color: #BCA374 !important;
+}
+
+.bg-background-outer .rank-tier-card-locked svg {
+  color: #8E887E !important;
+}
+
+.bg-background-outer .rank-tier-card-reached span.inline-flex {
+  background-color: rgba(188, 163, 116, 0.14) !important;
+  border: 1px solid rgba(188, 163, 116, 0.36) !important;
+  color: #D8C49F !important;
 }

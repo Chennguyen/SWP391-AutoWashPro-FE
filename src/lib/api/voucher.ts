@@ -28,24 +28,27 @@ function normalizeVoucher(body: VoucherRecord): VoucherValidation {
   return {
     id: raw.id ?? raw.Id,
     voucherId: raw.voucherId ?? raw.VoucherId ?? raw.id ?? raw.Id,
-    code: raw.code ?? raw.Code ?? "",
+    code: raw.code ?? raw.Code ?? '',
     valid: raw.valid ?? raw.Valid ?? raw.isValid ?? raw.IsValid ?? false,
     discountAmount: Number(raw.discountAmount ?? raw.DiscountAmount ?? 0),
-    message: raw.message ?? raw.Message ?? "",
+    message: raw.message ?? raw.Message ?? '',
   };
 }
 
 /**
  * Validate a voucher code for the current user.
  * Called client-side when user clicks "Áp dụng".
- * cache: 'no-store'
+ *
+ * BE endpoint: POST /Voucher/vouchers/validate?userId={userId}
+ * Body: { code, totalAmount }
  */
 export async function validateVoucher(
   token: string,
+  userId: string,
   code: string,
   totalAmount: number,
 ): Promise<VoucherValidation> {
-  const url = `${apiBase()}/Voucher/vouchers/validate`;
+  const url = `${apiBase()}/Voucher/vouchers/validate?userId=${encodeURIComponent(userId)}`;
   const res = await fetch(url, {
     method: 'POST',
     cache: 'no-store',

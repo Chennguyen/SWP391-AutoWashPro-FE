@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -15,15 +15,35 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { label: "Trang chủ",        icon: LayoutDashboard, href: "/customer" },
-  { label: "Thông tin cá nhân", icon: Info,            href: "/customer/info" },
-  { label: "Đặt lịch",         icon: CalendarPlus,    href: "/customer/booking" },
-  { label: "Lịch sử rửa xe",   icon: History,         href: "/customer/history" },
+  { label: "Trang chủ",         icon: LayoutDashboard, href: "/customer" },
+  { label: "Thông tin cá nhân", icon: Info,             href: "/customer/info" },
+  { label: "Đặt lịch",          icon: CalendarPlus,    href: "/customer/booking" },
+  { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history" },
 ];
+
+/**
+ * Remove every auth key from localStorage then notify all useSyncExternalStore
+ * subscribers listening on the "autowash-auth" custom event.
+ */
+function clearAuthSession() {
+  ["token", "role", "userId", "email"].forEach((k) =>
+    window.localStorage.removeItem(k)
+  );
+  window.dispatchEvent(new Event("autowash-auth"));
+}
 
 export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  function handleLogout() {
+    clearAuthSession();
+    // router.refresh() invalidates Next.js Router Cache so the next user
+    // always gets a fresh React tree, not a cached version of the previous session.
+    router.refresh();
+    router.replace("/auth/login");
+  }
 
   return (
     <>
@@ -34,22 +54,18 @@ export function DashboardSidebar() {
           <Link
             href="/"
             className="text-sm font-bold tracking-[0.2em] uppercase shrink-0"
-            style={{ color: '#ffffff' }}
+            style={{ color: "#ffffff" }}
           >
             AUTOWASH <span style={{ color: "#2563EB" }}>PRO</span>
           </Link>
 
-          {/* Desktop nav links */}
-          <nav
-            className="hidden lg:flex items-center gap-1"
-            aria-label="Điều hướng chính"
-          >
+          {/* Desktop nav */}
+          <nav className="hidden lg:flex items-center gap-1" aria-label="Điều hướng chính">
             {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
               const active =
                 href === "/customer"
                   ? pathname === "/customer"
                   : pathname === href || pathname.startsWith(href + "/");
-
               return (
                 <Link
                   key={href}
@@ -72,19 +88,18 @@ export function DashboardSidebar() {
             })}
           </nav>
 
-          {/* Right side: Logout + mobile toggle */}
+          {/* Right: logout + hamburger */}
           <div className="flex items-center gap-2">
-            {/* Logout button (desktop) */}
-            <Link
-              href="/auth/login"
+            <button
+              type="button"
+              onClick={handleLogout}
               className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-500/10 transition-all duration-150"
-              style={{ color: '#f87171' }}
+              style={{ color: "#f87171" }}
             >
               <LogOut size={15} aria-hidden />
               Đăng xuất
-            </Link>
+            </button>
 
-            {/* Mobile hamburger */}
             <button
               onClick={() => setMobileOpen(true)}
               className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
@@ -97,13 +112,13 @@ export function DashboardSidebar() {
       </header>
 
       {/* ── MOBILE OVERLAY ── */}
-      {mobileOpen && (
+      {mobileOpen ? (
         <div
           className="lg:hidden fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
-      )}
+      ) : null}
 
       {/* ── MOBILE DRAWER ── */}
       <aside
@@ -113,12 +128,8 @@ export function DashboardSidebar() {
         )}
         aria-label="Sidebar"
       >
-        {/* Drawer header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-          <Link
-            href="/"
-            className="text-sm font-bold tracking-[0.2em] uppercase text-white"
-          >
+          <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase text-white">
             AUTOWASH <span style={{ color: "#2563EB" }}>PRO</span>
           </Link>
           <button
@@ -130,14 +141,12 @@ export function DashboardSidebar() {
           </button>
         </div>
 
-        {/* Drawer nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Điều hướng chính">
           {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
             const active =
               href === "/customer"
                 ? pathname === "/customer"
                 : pathname === href || pathname.startsWith(href + "/");
-
             return (
               <Link
                 key={href}
@@ -161,16 +170,15 @@ export function DashboardSidebar() {
           })}
         </nav>
 
-        {/* Drawer logout */}
         <div className="px-3 py-4 border-t border-white/10">
-          <Link
-            href="/auth/login"
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-150"
+          <button
+            type="button"
+            onClick={() => { setMobileOpen(false); handleLogout(); }}
+            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-150"
           >
             <LogOut size={16} aria-hidden />
             Đăng xuất
-          </Link>
+          </button>
         </div>
       </aside>
     </>

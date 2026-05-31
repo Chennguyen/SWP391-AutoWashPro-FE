@@ -3,8 +3,8 @@ import Image from 'next/image';
 const steps = [
   {
     number: '01',
-    title: 'Chọn gói rửa xe',
-    description: 'Lựa chọn gói dịch vụ phù hợp với nhu cầu và ngân sách của bạn.',
+    title: 'Chọn chi nhánh phù hợp',
+    description: 'Lựa chọn chi nhánh phù hợp với nhu cầu và vị trí của bạn.',
   },
   {
     number: '02',

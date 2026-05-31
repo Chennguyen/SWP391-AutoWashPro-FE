@@ -8,24 +8,24 @@ interface AuthLayoutProps {
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
+      className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-background-outer"
       style={{
-        background: "linear-gradient(135deg, #EAF3FF 0%, #F8FBFF 50%, #DBEAFE 100%)",
+        background: "linear-gradient(135deg, #070708 0%, #0E0E10 50%, #050505 100%)",
       }}
     >
       {/* Subtle decorative blobs */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed -top-32 -left-32 w-[500px] h-[500px] rounded-full opacity-40"
+        className="pointer-events-none fixed -top-32 -left-32 w-[500px] h-[500px] rounded-full opacity-30"
         style={{
-          background: "radial-gradient(circle, #BFDBFE 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(188, 163, 116, 0.15) 0%, transparent 70%)",
         }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed -bottom-32 -right-32 w-[400px] h-[400px] rounded-full opacity-30"
+        className="pointer-events-none fixed -bottom-32 -right-32 w-[400px] h-[400px] rounded-full opacity-25"
         style={{
-          background: "radial-gradient(circle, #93C5FD 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(188, 163, 116, 0.12) 0%, transparent 70%)",
         }}
       />
 

@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Settings,
   Users,
   X,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { label: "Chi nhánh", icon: Building2, href: "/admin/branches" },
   { label: "Người dùng", icon: Users, href: "/admin/users" },
   { label: "Lịch đặt", icon: CalendarCheck, href: "/admin/bookings" },
+  { label: "Cấu hình hệ thống", icon: Settings, href: "/admin/loyalty" },
   { label: "Báo cáo", icon: BarChart3, href: "/admin/reports" },
 ];
 
@@ -87,7 +89,7 @@ export function AdminSidebar() {
         </button>
       </header>
 
-      <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r border-white/10 bg-[#050505] p-4 text-white lg:flex lg:flex-col">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-white/10 bg-[#050505] p-4 text-white lg:flex lg:flex-col">
         <Link href="/admin" className="px-2 py-3">
           <p className="text-sm font-black tracking-[0.24em]">
             AUTOWASH <span className="text-blue-500">PRO</span>
@@ -117,7 +119,7 @@ export function AdminSidebar() {
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-white/10 bg-[#050505] p-4 text-white shadow-2xl transition-transform lg:hidden",
+          "fixed left-0 top-0 z-50 flex h-full w-60 flex-col border-r border-white/10 bg-[#050505] p-4 text-white shadow-2xl transition-transform lg:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
         aria-label="Admin sidebar"

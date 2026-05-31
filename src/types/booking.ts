@@ -11,7 +11,9 @@ export interface Branch {
 
 export interface BookingSlot {
   time: string;
+  endTime?: string;
   available: boolean;
+  availabilityExplicit?: boolean;
 }
 
 export interface VoucherValidation {

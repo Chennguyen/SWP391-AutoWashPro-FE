@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { validateVoucher } from "@/lib/api/voucher";
+import { getMyVouchers, type MyVoucher } from "@/lib/api/loyalty";
 import type { VoucherValidation } from "@/types/booking";
-import { Tag, X } from "lucide-react";
+import { Tag, Ticket, X } from "lucide-react";
 
-const SERVICE_PRICE = 150_000;
+const SERVICE_PRICE = 100_000;
 
 interface VoucherStepProps {
   token: string;
@@ -15,6 +16,11 @@ interface VoucherStepProps {
   onVoucherApplied: (v: VoucherValidation | null) => void;
   onNext: () => void;
   onBack: () => void;
+}
+
+function getUserId(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem("userId") ?? "";
 }
 
 export function VoucherStep({
@@ -29,14 +35,53 @@ export function VoucherStep({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleApply() {
-    if (!voucherCode.trim()) return;
+  // Danh sách voucher của user để chọn nhanh
+  const [myVouchers, setMyVouchers] = useState<MyVoucher[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
+
+  const loadMyVouchers = useCallback(async () => {
+    if (!token) return;
+    const userId = getUserId();
+    if (!userId) return;
+    setVouchersLoading(true);
+    try {
+      const list = await getMyVouchers(token, userId);
+      // Chỉ hiển thị voucher chưa dùng và chưa hết hạn
+      const now = Date.now();
+      const valid = list.filter((v) => {
+        if (v.isUsed) return false;
+        if (v.expiresAt) {
+          return new Date(v.expiresAt).getTime() > now;
+        }
+        return true;
+      });
+      setMyVouchers(valid);
+    } catch {
+      // Lỗi load vouchers không hiển thị error chặn UX
+    } finally {
+      setVouchersLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadMyVouchers();
+  }, [loadMyVouchers]);
+
+  async function handleApply(code?: string) {
+    const applyCode = (code ?? voucherCode).trim();
+    if (!applyCode) return;
+    const userId = getUserId();
+    if (!userId) {
+      setError("Không tìm thấy thông tin tài khoản. Vui lòng đăng nhập lại.");
+      return;
+    }
     setLoading(true);
     setError(null);
     onVoucherApplied(null);
     try {
-      const result = await validateVoucher(token, voucherCode.trim(), SERVICE_PRICE);
+      const result = await validateVoucher(token, userId, applyCode, SERVICE_PRICE);
       if (result.valid) {
+        onVoucherChange(applyCode.toUpperCase());
         onVoucherApplied(result);
       } else {
         setError(result.message || "Mã voucher không hợp lệ.");
@@ -52,6 +97,12 @@ export function VoucherStep({
     onVoucherChange("");
     onVoucherApplied(null);
     setError(null);
+  }
+
+  function handlePickVoucher(voucher: MyVoucher) {
+    if (appliedVoucher) return; // Đã áp dụng rồi
+    onVoucherChange(voucher.code);
+    void handleApply(voucher.code);
   }
 
   return (
@@ -89,7 +140,7 @@ export function VoucherStep({
           </button>
         ) : (
           <button
-            onClick={handleApply}
+            onClick={() => void handleApply()}
             disabled={loading || !voucherCode.trim()}
             className="px-5 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
@@ -116,6 +167,61 @@ export function VoucherStep({
           <span className="text-emerald-700 font-bold text-base">
             -{appliedVoucher.discountAmount.toLocaleString("vi-VN")}đ
           </span>
+        </div>
+      )}
+
+      {/* Quick-pick: Voucher từ ví */}
+      {!appliedVoucher && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Ticket size={15} className="text-slate-400" />
+            <p className="text-sm font-semibold text-slate-700">Voucher trong ví của bạn</p>
+          </div>
+
+          {vouchersLoading ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+              ))}
+            </div>
+          ) : myVouchers.length === 0 ? (
+            <p className="text-xs text-slate-400 py-2">
+              Bạn chưa có voucher khả dụng. Tích điểm để đổi voucher!
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {myVouchers.map((v) => {
+                const isSelected = voucherCode === v.code;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => handlePickVoucher(v)}
+                    disabled={loading}
+                    className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                      isSelected
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-900 text-xs">{v.rewardName}</p>
+                      <code className="text-xs font-mono text-slate-500 tracking-wider">{v.code}</code>
+                    </div>
+                    {v.discountAmount ? (
+                      <span className="ml-2 shrink-0 rounded-lg bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+                        -{v.discountAmount.toLocaleString("vi-VN")}đ
+                      </span>
+                    ) : (
+                      <span className="ml-2 shrink-0 rounded-lg bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">
+                        Miễn phí
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

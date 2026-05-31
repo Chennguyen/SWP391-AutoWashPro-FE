@@ -2,7 +2,6 @@
 export function AboutSection() {
   const stats = [
     { value: '4 hạng', label: 'Thành viên' },
-    { value: '3 gói',  label: 'Dịch vụ rửa xe' },
     { value: '100%',   label: 'Đặt lịch trực tuyến' },
     { value: '24/7',   label: 'Hỗ trợ khách hàng' },
   ] as const;
@@ -37,7 +36,7 @@ export function AboutSection() {
       </div>
 
       {/* Stat blocks */}
-      <div className="max-w-7xl mx-auto mt-20 pt-16 border-t border-black/10 grid grid-cols-2 md:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto mt-20 pt-16 border-t border-black/10 grid grid-cols-1 sm:grid-cols-3 gap-8">
         {stats.map((stat) => (
           <div key={stat.label} className="border-l-2 border-black/15 pl-6">
             <div className="text-4xl md:text-5xl font-bold text-black mb-2">{stat.value}</div>

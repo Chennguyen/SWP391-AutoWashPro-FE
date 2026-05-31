@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Eye, Lock, RefreshCw, Search, ShieldCheck, Unlock, XCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, Search, XCircle } from "lucide-react";
 import {
   getPendingUsers,
   getUser,
@@ -10,6 +10,7 @@ import {
   verifyUser,
   type AdminUser,
 } from "@/lib/api/admin";
+import { adjustCustomerPoints, type AdjustPointsAction } from "@/lib/api/loyalty-admin";
 import { AdminError, AdminPageHeader, AdminShell } from "@/components/admin/shared/AdminUi";
 import { useAdminToken } from "@/components/admin/shared/useAdminToken";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ export function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<AdminUser | null>(null);
 
   const loadUsers = useCallback(async () => {
     if (!token) return;
@@ -82,6 +84,24 @@ export function AdminUsersPage() {
       window.alert(statusError instanceof Error ? statusError.message : "Không thể cập nhật trạng thái.");
     } finally {
       setActionLoading("");
+    }
+  }
+
+  async function handleAdjustPoints(
+    user: AdminUser,
+    action: AdjustPointsAction,
+    points: number,
+    reason: string,
+  ) {
+    setActionLoading(user.id);
+    try {
+      await adjustCustomerPoints(token, user.id, { action, points, reason });
+      window.alert(`${action === "ADD" ? "Cộng" : "Trừ"} ${points} điểm cho ${user.fullName} thành công.`);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : "Không thể điều chỉnh điểm.");
+    } finally {
+      setActionLoading("");
+      setAdjustTarget(null);
     }
   }
 
@@ -160,8 +180,12 @@ export function AdminUsersPage() {
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-950">{user.fullName}</p>
+                    <td
+                      className="cursor-pointer px-4 py-3"
+                      onClick={() => void handleView(user)}
+                      title="Xem chi tiết"
+                    >
+                      <p className="font-semibold text-slate-950 hover:text-blue-600">{user.fullName}</p>
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{user.phone || "-"}</td>
@@ -174,17 +198,20 @@ export function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{user.status || "-"}</td>
                     <td className="px-4 py-3 text-right">
-                      <button type="button" onClick={() => void handleView(user)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950" title="Xem chi tiết">
-                        <Eye size={16} aria-hidden />
-                      </button>
                       {!user.isVerified ? (
-                        <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg p-2 text-slate-500 hover:bg-emerald-50 hover:text-emerald-600" title="Xác minh">
-                          <ShieldCheck size={16} aria-hidden />
+                        <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
+                          Duyệt
                         </button>
-                      ) : null}
-                      <button type="button" onClick={() => void handleStatus(user)} className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600" title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
-                        {user.status === "Locked" ? <Unlock size={16} aria-hidden /> : <Lock size={16} aria-hidden />}
-                      </button>
+                      ) : (
+                        <>
+                          <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
+                            {user.status === "Locked" ? "Mở khóa" : "Khóa"}
+                          </button>
+                          <button type="button" onClick={() => setAdjustTarget(user)} className="ml-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100" title="Điều chỉnh điểm">
+                            Điểm
+                          </button>
+                        </>
+                      )}
                       {actionLoading === user.id ? <RefreshCw className="ml-1 inline animate-spin text-blue-600" size={14} aria-hidden /> : null}
                     </td>
                   </tr>
@@ -196,23 +223,201 @@ export function AdminUsersPage() {
       </div>
 
       {selectedUser ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
-            <h2 className="text-lg font-bold text-slate-950">Chi tiết người dùng</h2>
-            <dl className="mt-4 grid gap-3 text-sm">
-              <div><dt className="font-semibold text-slate-500">Họ tên</dt><dd className="text-slate-950">{selectedUser.fullName}</dd></div>
-              <div><dt className="font-semibold text-slate-500">Email</dt><dd className="text-slate-950">{selectedUser.email}</dd></div>
-              <div><dt className="font-semibold text-slate-500">Số điện thoại</dt><dd className="text-slate-950">{selectedUser.phone || "-"}</dd></div>
-              <div><dt className="font-semibold text-slate-500">Trạng thái</dt><dd className="text-slate-950">{selectedUser.status || "-"}</dd></div>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="user-detail-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 id="user-detail-title" className="text-lg font-bold text-slate-950">
+              Chi tiết người dùng
+            </h2>
+
+            {/* Thông tin text */}
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="font-semibold text-slate-500">Họ tên</dt>
+                <dd className="text-slate-950">{selectedUser.fullName}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">Email</dt>
+                <dd className="truncate text-slate-950">{selectedUser.email}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">Số điện thoại</dt>
+                <dd className="text-slate-950">{selectedUser.phone || "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">Trạng thái</dt>
+                <dd className="text-slate-950">{selectedUser.status || "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">Xác minh Face ID</dt>
+                <dd>
+                  {selectedUser.isVerified ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                      ✓ Đã xác minh
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                      ⏳ Chờ duyệt
+                    </span>
+                  )}
+                </dd>
+              </div>
             </dl>
-            <div className="mt-5 text-right">
-              <button type="button" onClick={() => setSelectedUser(null)} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
+
+            {/* Lưới ảnh khuôn mặt */}
+            <div className="mt-5 border-t border-slate-100 pt-4">
+              <p className="mb-2 text-sm font-semibold text-slate-700">
+                Ảnh khuôn mặt (Face ID)
+              </p>
+              {selectedUser.faceImages && selectedUser.faceImages.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedUser.faceImages.map((url, index) => (
+                    <div
+                      key={index}
+                      className="aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={`Ảnh khuôn mặt ${index + 1}`}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm italic text-slate-400">
+                  Không có dữ liệu ảnh khuôn mặt.
+                </p>
+              )}
+            </div>
+
+            {/* Chân modal */}
+            <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setSelectedUser(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
                 Đóng
               </button>
+
+              {/* Nút xác minh nhanh nếu chưa duyệt */}
+              {!selectedUser.isVerified && (
+                <button
+                  id="user-detail-verify-btn"
+                  type="button"
+                  onClick={async () => {
+                    await handleVerify(selectedUser);
+                    setSelectedUser(null);
+                  }}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-[0.98]"
+                >
+                  ✓ Xác minh tài khoản này
+                </button>
+              )}
             </div>
           </div>
         </div>
       ) : null}
+
+
+      {adjustTarget ? (
+        <AdjustPointsDialog
+          user={adjustTarget}
+          onClose={() => setAdjustTarget(null)}
+          onConfirm={handleAdjustPoints}
+        />
+      ) : null}
     </AdminShell>
+  );
+}
+
+function AdjustPointsDialog({
+  user,
+  onClose,
+  onConfirm,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onConfirm: (user: AdminUser, action: AdjustPointsAction, points: number, reason: string) => Promise<void>;
+}) {
+  const [action, setAction] = useState<AdjustPointsAction>("ADD");
+  const [points, setPoints] = useState(100);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reason.trim()) { window.alert("Vui lòng nhập lý do."); return; }
+    setSaving(true);
+    await onConfirm(user, action, points, reason.trim());
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-950">Điều chỉnh điểm: {user.fullName}</h3>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
+            <XCircle size={18} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex gap-2">
+            {(["ADD", "SUBTRACT"] as AdjustPointsAction[]).map((a) => (
+              <button
+                key={a}
+                type="button"
+                onClick={() => setAction(a)}
+                className={`flex-1 rounded-lg border py-2 text-sm font-bold transition ${
+                  action === a
+                    ? a === "ADD"
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                      : "border-red-500 bg-red-50 text-red-700"
+                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                }`}
+              >
+                {a === "ADD" ? "+ Cộng điểm" : "− Trừ điểm"}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Số điểm</label>
+            <input
+              type="number"
+              min={1}
+              value={points}
+              onChange={(e) => setPoints(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Lý do</label>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Tặng điểm sự kiện..."
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Hủy</button>
+            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : null}
+              Xác nhận
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

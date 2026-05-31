@@ -132,6 +132,17 @@ export function LoginForm() {
 
     try {
       const result = await loginUser(email, password);
+
+      // 🔒 Chốt chặn: Tài khoản chưa được Admin xác minh Face ID
+      if (result.data?.isVerify === false) {
+        setErrors({
+          global:
+            "Tài khoản của bạn đang chờ Admin xác minh tài khoản. Vui lòng đợi trong giây lát.",
+        });
+        setLoading(false);
+        return;
+      }
+
       const token =
         result.data?.access_token ??
         result.data?.Access_token ??
@@ -144,6 +155,10 @@ export function LoginForm() {
 
       const payload = decodeJwtPayload(token);
       const role = persistAuthSession(token, payload);
+
+      // Bust the Next.js Router Cache so any previously cached pages
+      // (from another user's session) are invalidated before navigation.
+      router.refresh();
 
       if (role.toLowerCase() === "admin") {
         router.replace("/admin");

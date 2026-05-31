@@ -6,11 +6,13 @@ import { ApiError } from "@/lib/api/api-error";
 import { getBookings, getSlots } from "@/lib/api/booking";
 import type { BookingSlot, CustomerBooking } from "@/types/booking";
 
+const SLOT_INTERVAL_MINUTES = 15;
+
 function generateSlots(): string[] {
   const slots: string[] = [];
 
   for (let hour = 8; hour < 17; hour += 1) {
-    for (let minute = 0; minute < 60; minute += 15) {
+    for (let minute = 0; minute < 60; minute += SLOT_INTERVAL_MINUTES) {
       slots.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
     }
   }
@@ -27,8 +29,9 @@ function addMinutes(time: string, minutes: number) {
   return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
 }
 
-function formatSlotRange(slot: string) {
-  return `${slot}-${addMinutes(slot, 15)}`;
+function formatSlotRange(slot: string, serverSlots: BookingSlot[]) {
+  const matchingSlot = serverSlots.find((serverSlot) => serverSlot.time === slot);
+  return `${slot}-${matchingSlot?.endTime ?? addMinutes(slot, SLOT_INTERVAL_MINUTES)}`;
 }
 
 function todayISO(): string {
@@ -44,36 +47,109 @@ function nowHHMM(): string {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 }
 
-function normalizeText(value = ""): string {
-  return value.trim().toLowerCase();
+function normalizeText(value: unknown = ""): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function normalizeId(value: unknown = ""): string {
+  return String(value ?? "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 }
 
 function extractDate(value = ""): string {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match?.[0] ?? "";
+  const clean = value.trim();
+  const isoMatch = clean.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const viMatch = clean.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (viMatch) {
+    const [, day = "", month = "", year = ""] = viMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  return "";
 }
 
 function extractHHMM(value = ""): string {
   const match = value.match(/T?(\d{1,2}):(\d{2})/);
-  if (!match) {
-    return "";
-  }
-
+  if (!match) return "";
   return `${match[1].padStart(2, "0")}:${match[2]}`;
 }
 
 function isActiveBooking(booking: CustomerBooking): boolean {
-  if (booking.id || booking.startTime) {
-    return true;
+  const status = normalizeText(booking.status || "");
+  const isCancelled =
+    status.includes("cancel") ||
+    status.includes("huy") ||
+    status.includes("da huy");
+  const isCompleted =
+    status.includes("complete") ||
+    status.includes("completed") ||
+    status.includes("done") ||
+    status.includes("hoan thanh") ||
+    status.includes("xong");
+
+  if (isCancelled || isCompleted) return false;
+
+  return Boolean(booking.id || booking.startTime);
+}
+
+function toMinutes(time: string): number | null {
+  const normalized = extractHHMM(time);
+  if (!normalized) return null;
+
+  const [hour = "0", minute = "0"] = normalized.split(":");
+  const total = Number(hour) * 60 + Number(minute);
+  return Number.isFinite(total) ? total : null;
+}
+
+function slotsCoveredByBooking(booking: CustomerBooking): string[] {
+  // Fall back to bookingDate if startTime is empty (backend may embed time there)
+  const startRaw = booking.startTime || booking.bookingDate || "";
+  const start = toMinutes(startRaw);
+  if (start === null) return [];
+
+  const end = toMinutes(booking.endTime ?? "");
+  const safeEnd = end !== null && end > start ? end : start + SLOT_INTERVAL_MINUTES;
+  const slots: string[] = [];
+
+  for (let minute = start; minute < safeEnd; minute += SLOT_INTERVAL_MINUTES) {
+    const hourText = String(Math.floor(minute / 60)).padStart(2, "0");
+    const minuteText = String(minute % 60).padStart(2, "0");
+    slots.push(`${hourText}:${minuteText}`);
   }
 
-  const status = normalizeText(booking.status);
+  return slots;
+}
+
+function matchesBranch(booking: CustomerBooking, branchId: string, branchName: string): boolean {
+  const bookingBranchId = normalizeId(booking.branchId ?? "");
+  const selectedBranchId = normalizeId(branchId);
+  const sameBranchById =
+    bookingBranchId.length > 0 &&
+    selectedBranchId.length > 0 &&
+    bookingBranchId === selectedBranchId;
+  const bookingBranchName = normalizeText(booking.branchName);
+  const selectedBranchName = normalizeText(branchName);
+  const sameBranchByName =
+    bookingBranchName.length > 0 &&
+    selectedBranchName.length > 0 &&
+    (bookingBranchName === selectedBranchName ||
+      bookingBranchName.includes(selectedBranchName) ||
+      selectedBranchName.includes(bookingBranchName));
+
+  return sameBranchById || sameBranchByName;
+}
+
+function matchesDate(booking: CustomerBooking, date: string): boolean {
   return (
-    !status.includes("cancel") &&
-    !status.includes("hủy") &&
-    !status.includes("huy") &&
-    !status.includes("complete") &&
-    !status.includes("completed")
+    extractDate(booking.bookingDate) === date ||
+    extractDate(booking.startTime) === date ||
+    extractDate(booking.endTime ?? "") === date
   );
 }
 
@@ -115,52 +191,37 @@ export function SlotStep({
   const today = todayISO();
   const effectiveDate = selectedDate || today;
   const currentHHMM = nowHHMM();
-  const availabilityByTime = useMemo(() => {
-    return new Map(serverSlots.map((slot) => [slot.time, slot.available]));
+  const slotByTime = useMemo(() => {
+    return new Map(serverSlots.map((slot) => [slot.time, slot]));
   }, [serverSlots]);
+  const slotsToRender = serverSlots.length > 0 ? serverSlots.map((slot) => slot.time) : allSlots;
 
   const isDisabled = useCallback(
     (slot: string): boolean => {
-      const apiAvailable = availabilityByTime.get(slot);
+      const apiSlot = slotByTime.get(slot);
       const forcedDisabled = forcedDisabledSlots.includes(`${effectiveDate}|${slot}`);
 
-      if (forcedDisabled) {
-        return true;
-      }
-
-      if (serverSlots.length > 0 && apiAvailable === undefined) {
-        return true;
-      }
-
-      if (apiAvailable === false) {
-        return true;
-      }
-
-      if (occupiedSlots.has(slot)) {
-        return true;
-      }
-
-      if (effectiveDate === today && slot <= currentHHMM) {
-        return true;
-      }
+      if (forcedDisabled) return true;
+      if (serverSlots.length > 0 && !apiSlot) return true;
+      if (apiSlot?.available === false) return true;
+      if (occupiedSlots.has(slot)) return true;
+      if (effectiveDate === today && slot <= currentHHMM) return true;
 
       return false;
     },
     [
-      availabilityByTime,
       currentHHMM,
       effectiveDate,
       forcedDisabledSlots,
       occupiedSlots,
       serverSlots.length,
+      slotByTime,
       today,
     ],
   );
 
   const loadSlots = useCallback(async () => {
-    if (!branchId || !effectiveDate) {
-      return;
-    }
+    if (!branchId || !effectiveDate) return;
 
     setLoading(true);
     setError(null);
@@ -169,19 +230,14 @@ export function SlotStep({
         getSlots(token, branchId, effectiveDate),
         getBookings(token, effectiveDate, effectiveDate, 1, 100),
       ]);
-      const normalizedBranchName = normalizeText(branchName);
       const bookedTimes = sameDayBookings
-        .filter((booking) => {
-          const sameBranchById = booking.branchId ? booking.branchId === branchId : false;
-          const sameBranchByName =
-            !booking.branchId && normalizeText(booking.branchName) === normalizedBranchName;
-          const sameDate =
-            extractDate(booking.bookingDate || booking.startTime) === effectiveDate ||
-            extractDate(booking.startTime) === effectiveDate;
-
-          return (sameBranchById || sameBranchByName) && sameDate && isActiveBooking(booking);
-        })
-        .map((booking) => extractHHMM(booking.startTime))
+        .filter(
+          (booking) =>
+            matchesBranch(booking, branchId, branchName) &&
+            matchesDate(booking, effectiveDate) &&
+            isActiveBooking(booking),
+        )
+        .flatMap(slotsCoveredByBooking)
         .filter(Boolean);
 
       setServerSlots(nextSlots);
@@ -192,9 +248,7 @@ export function SlotStep({
         return;
       }
 
-      setError(
-        loadError instanceof Error ? loadError.message : "Không thể tải slot.",
-      );
+      setError(loadError instanceof Error ? loadError.message : "Không thể tải slot.");
     } finally {
       setLoading(false);
     }
@@ -226,7 +280,7 @@ export function SlotStep({
     onNext();
   }
 
-  const hasAnyAvailable = allSlots.some((slot) => !isDisabled(slot));
+  const hasAnyAvailable = slotsToRender.some((slot) => !isDisabled(slot));
 
   return (
     <div className="space-y-5">
@@ -296,7 +350,7 @@ export function SlotStep({
             Chọn slot trống <span className="text-orange-500">*</span>
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {allSlots.map((slot) => {
+            {slotsToRender.map((slot) => {
               const disabled = isDisabled(slot);
               const selected = selectedSlot === slot;
 
@@ -313,11 +367,11 @@ export function SlotStep({
                     selected
                       ? "border-slate-950 bg-slate-950 text-white shadow-sm"
                       : disabled
-                        ? "pointer-events-none cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500 opacity-80"
+                        ? "pointer-events-none cursor-not-allowed border-[#3A3A40] bg-[#2B2B30] text-[#817D76] opacity-60"
                         : "border-slate-200 bg-white text-slate-950 hover:border-slate-400"
                   }`}
                 >
-                  {formatSlotRange(slot)}
+                  {formatSlotRange(slot, serverSlots)}
                 </button>
               );
             })}

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Edit2, Plus, RefreshCw, Search, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Plus, RefreshCw, Search, XCircle } from "lucide-react";
 import {
   createBranch,
   deleteBranch,
@@ -206,18 +206,16 @@ export function AdminBranchesPage() {
                       <button
                         type="button"
                         onClick={() => openEdit(branch)}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-blue-50 hover:text-blue-600"
-                        title="Sửa"
+                        className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition hover:bg-blue-100"
                       >
-                        <Edit2 size={16} aria-hidden />
+                        Sửa
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleDelete(branch)}
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
-                        title="Xóa"
+                        className="ml-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
                       >
-                        <Trash2 size={16} aria-hidden />
+                        Xóa
                       </button>
                     </td>
                   </tr>

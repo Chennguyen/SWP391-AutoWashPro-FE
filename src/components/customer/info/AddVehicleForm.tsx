@@ -3,6 +3,13 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/api-error";
 import { addVehicle, updateVehicle } from "@/lib/api/vehicle";
+import {
+  getVehicleBrandChoice,
+  getVehicleModelChoice,
+  OTHER_VEHICLE_OPTION,
+  VIETNAM_VEHICLE_BRANDS,
+  VIETNAM_VEHICLE_MODELS,
+} from "@/lib/vehicle-options";
 import type { UpdateVehiclePayload, Vehicle } from "@/types/vehicle";
 
 interface AddVehicleFormProps {
@@ -41,6 +48,10 @@ export function AddVehicleForm({
 }: AddVehicleFormProps) {
   const isEditing = Boolean(vehicle);
   const [form, setForm] = useState<VehicleForm>(() => formFromVehicle(vehicle));
+  const [brandChoice, setBrandChoice] = useState(() => getVehicleBrandChoice(vehicle?.brand ?? ""));
+  const [modelChoice, setModelChoice] = useState(() =>
+    getVehicleModelChoice(getVehicleBrandChoice(vehicle?.brand ?? ""), vehicle?.model ?? ""),
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [imagePreview, setImagePreview] = useState(vehicle?.licensePlateImageUrl ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -63,6 +74,22 @@ export function AddVehicleForm({
     if (errors[name]) {
       setErrors((current) => ({ ...current, [name]: undefined }));
     }
+  }
+
+  function handleBrandSelect(value: string) {
+    setBrandChoice(value);
+    setModelChoice("");
+    setForm((current) => ({
+      ...current,
+      brand: value === OTHER_VEHICLE_OPTION ? "" : value,
+      model: "",
+    }));
+    setErrors((current) => ({ ...current, brand: undefined, model: undefined }));
+  }
+
+  function handleModelSelect(value: string) {
+    setModelChoice(value);
+    updateField("model", value === OTHER_VEHICLE_OPTION ? "" : value);
   }
 
   function validate(): boolean {
@@ -204,12 +231,108 @@ export function AddVehicleForm({
     );
   }
 
+  function renderSelect(
+    id: FieldName,
+    label: string,
+    value: string,
+    options: string[],
+    onChange: (value: string) => void,
+    placeholder: string,
+  ) {
+    return (
+      <div>
+        <label htmlFor={`${id}-select`} className="mb-1 block text-sm font-medium text-slate-700">
+          {label} <span className="text-red-500">*</span>
+        </label>
+        <select
+          id={`${id}-select`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={saving}
+          className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${
+            errors[id] ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
+          }`}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+          <option value={OTHER_VEHICLE_OPTION}>{OTHER_VEHICLE_OPTION}</option>
+        </select>
+      </div>
+    );
+  }
+
+  function renderCustomInput(id: FieldName, label: string, placeholder: string) {
+    return (
+      <div>
+        <label htmlFor={`${id}-custom`} className="mb-1 block text-sm font-medium text-slate-700">
+          {label} <span className="text-red-500">*</span>
+        </label>
+        <input
+          id={`${id}-custom`}
+          value={form[id]}
+          onChange={(event) => updateField(id, event.target.value)}
+          placeholder={placeholder}
+          disabled={saving}
+          className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${
+            errors[id] ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
+          }`}
+        />
+        {errors[id] ? (
+          <p className="mt-1 text-xs text-red-600">{errors[id]}</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const modelOptions =
+    brandChoice && brandChoice !== OTHER_VEHICLE_OPTION
+      ? VIETNAM_VEHICLE_MODELS[brandChoice] ?? []
+      : [];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {renderInput("licensePlate", "Biển số xe", "30A-12345")}
-        {renderInput("brand", "Hãng xe", "Toyota")}
-        {renderInput("model", "Dòng xe", "Camry")}
+        <div className="space-y-3">
+          {renderSelect(
+            "brand",
+            "Hãng xe",
+            brandChoice,
+            VIETNAM_VEHICLE_BRANDS,
+            handleBrandSelect,
+            "Chọn hãng xe",
+          )}
+          {brandChoice === OTHER_VEHICLE_OPTION ? (
+            renderCustomInput("brand", "Nhập hãng xe", "VD: Lexus")
+          ) : errors.brand ? (
+            <p className="mt-1 text-xs text-red-600">{errors.brand}</p>
+          ) : null}
+        </div>
+        <div className="space-y-3">
+          {brandChoice === OTHER_VEHICLE_OPTION ? (
+            renderCustomInput("model", "Dòng xe", "VD: RX 350")
+          ) : (
+            <>
+              {renderSelect(
+                "model",
+                "Dòng xe",
+                modelChoice,
+                modelOptions,
+                handleModelSelect,
+                brandChoice ? "Chọn dòng xe" : "Chọn hãng xe trước",
+              )}
+              {modelChoice === OTHER_VEHICLE_OPTION ? (
+                renderCustomInput("model", "Nhập dòng xe", "VD: Corolla Altis")
+              ) : errors.model ? (
+                <p className="mt-1 text-xs text-red-600">{errors.model}</p>
+              ) : null}
+            </>
+          )}
+        </div>
         {renderInput("color", "Màu xe", "Black")}
       </div>
 

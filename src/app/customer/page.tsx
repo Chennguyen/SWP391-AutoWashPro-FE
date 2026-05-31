@@ -1,7 +1,5 @@
-import {
-  DashboardHeader,
-  MembershipPanel,
-} from "@/components/customer/DashboardWidgets";
+import { DashboardHeader } from "@/components/customer/DashboardWidgets";
+import { DashboardRankWidget } from "@/components/customer/DashboardRankWidget";
 import { UpcomingBookingPanel } from "@/components/customer/UpcomingBookingPanel";
 
 export default function CustomerDashboardPage() {
@@ -10,6 +8,7 @@ export default function CustomerDashboardPage() {
       <DashboardHeader />
 
       <div className="space-y-6">
+        <DashboardRankWidget />
         <UpcomingBookingPanel />
       </div>
     </main>

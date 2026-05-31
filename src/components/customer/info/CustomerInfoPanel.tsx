@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { Car, type LucideIcon, WalletCards, User } from "lucide-react";
+import { useCallback, useEffect, useState, useSyncExternalStore, Suspense } from "react";
+import { Award, Car, type LucideIcon, Star, WalletCards, User, UserCog } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { getVehicles } from "@/lib/api/vehicle";
 import { getWallet, type Wallet } from "@/lib/api/wallet";
 import { ApiError } from "@/lib/api/api-error";
@@ -11,13 +12,19 @@ import { cn } from "@/lib/utils";
 import { VehicleList } from "./VehicleList";
 import { WalletPanel } from "./WalletPanel";
 import { ProfilePanel } from "./ProfilePanel";
+import { EditProfilePanel } from "./EditProfilePanel";
+import { LoyaltyPanel } from "./LoyaltyPanel";
+import { RankPanel } from "./RankPanel";
 
-type InfoTab = "profile" | "vehicles" | "wallet";
+type InfoTab = "profile" | "edit-profile" | "vehicles" | "wallet" | "loyalty" | "rank";
 
 const SIDEBAR_ITEMS = [
   { id: "profile", label: "Thông tin cá nhân", icon: User },
+  { id: "edit-profile", label: "Chỉnh sửa thông tin", icon: UserCog },
   { id: "vehicles", label: "Thông tin xe", icon: Car },
   { id: "wallet", label: "Thông tin ví", icon: WalletCards },
+  { id: "loyalty", label: "Điểm & Ưu đãi", icon: Star },
+  { id: "rank", label: "Bậc rank", icon: Award },
 ] satisfies Array<{ id: InfoTab; label: string; icon: LucideIcon }>;
 
 function subscribeToToken(onStoreChange: () => void) {
@@ -57,7 +64,24 @@ function getServerTokenSnapshot(): string | null {
 }
 
 export function CustomerInfoPanel() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Đang tải thông tin cá nhân...</div>}>
+      <CustomerInfoPanelContent />
+    </Suspense>
+  );
+}
+
+function CustomerInfoPanelContent() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as InfoTab | null;
   const [activeTab, setActiveTab] = useState<InfoTab>("profile");
+
+  useEffect(() => {
+    if (tabParam && ["profile", "edit-profile", "vehicles", "wallet", "loyalty", "rank"].includes(tabParam)) {
+      const id = window.setTimeout(() => setActiveTab(tabParam), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, [tabParam]);
   const [sessionExpired, setSessionExpired] = useState(false);
   const tokenSnapshot = useSyncExternalStore(
     subscribeToToken,
@@ -145,6 +169,16 @@ export function CustomerInfoPanel() {
   }, [loadVehicles, loadWallet]);
 
   useEffect(() => {
+    const id = window.setTimeout(() => {
+      setVehicles([]);
+      setWallet(null);
+      setVehiclesError(null);
+      setWalletError(null);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [token]);
+
+  useEffect(() => {
     if (!authChecked || !token) {
       return;
     }
@@ -213,6 +247,13 @@ export function CustomerInfoPanel() {
           />
         ) : null}
 
+        {(!authChecked || token) && activeTab === "edit-profile" ? (
+          <EditProfilePanel
+            token={token}
+            onUnauthorized={handleUnauthorized}
+          />
+        ) : null}
+
         {(!authChecked || token) && activeTab === "vehicles" ? (
           <VehicleList
             token={token}
@@ -231,6 +272,20 @@ export function CustomerInfoPanel() {
             loading={walletLoading}
             error={walletError}
             onRefresh={loadWallet}
+            onUnauthorized={handleUnauthorized}
+          />
+        ) : null}
+
+        {(!authChecked || token) && activeTab === "loyalty" ? (
+          <LoyaltyPanel
+            token={token}
+            onUnauthorized={handleUnauthorized}
+          />
+        ) : null}
+
+        {(!authChecked || token) && activeTab === "rank" ? (
+          <RankPanel
+            token={token}
             onUnauthorized={handleUnauthorized}
           />
         ) : null}

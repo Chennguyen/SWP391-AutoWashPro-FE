@@ -1,23 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Calendar,
   Car,
   Clock,
   MapPin,
+  Plus,
   Tag,
   WalletCards,
 } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { createBooking, getSlots } from "@/lib/api/booking";
-import { getWallet, type Wallet } from "@/lib/api/wallet";
+import { getWallet, topUpWallet, type Wallet } from "@/lib/api/wallet";
 import type { BookingResult, Branch, VoucherValidation } from "@/types/booking";
 import type { Vehicle } from "@/types/vehicle";
 
-const SERVICE_PRICE = 150_000;
-const DEPOSIT_RATE = 0.2;
+const SERVICE_PRICE = 100_000;
+const DEPOSIT_RATE = 0.3;
+const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -44,8 +46,11 @@ function addMinutes(time: string, minutes: number) {
   return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
 }
 
-function formatSlotRange(slot: string) {
-  return `${slot}-${addMinutes(slot, 15)}`;
+function formatSlotRange(slot: string, duration: number, endTime?: string) {
+  if (endTime) {
+    return `${slot}-${endTime}`;
+  }
+  return `${slot}-${addMinutes(slot, duration)}`;
 }
 
 interface ReviewPaymentStepProps {
@@ -78,7 +83,50 @@ export function ReviewPaymentStep({
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
+  const [topUpSuccess, setTopUpSuccess] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [detectedDuration, setDetectedDuration] = useState(15);
+  const [endTime, setEndTime] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSlotDetails() {
+      try {
+        const latestSlots = await getSlots(token, branch.id, date);
+        if (!active) return;
+        const currentSlot = latestSlots.find((s) => s.time === slot);
+        if (currentSlot?.endTime) {
+          setEndTime(currentSlot.endTime);
+        }
+        if (latestSlots.length >= 2) {
+          if (currentSlot?.endTime) {
+            const [sh, sm] = currentSlot.time.split(":").map(Number);
+            const [eh, em] = currentSlot.endTime.split(":").map(Number);
+            const diff = (eh * 60 + em) - (sh * 60 + sm);
+            if (diff > 0 && diff <= 120) {
+              setDetectedDuration(diff);
+              return;
+            }
+          }
+          const [h1, m1] = latestSlots[0].time.split(":").map(Number);
+          const [h2, m2] = latestSlots[1].time.split(":").map(Number);
+          const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+          if (diff > 0 && diff <= 120) {
+            setDetectedDuration(diff);
+          }
+        }
+      } catch {
+        // use default 15
+      }
+    }
+    void loadSlotDetails();
+    return () => {
+      active = false;
+    };
+  }, [token, branch.id, date, slot]);
 
   const loadWallet = useCallback(async () => {
     setWalletLoading(true);
@@ -108,6 +156,53 @@ export function ReviewPaymentStep({
   const voucherId = appliedVoucher?.voucherId ?? appliedVoucher?.id ?? null;
   const walletBalance = wallet?.balance ?? 0;
   const insufficientBalance = !walletLoading && walletBalance < deposit;
+  const missingDepositAmount = Math.max(0, deposit - walletBalance);
+  const effectiveTopUpAmount = topUpAmount ?? missingDepositAmount;
+  const quickTopUpOptions = useMemo(() => {
+    const roundedShortfall = Math.ceil(missingDepositAmount / 100_000) * 100_000;
+    return Array.from(
+      new Set(
+        [missingDepositAmount, ...QUICK_TOP_UP_PRESETS, roundedShortfall].filter(
+          (amount) => Number.isFinite(amount) && amount > 0,
+        ),
+      ),
+    );
+  }, [missingDepositAmount]);
+
+  async function handleQuickTopUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTopUpError(null);
+    setTopUpSuccess(null);
+
+    if (!Number.isFinite(effectiveTopUpAmount) || effectiveTopUpAmount <= 0) {
+      setTopUpError("Vui lòng nhập số tiền nạp hợp lệ.");
+      return;
+    }
+
+    setTopUpLoading(true);
+    try {
+      await topUpWallet(token, effectiveTopUpAmount);
+      const nextWallet = await getWallet(token);
+      setWallet(nextWallet);
+      setError(null);
+      setTopUpAmount(null);
+      setTopUpSuccess(`Đã nạp ${formatVND(effectiveTopUpAmount)} vào ví.`);
+      window.dispatchEvent(new Event("autowash-auth"));
+    } catch (topUpException) {
+      if (topUpException instanceof ApiError && topUpException.status === 401) {
+        onUnauthorized();
+        return;
+      }
+
+      setTopUpError(
+        topUpException instanceof Error
+          ? topUpException.message
+          : "Không thể nạp ví, vui lòng thử lại.",
+      );
+    } finally {
+      setTopUpLoading(false);
+    }
+  }
 
   async function handleConfirm() {
     if (!agreed || submitted) {
@@ -158,6 +253,17 @@ export function ReviewPaymentStep({
         return;
       }
 
+      // Gracefully handle 5xx server errors — BE may crash when applying tier
+      // promotion discount (NullReferenceException in PromotionTiers.Include).
+      // FE-only mitigation: show a clear message and suggest removing the voucher.
+      if (submitError instanceof ApiError && submitError.status >= 500) {
+        const hint = appliedVoucher
+          ? " Nếu lỗi tiếp tục, hãy thử bỏ voucher và đặt lịch lại."
+          : " Vui lòng thử lại sau ít phút hoặc liên hệ hỗ trợ.";
+        setError(`Hệ thống gặp sự cố tạm thời khi xử lý đặt lịch.${hint}`);
+        return;
+      }
+
       setError(
         submitError instanceof Error
           ? submitError.message
@@ -176,7 +282,7 @@ export function ReviewPaymentStep({
       value: `${vehicle.licensePlate} - ${vehicle.brand} ${vehicle.model}`,
     },
     { icon: Calendar, label: "Ngày", value: formatDate(date) },
-    { icon: Clock, label: "Slot", value: formatSlotRange(slot) },
+    { icon: Clock, label: "Slot", value: formatSlotRange(slot, detectedDuration, endTime) },
   ];
 
   return (
@@ -247,6 +353,76 @@ export function ReviewPaymentStep({
           <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden />
           <span>Số dư ví không đủ để đặt cọc. Vui lòng nạp thêm tiền.</span>
         </div>
+      ) : null}
+
+      {insufficientBalance ? (
+        <form onSubmit={handleQuickTopUp} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-start gap-2 text-sm text-amber-800">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden />
+            <span>
+              Cần nạp thêm tối thiểu <strong>{formatVND(missingDepositAmount)}</strong> để đủ tiền đặt cọc.
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div>
+              <label htmlFor="quick-wallet-top-up" className="mb-1 block text-sm font-semibold text-slate-700">
+                Nạp nhanh vào ví
+              </label>
+              <input
+                id="quick-wallet-top-up"
+                type="number"
+                min={1000}
+                step={1000}
+                value={effectiveTopUpAmount}
+                onChange={(event) => {
+                  setTopUpSuccess(null);
+                  setTopUpAmount(Number(event.target.value));
+                }}
+                disabled={topUpLoading}
+                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={topUpLoading}
+              className="inline-flex justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Plus size={16} aria-hidden />
+              {topUpLoading ? "Đang nạp..." : "Nạp tiền"}
+            </button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {quickTopUpOptions.map((amount, index) => (
+              <button
+                key={`${amount}-${index}`}
+                type="button"
+                onClick={() => {
+                  setTopUpSuccess(null);
+                  setTopUpAmount(amount);
+                }}
+                disabled={topUpLoading}
+                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {index === 0 ? "Nạp đủ thiếu " : ""}
+                {formatVND(amount)}
+              </button>
+            ))}
+          </div>
+
+          {topUpError ? (
+            <div role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {topUpError}
+            </div>
+          ) : null}
+
+          {topUpSuccess ? (
+            <div role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+              {topUpSuccess} Số dư mới: {formatVND(walletBalance)}.
+            </div>
+          ) : null}
+        </form>
       ) : null}
 
       <label className="flex cursor-pointer select-none items-start gap-3">

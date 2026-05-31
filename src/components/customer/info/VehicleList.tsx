@@ -71,6 +71,7 @@ export function VehicleList({
       activeDetailIdRef.current = null;
       setFormMode({ type: "closed" });
       await onRefresh();
+      window.dispatchEvent(new Event("autowash-auth"));
     } catch (deleteError) {
       if (deleteError instanceof ApiError && deleteError.status === 401) {
         onUnauthorized();
@@ -91,6 +92,7 @@ export function VehicleList({
     const editedVehicleId = formMode.type === "edit" ? formMode.vehicle.id : null;
     setFormMode({ type: "closed" });
     await onRefresh();
+    window.dispatchEvent(new Event("autowash-auth"));
 
     if (editedVehicleId) {
       try {

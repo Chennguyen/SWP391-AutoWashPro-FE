@@ -4,6 +4,8 @@ export type CustomerProfile = {
   firstName: string;
   lastName: string;
   cccd: string;
+  email?: string;
+  phone?: string;
 };
 
 type CustomerProfileRecord = {
@@ -37,12 +39,15 @@ function unwrapProfile(body: CustomerProfileResponse): CustomerProfileRecord {
 }
 
 function normalizeProfile(body: CustomerProfileResponse): CustomerProfile {
-  const data = unwrapProfile(body);
+  const data = unwrapProfile(body) as any;
+  const profileData = data.profileData ?? data.ProfileData ?? data;
 
   return {
-    firstName: data.firstName ?? data.FirstName ?? "",
-    lastName: data.lastName ?? data.LastName ?? "",
-    cccd: data.cccd ?? data.Cccd ?? data.CCCD ?? "",
+    firstName: profileData.firstName ?? profileData.FirstName ?? data.firstName ?? data.FirstName ?? "",
+    lastName: profileData.lastName ?? profileData.LastName ?? data.lastName ?? data.LastName ?? "",
+    cccd: profileData.cccd ?? profileData.Cccd ?? profileData.CCCD ?? data.cccd ?? data.Cccd ?? data.CCCD ?? "",
+    email: data.email ?? data.Email ?? "",
+    phone: data.phone ?? data.Phone ?? "",
   };
 }
 

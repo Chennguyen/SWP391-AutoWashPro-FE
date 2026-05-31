@@ -7,18 +7,28 @@ import type {
 import { apiBase, handleApiResponse } from "./api-error";
 
 type SlotRecord = {
+  id?: string | number;
+  Id?: string | number;
+  bookingId?: string | number;
+  BookingId?: string | number;
   time?: string;
   Time?: string;
   slot?: string;
   Slot?: string;
   startTime?: string;
   StartTime?: string;
+  endTime?: string;
+  EndTime?: string;
   available?: boolean;
   Available?: boolean;
   isAvailable?: boolean;
   IsAvailable?: boolean;
+  booked?: boolean;
+  Booked?: boolean;
   isBooked?: boolean;
   IsBooked?: boolean;
+  occupied?: boolean;
+  Occupied?: boolean;
   status?: string;
   Status?: string;
 };
@@ -27,6 +37,7 @@ type SlotListResponse =
   | SlotRecord[]
   | {
       data?: SlotRecord[] | { items?: SlotRecord[]; results?: SlotRecord[] };
+      Data?: SlotRecord[] | { items?: SlotRecord[]; results?: SlotRecord[] };
       items?: SlotRecord[];
       results?: SlotRecord[];
     };
@@ -47,6 +58,12 @@ type BookingResponse = {
 };
 
 type NestedName = {
+  id?: string | number;
+  Id?: string | number;
+  branchId?: string | number;
+  BranchId?: string | number;
+  vehicleId?: string | number;
+  VehicleId?: string | number;
   name?: string;
   Name?: string;
   address?: string;
@@ -106,6 +123,9 @@ type BookingListResponse =
       data?:
         | CustomerBookingRecord[]
         | { items?: CustomerBookingRecord[]; results?: CustomerBookingRecord[] };
+      Data?:
+        | CustomerBookingRecord[]
+        | { items?: CustomerBookingRecord[]; results?: CustomerBookingRecord[] };
       items?: CustomerBookingRecord[];
       results?: CustomerBookingRecord[];
     };
@@ -124,7 +144,23 @@ function unwrapList(body: SlotListResponse): SlotRecord[] {
     return data.items ?? data.results ?? [];
   }
 
+  const upperData = body.Data;
+  if (Array.isArray(upperData)) {
+    return upperData;
+  }
+
+  if (upperData && !Array.isArray(upperData)) {
+    return upperData.items ?? upperData.results ?? [];
+  }
+
   return body.items ?? body.results ?? [];
+}
+
+/** Convert YYYY-MM-DD → DD/MM/YYYY. Returns the original value if it does not match. */
+function toViDate(isoDate: string): string {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+  return isoDate;
 }
 
 function toHHMM(value = ""): string {
@@ -152,18 +188,12 @@ function availabilityFromStatus(status?: string): boolean | undefined {
   }
 
   if (
-    normalized.includes("available") ||
-    normalized.includes("free") ||
-    normalized.includes("open")
-  ) {
-    return true;
-  }
-
-  if (
+    normalized.includes("notavailable") ||
+    normalized.includes("not available") ||
+    normalized.includes("unavailable") ||
     normalized.includes("book") ||
     normalized.includes("reserved") ||
     normalized.includes("busy") ||
-    normalized.includes("unavailable") ||
     normalized.includes("pending") ||
     normalized.includes("confirm") ||
     normalized.includes("cancel") ||
@@ -175,24 +205,61 @@ function availabilityFromStatus(status?: string): boolean | undefined {
     return false;
   }
 
+  if (
+    normalized.includes("available") ||
+    normalized.includes("free") ||
+    normalized.includes("open")
+  ) {
+    return true;
+  }
+
+  return undefined;
+}
+
+function booleanValue(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "available"].includes(normalized)) return true;
+    if (["false", "0", "no", "unavailable", "notavailable", "booked"].includes(normalized)) {
+      return false;
+    }
+  }
+
   return undefined;
 }
 
 function normalizeSlot(raw: SlotRecord): BookingSlot {
   const status = raw.status ?? raw.Status;
-  const available =
+  const hasBookingReference = raw.bookingId !== undefined || raw.BookingId !== undefined;
+  const isBooked =
+    booleanValue(raw.booked ?? raw.Booked) ??
+    booleanValue(raw.isBooked ?? raw.IsBooked) ??
+    booleanValue(raw.occupied ?? raw.Occupied) ??
+    (hasBookingReference ? true : undefined);
+  const explicitAvailable =
     availabilityFromStatus(status) ??
-    raw.available ??
-    raw.Available ??
-    raw.isAvailable ??
-    raw.IsAvailable ??
-    !(raw.isBooked ?? raw.IsBooked);
+    booleanValue(raw.available ?? raw.Available) ??
+    booleanValue(raw.isAvailable ?? raw.IsAvailable) ??
+    (isBooked !== undefined ? !isBooked : undefined);
+  const available = explicitAvailable ?? true;
+
+  const time = toHHMM(
+    raw.time ?? raw.Time ?? raw.slot ?? raw.Slot ?? raw.startTime ?? raw.StartTime ?? "",
+  );
+  
+  const endTimeRaw = raw.endTime ?? raw.EndTime ?? "";
+  const endTime = endTimeRaw ? toHHMM(endTimeRaw) : undefined;
 
   return {
-    time: toHHMM(
-      raw.time ?? raw.Time ?? raw.slot ?? raw.Slot ?? raw.startTime ?? raw.StartTime ?? "",
-    ),
+    time,
+    endTime,
     available,
+    availabilityExplicit: explicitAvailable !== undefined,
   };
 }
 
@@ -226,6 +293,15 @@ function unwrapBookings(body: BookingListResponse): CustomerBookingRecord[] {
     return data.items ?? data.results ?? [];
   }
 
+  const upperData = body.Data;
+  if (Array.isArray(upperData)) {
+    return upperData;
+  }
+
+  if (upperData && !Array.isArray(upperData)) {
+    return upperData.items ?? upperData.results ?? [];
+  }
+
   return body.items ?? body.results ?? [];
 }
 
@@ -239,11 +315,21 @@ function normalizeCustomerBooking(raw: CustomerBookingRecord): CustomerBooking {
     branchId:
       raw.branchId !== undefined || raw.BranchId !== undefined
         ? String(raw.branchId ?? raw.BranchId)
-        : undefined,
+        : branch?.id !== undefined ||
+            branch?.Id !== undefined ||
+            branch?.branchId !== undefined ||
+            branch?.BranchId !== undefined
+          ? String(branch?.id ?? branch?.Id ?? branch?.branchId ?? branch?.BranchId)
+          : undefined,
     vehicleId:
       raw.vehicleId !== undefined || raw.VehicleId !== undefined
         ? String(raw.vehicleId ?? raw.VehicleId)
-        : undefined,
+        : vehicle?.id !== undefined ||
+            vehicle?.Id !== undefined ||
+            vehicle?.vehicleId !== undefined ||
+            vehicle?.VehicleId !== undefined
+          ? String(vehicle?.id ?? vehicle?.Id ?? vehicle?.vehicleId ?? vehicle?.VehicleId)
+          : undefined,
     branchName:
       raw.branchName ??
       raw.BranchName ??
@@ -280,6 +366,8 @@ export async function getSlots(
   const params = new URLSearchParams({
     BranchId: branchId,
     Date: date,
+    branchId: branchId,
+    date: date,
   });
 
   const res = await fetch(`${apiBase()}/api/v1/bookings/slot?${params.toString()}`, {
@@ -290,7 +378,8 @@ export async function getSlots(
     },
   });
   const body = await handleApiResponse<SlotListResponse>(res);
-  return unwrapList(body).map(normalizeSlot).filter((slot) => slot.time);
+  const rawList = unwrapList(body);
+  return rawList.map(normalizeSlot).filter((slot) => slot.time);
 }
 
 export async function createBooking(
@@ -305,11 +394,11 @@ export async function createBooking(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      BranchId: payload.branchId,
-      VehicleId: payload.vehicleId,
-      VoucherId: payload.voucherId,
-      BookingDate: payload.bookingDate,
-      StartTime: payload.startTime,
+      branchId: payload.branchId,
+      vehicleId: payload.vehicleId,
+      voucherId: payload.voucherId,
+      bookingDate: payload.bookingDate,
+      startTime: payload.startTime,
       redemPoint: payload.redemPoint,
     }),
   });
@@ -325,9 +414,15 @@ export async function getBookings(
   pageSize = 20,
   status?: string,
 ): Promise<CustomerBooking[]> {
+  // Send both YYYY-MM-DD (ISO) and DD/MM/YYYY (Vietnamese) formats so the
+  // backend date filter works regardless of which format it expects.
+  const fromVi = toViDate(fromDate);
+  const toVi = toViDate(toDate);
   const params = new URLSearchParams({
     fromDate,
     toDate,
+    FromDate: fromVi,
+    ToDate: toVi,
     page: String(page),
     pageSize: String(pageSize),
   });

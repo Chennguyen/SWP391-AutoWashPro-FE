@@ -3,7 +3,7 @@ import { DashboardSidebar } from "@/components/customer/DashboardSidebar";
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8FAFC] text-slate-900">
+    <div className="flex flex-col min-h-screen bg-background-outer text-slate-900">
       <DashboardSidebar />
 
       {/* Main content wrapper */}

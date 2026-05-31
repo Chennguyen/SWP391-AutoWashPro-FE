@@ -75,6 +75,7 @@ export function SignupForm() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [faceImages, setFaceImages] = useState<UploadedImage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Track blob URLs for cleanup to prevent memory leaks
   const previewUrls = useRef(new Set<string>());
@@ -176,8 +177,8 @@ export function SignupForm() {
         faceImages: faceImages.map((img) => img.file),
       });
 
-      // On success, redirect to login with a success query param
-      router.push("/auth/login?registered=1");
+      // On success, show pending-approval modal instead of redirecting immediately
+      setShowSuccessModal(true);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
@@ -199,6 +200,56 @@ export function SignupForm() {
 
   return (
     <>
+      {/* ── Popup: Tài khoản chờ Admin duyệt ── */}
+      {showSuccessModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="success-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            {/* Icon */}
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-50">
+              <svg
+                className="h-7 w-7 text-blue-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+                />
+              </svg>
+            </div>
+
+            <h3
+              id="success-modal-title"
+              className="text-lg font-bold text-slate-900"
+            >
+              Đăng ký thành công!
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              Tài khoản của bạn đang chờ Admin xác minh tài khoản.
+              Vui lòng đợi trong giây lát trước khi đăng nhập.
+            </p>
+
+            <button
+              id="success-modal-confirm-btn"
+              type="button"
+              onClick={() => router.push("/auth/login?registered=1")}
+              className="mt-5 w-full rounded-xl bg-[#2563EB] py-3 text-sm font-semibold text-white transition-all hover:bg-[#1D4ED8] active:scale-[0.98]"
+            >
+              Tôi đã hiểu
+            </button>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
         {/* ── Họ & Tên ── */}
         <div className="grid grid-cols-2 gap-3">

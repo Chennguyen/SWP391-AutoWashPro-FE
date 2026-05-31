@@ -35,14 +35,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   if (!authorized) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-medium text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-background-outer text-sm font-medium text-slate-500">
         Đang kiểm tra quyền truy cập...
       </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 lg:flex">
+    <div className="min-h-screen bg-background-outer text-slate-900 lg:flex">
       <AdminSidebar />
       <div className="min-w-0 flex-1">{children}</div>
     </div>
