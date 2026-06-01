@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthCard } from "@/components/auth/AuthCard";
@@ -17,8 +18,10 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Client-side form & social login */}
-        <LoginForm />
+        {/* Client-side form */}
+        <Suspense fallback={<div className="h-40 flex items-center justify-center text-sm text-slate-500">Đang tải...</div>}>
+          <LoginForm />
+        </Suspense>
 
         {/* Sign up link */}
         <p className="mt-6 text-center text-sm text-gray-500">

@@ -2,7 +2,7 @@ import { Logo } from '../common/Logo';
 
 export function Footer() {
   return (
-    <footer className="bg-[#000000] px-8 md:px-16 pt-16 pb-10 border-t border-white/[0.06]">
+    <footer id="ho-tro" className="bg-[#000000] px-8 md:px-16 pt-16 pb-10 border-t border-white/[0.06]">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-start md:justify-between gap-10">
         {/* Brand block */}
         <div className="max-w-xs">

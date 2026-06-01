@@ -3,8 +3,8 @@ import Image from 'next/image';
 const steps = [
   {
     number: '01',
-    title: 'Chọn gói rửa xe',
-    description: 'Lựa chọn gói dịch vụ phù hợp với nhu cầu và ngân sách của bạn.',
+    title: 'Chọn chi nhánh phù hợp',
+    description: 'Lựa chọn chi nhánh phù hợp với nhu cầu và vị trí của bạn.',
   },
   {
     number: '02',
@@ -25,7 +25,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="bg-[#050505] border-t border-white/[0.06]">
+    <section id="quy-trinh" className="bg-[#050505] border-t border-white/[0.07]">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2">
 
         {/* Left — single cinematic image */}
@@ -43,11 +43,11 @@ export function HowItWorks() {
           <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent lg:hidden" />
         </div>
 
-        {/* Right — steps on dark background */}
-        <div className="bg-[#050505] px-10 md:px-16 py-20 flex flex-col justify-center">
+        {/* Right — steps */}
+        <div className="bg-transparent px-10 md:px-16 py-20 flex flex-col justify-center">
           {/* Section header */}
           <p className="text-sm tracking-[0.3em] uppercase text-white/70 mb-5 font-medium">Quy trình</p>
-          <h2 className="text-5xl md:text-6xl font-medium text-white tracking-tight mb-14 leading-tight">
+          <h2 className="text-4xl md:text-5xl font-semibold text-white tracking-tight mb-14 leading-tight">
             Đặt lịch<br />
             <span className="font-bold">đơn giản.</span>
           </h2>

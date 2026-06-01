@@ -1,5 +1,7 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import {
-  Bell,
   Star,
   AlertTriangle,
   CalendarDays,
@@ -13,7 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { UserMenu } from "@/components/customer/UserMenu";
+import { getVehicles } from "@/lib/api/vehicle";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const CUSTOMER = {
@@ -74,39 +76,134 @@ const VEHICLE = {
 };
 
 const QUICK_ACTIONS = [
-  { label: "Đặt lịch", icon: CalendarPlus, href: "/customer/book" },
-  { label: "Đổi điểm", icon: Gift, href: "/customer/loyalty" },
+  { label: "Đặt lịch", icon: CalendarPlus, href: "/customer/booking" },
+  { label: "Đổi điểm", icon: Gift, href: "/customer/info?tab=loyalty" },
   { label: "Lịch sử", icon: History, href: "/customer/history" },
-  { label: "Xe của tôi", icon: Car, href: "/customer/vehicles" },
+  { label: "Xe của tôi", icon: Car, href: "/customer/info?tab=vehicles" },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 export function DashboardHeader() {
+  const [name, setName] = useState(CUSTOMER.name);
+  const [showVehicleNotice, setShowVehicleNotice] = useState(false);
+
+  useEffect(() => {
+    function updateName() {
+      const email = window.localStorage.getItem("email");
+      if (email) {
+        const username = email.split("@")[0];
+        const capitalized = username.charAt(0).toUpperCase() + username.slice(1);
+        setName(capitalized);
+      } else {
+        setName(CUSTOMER.name);
+      }
+    }
+
+    // Initial check
+    updateName();
+
+    // Listen for auth changes
+    window.addEventListener("autowash-auth", updateName);
+    return () => window.removeEventListener("autowash-auth", updateName);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function updateVehicleNotice() {
+      const rawToken = window.localStorage.getItem("token") ?? "";
+      const token = rawToken.replace(/^Bearer\s+/i, "").replace(/^"|"$/g, "").trim();
+
+      if (!token) {
+        if (!cancelled) setShowVehicleNotice(false);
+        return;
+      }
+
+      try {
+        const vehicles = await getVehicles(token, 1, 1);
+        if (!cancelled) setShowVehicleNotice(vehicles.length === 0);
+      } catch {
+        if (!cancelled) setShowVehicleNotice(false);
+      }
+    }
+
+    void updateVehicleNotice();
+
+    window.addEventListener("autowash-auth", updateVehicleNotice);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("autowash-auth", updateVehicleNotice);
+    };
+  }, []);
+
   return (
-    <header className="flex items-center justify-between gap-4 mb-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-          Chào mừng trở lại, <span className="text-[#2563EB]">{CUSTOMER.name}</span>
-        </h1>
-        <p className="text-sm text-slate-500 mt-0.5">
-          Đây là tổng quan chăm sóc xe của bạn.
-        </p>
-      </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <button
-          aria-label="Thông báo"
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-colors"
-        >
-          <Bell size={16} />
-        </button>
-        <UserMenu user={CUSTOMER} />
-      </div>
+    <header className="mb-8">
+      {showVehicleNotice ? (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+          <span className="text-amber-800">
+            bạn nên đăng ký xe tại mục tài khoản cá nhân trước khi đặt lịch
+          </span>
+        </div>
+      ) : null}
+      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+        Chào mừng trở lại, <span className="text-[#2563EB]">{name}</span>
+      </h1>
+      <p className="text-sm text-slate-500 mt-0.5">
+        Đây là tổng quan chăm sóc xe của bạn.
+      </p>
     </header>
   );
 }
 
 export function MembershipPanel() {
+  const [info, setInfo] = useState<{
+    tier: string;
+    points: number;
+    progress: number;
+    milestone: number | null;
+    nextTierName: string | null;
+    discountPercent?: number;
+    prioritySlot?: boolean;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const raw = window.localStorage.getItem("token") ?? "";
+      const token = raw.replace(/^Bearer\s+/i, "").replace(/^"|"$/g, "").trim();
+      if (!token) { setLoading(false); return; }
+      try {
+        const { getLoyaltyInfo } = await import("@/lib/api/loyalty");
+        const data = await getLoyaltyInfo(token);
+        const nextWashes = data.nextTierRequiredWashes;
+        const progress =
+          nextWashes && nextWashes > 0
+            ? Math.min(100, Math.round((data.totalWashes / nextWashes) * 100))
+            : 100;
+        setInfo({
+          tier: data.tier?.name ?? "Member",
+          points: data.points,
+          progress,
+          milestone: nextWashes,
+          nextTierName: data.nextTierName,
+          discountPercent: data.tier?.benefits?.discountPercent,
+          prioritySlot: data.tier?.benefits?.prioritySlotBooking,
+        });
+      } catch {
+        // silent — widget không crash nếu API lỗi
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+
+    function onAuth() { setLoading(true); setInfo(null); void load(); }
+    window.addEventListener("autowash-auth", onAuth);
+    return () => window.removeEventListener("autowash-auth", onAuth);
+  }, []);
+
   return (
     <section
       className="bg-slate-900 rounded-2xl p-6 text-white col-span-2"
@@ -120,7 +217,11 @@ export function MembershipPanel() {
           </p>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold text-white">
-              {CUSTOMER.tier}
+              {loading ? (
+                <span className="inline-block h-7 w-32 animate-pulse rounded bg-slate-700" />
+              ) : (
+                info?.tier ?? "Member"
+              )}
             </h2>
             <Sparkles size={18} className="text-yellow-400" />
           </div>
@@ -129,58 +230,78 @@ export function MembershipPanel() {
           <p className="text-xs font-semibold tracking-widest uppercase text-slate-400 mb-1">
             Điểm hiện có
           </p>
-          <p className="text-3xl font-bold text-white">
-            {CUSTOMER.points.toLocaleString()}
-            <span className="text-base font-normal text-slate-400 ml-1">điểm</span>
-          </p>
+          {loading ? (
+            <span className="inline-block h-9 w-24 animate-pulse rounded bg-slate-700" />
+          ) : (
+            <p className="text-3xl font-bold text-white">
+              {(info?.points ?? 0).toLocaleString("vi-VN")}
+              <span className="text-base font-normal text-slate-400 ml-1">điểm</span>
+            </p>
+          )}
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="mb-2">
-        <div className="flex justify-between text-xs text-slate-400 mb-2">
-          <span>Tiến trình đến mốc tiếp theo ({CUSTOMER.milestone.toLocaleString()} điểm)</span>
-          <span className="font-semibold text-white">{CUSTOMER.progress}%</span>
+      {!loading && info?.nextTierName && (
+        <div className="mb-2">
+          <div className="flex justify-between text-xs text-slate-400 mb-2">
+            <span>Tiến trình đến {info.nextTierName} ({(info.milestone ?? 0).toLocaleString("vi-VN")} lần rửa)</span>
+            <span className="font-semibold text-white">{info.progress}%</span>
+          </div>
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-[#2563EB] to-[#3B82F6] rounded-full transition-all duration-500"
+              style={{ width: `${info.progress}%` }}
+              role="progressbar"
+              aria-valuenow={info.progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            />
+          </div>
         </div>
-        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-[#2563EB] to-[#3B82F6] rounded-full transition-all duration-500"
-            style={{ width: `${CUSTOMER.progress}%` }}
-            role="progressbar"
-            aria-valuenow={CUSTOMER.progress}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          />
-        </div>
-      </div>
-
-      {/* Expiring points notice */}
-      <div className="flex items-center gap-2 mt-4 text-xs text-amber-400 font-medium">
-        <AlertTriangle size={13} />
-        <span>
-          {CUSTOMER.expiringPoints} điểm sẽ hết hạn trong {CUSTOMER.expiringDays} ngày
-        </span>
-      </div>
+      )}
 
       {/* Tier benefits */}
       <div className="mt-5 pt-5 border-t border-slate-700">
         <p className="text-xs font-semibold tracking-widest uppercase text-slate-500 mb-3">
-          Quyền lợi Platinum của bạn
+          Quyền lợi của bạn
         </p>
         <div className="flex flex-wrap gap-2">
-          {["Nhân đôi điểm", "Ưu tiên đặt lịch", "Nâng cấp sinh nhật"].map((b) => (
-            <span
-              key={b}
-              className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300"
-            >
-              {b}
-            </span>
-          ))}
+          {loading ? (
+            [1, 2].map((i) => (
+              <span key={i} className="inline-block h-6 w-28 animate-pulse rounded-full bg-slate-700" />
+            ))
+          ) : (
+            <>
+              {info?.discountPercent ? (
+                <span className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300">
+                  Giảm {info.discountPercent}% mỗi lần rửa
+                </span>
+              ) : null}
+              {info?.prioritySlot ? (
+                <span className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300">
+                  Ưu tiên đặt slot cao điểm
+                </span>
+              ) : null}
+              {!info?.discountPercent && !info?.prioritySlot && (
+                <span className="px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium text-slate-300">
+                  Tích điểm mỗi lần rửa xe
+                </span>
+              )}
+            </>
+          )}
         </div>
+        <Link
+          href="/customer/info?tab=loyalty"
+          className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition"
+        >
+          Xem điểm & đổi thưởng <ChevronRight size={13} />
+        </Link>
       </div>
     </section>
   );
 }
+
 
 export function UpcomingBookingPanel() {
   return (
@@ -336,7 +457,7 @@ export function VehicleSummary() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-slate-900">Xe chính</h2>
         <Link
-          href="/customer/vehicles"
+          href="/customer/info?tab=vehicles"
           className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-[#2563EB] transition-colors"
         >
           Quản lý <ArrowRight size={12} />

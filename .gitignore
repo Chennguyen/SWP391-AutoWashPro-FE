@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Antigravity / local agent skills
+.agents/
+AGENTS.md
+skills-lock.json
+
+test_bookings.bat
+booking_response.json
