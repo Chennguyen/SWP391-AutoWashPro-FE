@@ -6,7 +6,6 @@ import { addVehicle, updateVehicle } from "@/lib/api/vehicle";
 import {
   getVehicleBrandChoice,
   getVehicleModelChoice,
-  OTHER_VEHICLE_OPTION,
   VIETNAM_VEHICLE_BRANDS,
   VIETNAM_VEHICLE_MODELS,
 } from "@/lib/vehicle-options";
@@ -81,7 +80,7 @@ export function AddVehicleForm({
     setModelChoice("");
     setForm((current) => ({
       ...current,
-      brand: value === OTHER_VEHICLE_OPTION ? "" : value,
+      brand: value,
       model: "",
     }));
     setErrors((current) => ({ ...current, brand: undefined, model: undefined }));
@@ -89,7 +88,7 @@ export function AddVehicleForm({
 
   function handleModelSelect(value: string) {
     setModelChoice(value);
-    updateField("model", value === OTHER_VEHICLE_OPTION ? "" : value);
+    updateField("model", value);
   }
 
   function validate(): boolean {
@@ -259,39 +258,14 @@ export function AddVehicleForm({
               {option}
             </option>
           ))}
-          <option value={OTHER_VEHICLE_OPTION}>{OTHER_VEHICLE_OPTION}</option>
         </select>
       </div>
     );
   }
 
-  function renderCustomInput(id: FieldName, label: string, placeholder: string) {
-    return (
-      <div>
-        <label htmlFor={`${id}-custom`} className="mb-1 block text-sm font-medium text-slate-700">
-          {label} <span className="text-red-500">*</span>
-        </label>
-        <input
-          id={`${id}-custom`}
-          value={form[id]}
-          onChange={(event) => updateField(id, event.target.value)}
-          placeholder={placeholder}
-          disabled={saving}
-          className={`w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${
-            errors[id] ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
-          }`}
-        />
-        {errors[id] ? (
-          <p className="mt-1 text-xs text-red-600">{errors[id]}</p>
-        ) : null}
-      </div>
-    );
-  }
 
-  const modelOptions =
-    brandChoice && brandChoice !== OTHER_VEHICLE_OPTION
-      ? VIETNAM_VEHICLE_MODELS[brandChoice] ?? []
-      : [];
+
+  const modelOptions = brandChoice ? VIETNAM_VEHICLE_MODELS[brandChoice] ?? [] : [];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -306,32 +280,22 @@ export function AddVehicleForm({
             handleBrandSelect,
             "Chọn hãng xe",
           )}
-          {brandChoice === OTHER_VEHICLE_OPTION ? (
-            renderCustomInput("brand", "Nhập hãng xe", "VD: Lexus")
-          ) : errors.brand ? (
+          {errors.brand ? (
             <p className="mt-1 text-xs text-red-600">{errors.brand}</p>
           ) : null}
         </div>
         <div className="space-y-3">
-          {brandChoice === OTHER_VEHICLE_OPTION ? (
-            renderCustomInput("model", "Dòng xe", "VD: RX 350")
-          ) : (
-            <>
-              {renderSelect(
-                "model",
-                "Dòng xe",
-                modelChoice,
-                modelOptions,
-                handleModelSelect,
-                brandChoice ? "Chọn dòng xe" : "Chọn hãng xe trước",
-              )}
-              {modelChoice === OTHER_VEHICLE_OPTION ? (
-                renderCustomInput("model", "Nhập dòng xe", "VD: Corolla Altis")
-              ) : errors.model ? (
-                <p className="mt-1 text-xs text-red-600">{errors.model}</p>
-              ) : null}
-            </>
+          {renderSelect(
+            "model",
+            "Dòng xe",
+            modelChoice,
+            modelOptions,
+            handleModelSelect,
+            brandChoice ? "Chọn dòng xe" : "Chọn hãng xe trước",
           )}
+          {errors.model ? (
+            <p className="mt-1 text-xs text-red-600">{errors.model}</p>
+          ) : null}
         </div>
         {renderInput("color", "Màu xe", "Black")}
       </div>
