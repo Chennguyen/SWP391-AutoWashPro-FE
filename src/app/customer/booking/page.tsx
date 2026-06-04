@@ -6,6 +6,12 @@ export const metadata: Metadata = {
   description: "Đặt lịch rửa xe nhanh chóng, chọn chi nhánh, xe và khung giờ phù hợp.",
 };
 
+/**
+ * Trang (Page) CustomerBookingPage
+ * 
+ * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
+ * Đường dẫn tương đối: src/app/app/customer/booking/page.tsx
+ */
 export default function CustomerBookingPage() {
   return (
     <main className="mx-auto w-full max-w-5xl p-4 md:p-6 lg:p-8">

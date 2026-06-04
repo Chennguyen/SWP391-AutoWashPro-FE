@@ -21,6 +21,12 @@ const TABS: { id: LoyaltyTab; label: string; icon: React.ElementType }[] = [
   { id: "promotions", label: "Khuyến mãi", icon: Megaphone },
 ];
 
+/**
+ * Thành phần (Component) AdminLoyaltyPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminLoyaltyPage() {
   const token = useAdminToken();
   const [activeTab, setActiveTab] = useState<LoyaltyTab>("settings");

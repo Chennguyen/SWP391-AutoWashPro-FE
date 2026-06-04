@@ -33,6 +33,12 @@ function clearAuthSession() {
   window.dispatchEvent(new Event("autowash-auth"));
 }
 
+/**
+ * Thành phần (Component) AdminSidebar
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();

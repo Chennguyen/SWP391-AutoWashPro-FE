@@ -26,6 +26,12 @@ function getDisplayRankName(rankName: string): string {
   return rankName === "Member" ? "Member" : `${rankName} Member`;
 }
 
+/**
+ * Thành phần (Component) DashboardRankWidget
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function DashboardRankWidget() {
   const [token, setToken] = useState("");
   const [info, setInfo] = useState<LoyaltyInfo | null>(null);

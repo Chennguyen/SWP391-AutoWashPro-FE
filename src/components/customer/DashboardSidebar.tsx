@@ -32,6 +32,12 @@ function clearAuthSession() {
   window.dispatchEvent(new Event("autowash-auth"));
 }
 
+/**
+ * Thành phần (Component) DashboardSidebar
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -56,7 +62,7 @@ export function DashboardSidebar() {
             className="text-sm font-bold tracking-[0.2em] uppercase shrink-0"
             style={{ color: "#ffffff" }}
           >
-            AUTOWASH <span style={{ color: "#2563EB" }}>PRO</span>
+            AUTOWASH <span style={{ color: "#CDB390" }}>PRO</span>
           </Link>
 
           {/* Desktop nav */}
@@ -72,7 +78,7 @@ export function DashboardSidebar() {
                   href={href}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-                    active ? "bg-[#2563EB]" : "hover:bg-white/10"
+                    active ? "bg-[#CDB390]" : "hover:bg-white/10"
                   )}
                   style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
                   aria-current={active ? "page" : undefined}
@@ -130,7 +136,7 @@ export function DashboardSidebar() {
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
           <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase text-white">
-            AUTOWASH <span style={{ color: "#2563EB" }}>PRO</span>
+            AUTOWASH <span style={{ color: "#CDB390" }}>PRO</span>
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
@@ -154,7 +160,7 @@ export function DashboardSidebar() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                  active ? "bg-[#2563EB]" : "hover:bg-white/10"
+                  active ? "bg-[#CDB390]" : "hover:bg-white/10"
                 )}
                 style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
                 aria-current={active ? "page" : undefined}

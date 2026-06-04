@@ -15,8 +15,8 @@ interface Props {
 }
 
 const DISCOUNT_TYPE_OPTIONS = [
-  { value: 0, label: "Giảm theo %" },
-  { value: 1, label: "Giảm số tiền cố định (VNĐ)" },
+  { value: "Percentage", label: "Giảm theo %" },
+  { value: "FixedAmount", label: "Giảm số tiền cố định (VNĐ)" },
 ];
 
 function formatDate(iso: string) {
@@ -59,7 +59,7 @@ interface CreatePromotionModalProps {
 function CreatePromotionModal({ onClose, onSaved, token }: CreatePromotionModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [discountType, setDiscountType] = useState(1); // default: fixed amount
+  const [discountType, setDiscountType] = useState("FixedAmount"); // default: fixed amount
   const [discountValue, setDiscountValue] = useState(15000);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -67,10 +67,23 @@ function CreatePromotionModal({ onClose, onSaved, token }: CreatePromotionModalP
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (discountType === "Percentage") {
+      setDiscountValue(10);
+    } else {
+      setDiscountValue(15000);
+    }
+  }, [discountType]);
+
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!startDate || !endDate) {
       setError("Vui lòng chọn ngày bắt đầu và kết thúc.");
+      return;
+    }
+    if (discountType === "Percentage" && (discountValue < 1 || discountValue > 100)) {
+      setError("Giá trị giảm theo % phải nằm trong khoảng từ 1% đến 100%.");
       return;
     }
     setSaving(true);
@@ -135,7 +148,7 @@ function CreatePromotionModal({ onClose, onSaved, token }: CreatePromotionModalP
               <label className="mb-1 block text-sm font-medium text-slate-700">Loại giảm giá</label>
               <select
                 value={discountType}
-                onChange={(e) => setDiscountType(Number(e.target.value))}
+                onChange={(e) => setDiscountType(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               >
                 {DISCOUNT_TYPE_OPTIONS.map((o) => (
@@ -145,11 +158,12 @@ function CreatePromotionModal({ onClose, onSaved, token }: CreatePromotionModalP
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
-                Giá trị giảm {discountType === 0 ? "(%)" : "(VNĐ)"}
+                Giá trị giảm {discountType === "Percentage" ? "(%)" : "(VNĐ)"}
               </label>
               <input
                 type="number"
                 min={1}
+                max={discountType === "Percentage" ? 100 : undefined}
                 value={discountValue}
                 onChange={(e) => setDiscountValue(Number(e.target.value))}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -217,6 +231,12 @@ function CreatePromotionModal({ onClose, onSaved, token }: CreatePromotionModalP
   );
 }
 
+/**
+ * Thành phần (Component) PromotionsTab
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function PromotionsTab({ token }: Props) {
   const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -296,7 +316,7 @@ export function PromotionsTab({ token }: Props) {
                     {DISCOUNT_TYPE_OPTIONS.find((o) => o.value === p.discountType)?.label ?? "—"}
                   </td>
                   <td className="px-4 py-3 font-semibold text-emerald-600">
-                    {p.discountType === 0
+                    {p.discountType === "Percentage"
                       ? `${p.discountValue}%`
                       : `${p.discountValue.toLocaleString("vi-VN")}đ`}
                   </td>

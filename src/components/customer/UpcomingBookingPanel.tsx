@@ -105,6 +105,74 @@ function CancelModal({
   );
 }
 
+// ─── Check-In Confirm Modal ──────────────────────────────────────────────────────
+
+function CheckInConfirmModal({
+  booking,
+  onConfirm,
+  onClose,
+  loading,
+}: {
+  booking: CustomerBooking;
+  onConfirm: () => void;
+  onClose: () => void;
+  loading: boolean;
+}) {
+  const servicePrice = booking.totalPrice ?? 100000;
+  const depositAmount = Math.round(servicePrice * 0.3);
+  const remainingAmount = servicePrice - depositAmount;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Xác nhận Check-in"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-bold text-slate-900">Xác nhận Check-in</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Vui lòng thanh toán phần còn lại tại quầy để bắt đầu dịch vụ.
+        </p>
+
+        <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex justify-between text-sm text-slate-600">
+            <span>Tổng tiền dịch vụ:</span>
+            <span className="font-semibold text-slate-900">{servicePrice.toLocaleString("vi-VN")}₫</span>
+          </div>
+          <div className="flex justify-between text-sm text-emerald-600">
+            <span>Đã đặt cọc (30%):</span>
+            <span className="font-semibold">-{depositAmount.toLocaleString("vi-VN")}₫</span>
+          </div>
+          <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900">
+            <span>Cần thanh toán thêm:</span>
+            <span className="text-blue-600">{remainingAmount.toLocaleString("vi-VN")}₫</span>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
+          >
+            Đóng
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Đang xử lý..." : "Xác nhận Check-in"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Detail Panel ───────────────────────────────────────────────────────────────
 
 function BookingDetailPanel({
@@ -119,6 +187,7 @@ function BookingDetailPanel({
   token: string;
 }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -136,9 +205,14 @@ function BookingDetailPanel({
     setCancelError(null);
     try {
       await checkInBooking(token, booking.id);
+      setShowCheckInModal(false);
       await onChanged();
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : "Không thể check-in booking.");
+      if (err instanceof ApiError && err.status >= 500) {
+        setCancelError("Đang xảy ra lỗi vui lòng quay lại sau");
+      } else {
+        setCancelError(err instanceof Error ? err.message : "Không thể check-in booking.");
+      }
     } finally {
       setCheckingIn(false);
     }
@@ -157,7 +231,11 @@ function BookingDetailPanel({
       setShowCancelModal(false);
       await onChanged();
     } catch (err) {
-      setCancelError(err instanceof Error ? err.message : "Không thể hủy lịch, vui lòng thử lại.");
+      if (err instanceof ApiError && err.status >= 500) {
+        setCancelError("Đang xảy ra lỗi vui lòng quay lại sau");
+      } else {
+        setCancelError(err instanceof Error ? err.message : "Không thể hủy lịch, vui lòng thử lại.");
+      }
     } finally {
       setCancelling(false);
     }
@@ -196,64 +274,118 @@ function BookingDetailPanel({
 
       {/* Detail grid */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-lg bg-slate-50 p-4">
+        <div className="rounded-lg bg-slate-50 p-2.5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <CalendarDays size={13} aria-hidden />
             Ngày
           </div>
-          <p className="mt-2 font-bold text-slate-950">{formatDateOnly(booking)}</p>
+          <p className="mt-1 text-sm font-bold text-slate-950">{formatDateOnly(booking)}</p>
         </div>
 
-        <div className="rounded-lg bg-slate-50 p-4">
+        <div className="rounded-lg bg-slate-50 p-2.5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <Clock size={13} aria-hidden />
             Giờ
           </div>
-          <p className="mt-2 font-bold text-slate-950">{formatTimeRange(booking)}</p>
+          <p className="mt-1 text-sm font-bold text-slate-950">{formatTimeRange(booking)}</p>
         </div>
 
-        <div className="rounded-lg bg-slate-50 p-4">
+        <div className="rounded-lg bg-slate-50 p-2.5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <Car size={13} aria-hidden />
             Xe
           </div>
-          <p className="mt-2 font-bold text-slate-950">
+          <p className="mt-1 text-sm font-bold text-slate-950">
             {booking.vehicleLicensePlate || "Xe đã chọn"}
           </p>
         </div>
 
         {booking.serviceName && (
-          <div className="rounded-lg bg-slate-50 p-4">
+          <div className="rounded-lg bg-slate-50 p-2.5">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <Wrench size={13} aria-hidden />
               Dịch vụ
             </div>
-            <p className="mt-2 font-bold text-slate-950">{booking.serviceName}</p>
+            <p className="mt-1 text-sm font-bold text-slate-950">{booking.serviceName}</p>
           </div>
         )}
 
-        {booking.totalPrice !== undefined && (
-          <div className="rounded-lg bg-slate-50 p-4">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <Banknote size={13} aria-hidden />
-              Tổng tiền
-            </div>
-            <p className="mt-2 font-bold text-slate-950">
-              {booking.totalPrice.toLocaleString("vi-VN")}₫
-            </p>
-          </div>
-        )}
-
-        <div className="rounded-lg bg-slate-50 p-4 sm:col-span-2">
+        <div className="rounded-lg bg-slate-50 p-2.5 sm:col-span-2">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             <MapPin size={13} aria-hidden />
             Mã lịch
           </div>
-          <p className="mt-2 font-mono font-bold text-slate-950">{booking.id}</p>
+          <p className="mt-1 font-mono text-sm font-bold text-slate-950">{booking.id}</p>
         </div>
       </div>
 
-      {/* Error */}
+      {/* ── Bảng Chi tiết Thanh toán (flat list — giống lúc đặt lịch) ── */}
+      {(() => {
+        /* Dự phòng: nếu API không trả totalPrice thì fallback = 100.000₫ */
+        const totalPrice = booking.totalPrice ?? 100_000;
+        const depositAmount = Math.round(totalPrice * 0.3);
+        const remainingAmount = totalPrice - depositAmount;
+        return (
+          <div className="mt-4 rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Chi tiết thanh toán
+              </p>
+            </div>
+            <div className="px-4 py-3 space-y-2.5">
+              {/* Giá dịch vụ gốc (100k cố định) */}
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">Giá dịch vụ gốc</span>
+                <span className="font-medium text-slate-700">100.000 ₫</span>
+              </div>
+
+              {/* Giảm giá nếu totalPrice < 100k */}
+              {totalPrice < 100_000 && (
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: "#EE4D2D" }}>Ưu đãi giảm giá</span>
+                  <span className="font-medium" style={{ color: "#EE4D2D" }}>
+                    -{(100_000 - totalPrice).toLocaleString("vi-VN")}₫
+                  </span>
+                </div>
+              )}
+
+              {/* Dashed divider */}
+              <div className="border-t border-dashed border-slate-200" />
+
+              {/* Tổng tiền phải trả — nhãn giữ đậm, giá trị đồng màu các dòng khác */}
+              <div className="flex justify-between text-sm">
+                <span className="font-semibold text-slate-800">Tổng tiền phải trả</span>
+                <span className="font-medium text-slate-700">
+                  {totalPrice.toLocaleString("vi-VN")}₫
+                </span>
+              </div>
+
+              {/* Solid divider */}
+              <div className="border-t border-slate-200" />
+
+              {/* Số tiền phải cọc (30%) — flat, đồng màu, có dấu trừ để thể hiện khấu trừ */}
+              <div className="flex justify-between text-sm">
+                <div>
+                  <span className="text-slate-600">Số tiền phải cọc (30%)</span>
+                  <p className="text-xs text-slate-400">Bạn phải cọc trước 30% để giữ slot</p>
+                </div>
+                <span className="font-medium text-slate-700">
+                  -{depositAmount.toLocaleString("vi-VN")}₫
+                </span>
+              </div>
+
+              {/* Thanh toán ngay khi check-in (70%) — flat */}
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Thanh toán ngay khi check-in (70%)</span>
+                <span className="font-medium text-slate-700">
+                  {remainingAmount.toLocaleString("vi-VN")}₫
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {cancelError && (
         <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {cancelError}
@@ -271,12 +403,12 @@ function BookingDetailPanel({
         <div className="mt-5">
           <button
             type="button"
-            onClick={() => void handleCheckIn()}
+            onClick={() => setShowCheckInModal(true)}
             disabled={checkingIn || cancelling}
             className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <CheckCircle2 size={16} aria-hidden />
-            {checkingIn ? "Đang check-in..." : "Check-in"}
+            Check-in
           </button>
         </div>
       ) : null}
@@ -295,6 +427,15 @@ function BookingDetailPanel({
         </div>
       )}
 
+      {showCheckInModal && (
+        <CheckInConfirmModal
+          booking={booking}
+          onConfirm={handleCheckIn}
+          onClose={() => { setShowCheckInModal(false); setCancelError(null); }}
+          loading={checkingIn}
+        />
+      )}
+
       {showCancelModal && (
         <CancelModal
           bookingId={booking.id}
@@ -309,6 +450,12 @@ function BookingDetailPanel({
 
 // ─── Main Panel ─────────────────────────────────────────────────────────────────
 
+/**
+ * Thành phần (Component) UpcomingBookingPanel
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function UpcomingBookingPanel() {
   const tokenSnapshot = useSyncExternalStore(
     subscribeToToken,

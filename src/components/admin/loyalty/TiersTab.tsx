@@ -160,6 +160,12 @@ type ModalMode =
   | { kind: "edit"; tier: AdminTier }
   | null;
 
+/**
+ * Thành phần (Component) TiersTab
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function TiersTab({ token }: Props) {
   const [tiers, setTiers] = useState<AdminTier[]>([]);
   const [loading, setLoading] = useState(false);

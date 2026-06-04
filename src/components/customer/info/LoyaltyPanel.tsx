@@ -182,7 +182,6 @@ function MembershipCard({ info }: { info: LoyaltyInfo }) {
         </div>
       )}
 
-      {/* Benefits */}
       {info.tier?.priorityBookingDays ? (
         <div className="mt-4 flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
           <Sparkles size={14} className={tierStyle.icon} />
@@ -191,10 +190,10 @@ function MembershipCard({ info }: { info: LoyaltyInfo }) {
           </p>
         </div>
       ) : null}
-      {info.tier?.benefits?.prioritySlotBooking ? (
+      {info.tier?.description ? (
         <div className="mt-2 flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
           <Star size={14} className={tierStyle.icon} />
-          <p className="text-xs font-semibold">Ưu tiên đặt slot giờ cao điểm</p>
+          <p className="text-xs font-semibold">{info.tier.description}</p>
         </div>
       ) : null}
     </div>
@@ -356,6 +355,12 @@ function PointTransactionItem({ tx }: { tx: PointTransaction }) {
 
 type PanelSection = "overview" | "history";
 
+/**
+ * Thành phần (Component) LoyaltyPanel
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function LoyaltyPanel({ token, onUnauthorized }: LoyaltyPanelProps) {
   const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
   const [rewards, setRewards] = useState<Reward[]>([]);

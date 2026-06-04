@@ -66,6 +66,12 @@ function buildBookedVehicleMap(bookings: CustomerBooking[]) {
   return { ids, plates };
 }
 
+/**
+ * Thành phần (Component) VehicleStep
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function VehicleStep({
   token,
   selected,

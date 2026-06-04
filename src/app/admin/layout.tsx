@@ -9,6 +9,12 @@ function getStoredRole() {
   return window.localStorage.getItem("role") ?? "";
 }
 
+/**
+ * Bố cục (Layout) AdminLayout
+ * 
+ * Chức năng: Định nghĩa khung bố cục chung (Layout Template) cho hệ thống AutoWash Pro.
+ * Vai trò: Quản lý cấu trúc bao bọc giao diện chung cho các trang con.
+ */
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);

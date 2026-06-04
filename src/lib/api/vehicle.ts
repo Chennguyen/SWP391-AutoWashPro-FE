@@ -38,15 +38,34 @@ type VehicleListResponse =
       results?: VehicleRecord[];
     };
 
+/**
+ * Xây dựng URL cho các endpoint danh sách xe.
+ * 
+ * @param path Đường dẫn hậu tố.
+ * @returns Chuỗi URL API đầy đủ.
+ */
 function vehiclesEndpoint(path = ""): string {
   return `${apiBase()}/api/v1/vehicles${path}`;
 }
 
+/**
+ * Xây dựng URL cho các endpoint xe cá nhân theo ID.
+ * 
+ * @param id Khóa định danh của xe.
+ * @param query Các tham số truy vấn tùy chọn.
+ * @returns Chuỗi URL API đầy đủ.
+ */
 function vehicleEndpoint(id: string, query = ""): string {
   const suffix = query ? `?${query}` : "";
   return vehiclesEndpoint(`/${encodeURIComponent(id)}${suffix}`);
 }
 
+/**
+ * Ép kiểu các đầu vào không xác định thành kiểu chuỗi chuẩn, xử lý các giá trị null/undefined.
+ * 
+ * @param value Giá trị cần kiểm tra.
+ * @returns Biểu diễn chuỗi.
+ */
 function stringValue(value: unknown): string {
   if (value === undefined || value === null) {
     return "";
@@ -55,6 +74,13 @@ function stringValue(value: unknown): string {
   return String(value);
 }
 
+/**
+ * Chuẩn hóa một bản ghi xe thô từ API để phù hợp với schema Vehicle của UI.
+ * Xử lý các biến thể trong viết hoa/thường của tên trường.
+ * 
+ * @param raw Bản ghi xe thô từ API.
+ * @returns Giao diện Vehicle đã chuẩn hóa.
+ */
 function normalizeVehicle(raw: VehicleRecord): Vehicle {
   const id = stringValue(
     raw.vehicleId ??
@@ -81,6 +107,12 @@ function normalizeVehicle(raw: VehicleRecord): Vehicle {
   };
 }
 
+/**
+ * Phân giải danh sách xe từ các biến thể khác nhau của phong bì phản hồi REST.
+ * 
+ * @param body Phản hồi API chứa tập hợp các xe.
+ * @returns Mảng Vehicle đã được chuẩn hóa.
+ */
 function normalizeVehicles(body: VehicleListResponse): Vehicle[] {
   if (Array.isArray(body)) {
     return body.map(normalizeVehicle);
@@ -98,10 +130,24 @@ function normalizeVehicles(body: VehicleListResponse): Vehicle[] {
   return (body.items ?? body.results ?? []).map(normalizeVehicle);
 }
 
+/**
+ * Giải nén các bản ghi chi tiết xe đơn lẻ từ các cấu trúc phong bì có thể có.
+ * 
+ * @param body Phản hồi API chứa thông tin xe.
+ * @returns Bản ghi thông tin xe thô.
+ */
 function unwrapVehicle(body: VehicleRecord | { data?: VehicleRecord }): VehicleRecord {
   return "data" in body && body.data ? body.data : (body as VehicleRecord);
 }
 
+/**
+ * Lấy danh sách xe đã được phân trang được đăng ký với hồ sơ khách hàng đã xác thực.
+ * 
+ * @param token Token xác thực.
+ * @param page Chỉ số trang đích.
+ * @param pageSize Số lượng bản ghi trên mỗi trang.
+ * @returns Một promise giải quyết thành mảng Vehicle.
+ */
 export async function getVehicles(token: string, page = 1, pageSize = 20): Promise<Vehicle[]> {
   const params = new URLSearchParams({
     page: String(page),
@@ -119,6 +165,13 @@ export async function getVehicles(token: string, page = 1, pageSize = 20): Promi
   return normalizeVehicles(body);
 }
 
+/**
+ * Lấy thông tin của một chiếc xe duy nhất theo ID.
+ * 
+ * @param token Token xác thực.
+ * @param id Khóa định danh của xe.
+ * @returns Một promise giải quyết thành thông tin Vehicle.
+ */
 export async function getVehicle(token: string, id: string): Promise<Vehicle> {
   const params = new URLSearchParams({
     _: String(Date.now()),
@@ -137,6 +190,13 @@ export async function getVehicle(token: string, id: string): Promise<Vehicle> {
   return normalizeVehicle(unwrapVehicle(body));
 }
 
+/**
+ * Đăng ký một chiếc xe mới với tệp tải ảnh lên (yêu cầu multipart/form-data).
+ * 
+ * @param token Token xác thực.
+ * @param payload Dữ liệu xe thêm mới (biển số, hãng xe, dòng xe, màu xe, tệp ảnh biển số).
+ * @returns Một promise giải quyết thành chiếc xe Vehicle mới được đăng ký.
+ */
 export async function addVehicle(
   token: string,
   payload: AddVehiclePayload,
@@ -160,6 +220,14 @@ export async function addVehicle(
   return normalizeVehicle(unwrapVehicle(body));
 }
 
+/**
+ * Cập nhật thông tin các trường của một chiếc xe hiện có.
+ * 
+ * @param token Token xác thực.
+ * @param id ID của xe đích cần cập nhật.
+ * @param payload Các trường thông tin cần cập nhật (hãng xe, dòng xe, màu xe).
+ * @returns Một promise giải quyết thành đối tượng xe Vehicle đã được cập nhật.
+ */
 export async function updateVehicle(
   token: string,
   id: string,
@@ -182,6 +250,13 @@ export async function updateVehicle(
   return normalizeVehicle(unwrapVehicle(body));
 }
 
+/**
+ * Hủy liên kết hoặc xóa một bản ghi xe khỏi hồ sơ khách hàng.
+ * 
+ * @param token Token xác thực.
+ * @param id ID của xe cần xóa.
+ * @returns Một promise giải quyết khi xe đã được xóa thành công.
+ */
 export async function deleteVehicle(token: string, id: string): Promise<void> {
   const res = await fetch(vehicleEndpoint(id), {
     method: "DELETE",

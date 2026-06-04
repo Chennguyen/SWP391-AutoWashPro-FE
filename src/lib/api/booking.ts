@@ -130,6 +130,12 @@ type BookingListResponse =
       results?: CustomerBookingRecord[];
     };
 
+/**
+ * Trích xuất danh sách slot từ phản hồi API về dạng mảng thô.
+ * 
+ * @param body Phản hồi của API chứa thông tin slot.
+ * @returns Mảng các bản ghi slot thô.
+ */
 function unwrapList(body: SlotListResponse): SlotRecord[] {
   if (Array.isArray(body)) {
     return body;
@@ -156,13 +162,25 @@ function unwrapList(body: SlotListResponse): SlotRecord[] {
   return body.items ?? body.results ?? [];
 }
 
-/** Convert YYYY-MM-DD → DD/MM/YYYY. Returns the original value if it does not match. */
+/**
+ * Chuyển đổi chuỗi ngày định dạng ISO YYYY-MM-DD thành định dạng ngày Việt Nam DD/MM/YYYY.
+ * 
+ * @param isoDate Chuỗi ngày đầu vào định dạng YYYY-MM-DD.
+ * @returns Chuỗi ngày định dạng DD/MM/YYYY hoặc giá trị gốc nếu không khớp.
+ */
 function toViDate(isoDate: string): string {
   const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (match) return `${match[3]}/${match[2]}/${match[1]}`;
   return isoDate;
 }
 
+/**
+ * Chuẩn hóa chuỗi thời gian về định dạng HH:MM.
+ * Hỗ trợ phân tích cú pháp chuỗi ngày giờ ISO và đệm thêm số 0 cho giờ có một chữ số.
+ * 
+ * @param value Giá trị thời gian từ API.
+ * @returns Chuỗi thời gian định dạng HH:MM.
+ */
 function toHHMM(value = ""): string {
   if (/^\d{2}:\d{2}$/.test(value)) {
     return value;
@@ -181,6 +199,12 @@ function toHHMM(value = ""): string {
   return value;
 }
 
+/**
+ * Xác định tính khả dụng của một slot dựa trên các từ khóa trạng thái.
+ * 
+ * @param status Chuỗi trạng thái từ API.
+ * @returns True nếu khả dụng, false nếu đã bận/đã đặt, hoặc undefined nếu không xác định được.
+ */
 function availabilityFromStatus(status?: string): boolean | undefined {
   const normalized = status?.trim().toLowerCase();
   if (!normalized) {
@@ -216,6 +240,13 @@ function availabilityFromStatus(status?: string): boolean | undefined {
   return undefined;
 }
 
+/**
+ * Ép kiểu các dạng dữ liệu đầu vào khác nhau thành giá trị boolean.
+ * Hỗ trợ các từ khóa chuỗi ("available", "true", "booked") và các số nhị phân.
+ * 
+ * @param value Giá trị cần ép kiểu.
+ * @returns Một giá trị boolean, hoặc undefined nếu ép kiểu thất bại.
+ */
 function booleanValue(value: unknown): boolean | undefined {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") {
@@ -233,6 +264,13 @@ function booleanValue(value: unknown): boolean | undefined {
   return undefined;
 }
 
+/**
+ * Chuẩn hóa một bản ghi slot thô từ API để phù hợp với schema BookingSlot của UI.
+ * Tính toán tính khả dụng dựa trên trạng thái đã đặt, trạng thái bận và từ khóa trạng thái.
+ * 
+ * @param raw Bản ghi slot thô từ database/API.
+ * @returns Đối tượng BookingSlot đã được định dạng.
+ */
 function normalizeSlot(raw: SlotRecord): BookingSlot {
   const status = raw.status ?? raw.Status;
   const hasBookingReference = raw.bookingId !== undefined || raw.BookingId !== undefined;
@@ -263,6 +301,12 @@ function normalizeSlot(raw: SlotRecord): BookingSlot {
   };
 }
 
+/**
+ * Chuẩn hóa phản hồi đặt lịch thô để trích xuất thông tin xác nhận.
+ * 
+ * @param body Phản hồi API sau khi tạo đặt lịch.
+ * @returns Cấu trúc BookingResult đồng nhất.
+ */
 function normalizeBookingResult(body: BookingResponse): BookingResult {
   const raw = body.data ?? body.Data ?? body;
   const bookingId = String(raw.bookingId ?? raw.BookingId ?? raw.id ?? raw.Id ?? "");
@@ -279,6 +323,12 @@ function normalizeBookingResult(body: BookingResponse): BookingResult {
   };
 }
 
+/**
+ * Trích xuất danh sách đặt lịch từ các lớp bao bọc phản hồi API.
+ * 
+ * @param body Phản hồi API chứa tập hợp các đặt lịch.
+ * @returns Mảng các bản ghi đặt lịch.
+ */
 function unwrapBookings(body: BookingListResponse): CustomerBookingRecord[] {
   if (Array.isArray(body)) {
     return body;
@@ -305,6 +355,13 @@ function unwrapBookings(body: BookingListResponse): CustomerBookingRecord[] {
   return body.items ?? body.results ?? [];
 }
 
+/**
+ * Chuẩn hóa một bản ghi đặt lịch từ database thành đối tượng CustomerBooking để hiển thị trên giao diện.
+ * Xử lý các giá trị dự phòng khi thiếu thuộc tính và các biến thể về cách viết hoa/thường của API.
+ * 
+ * @param raw Bản ghi đặt lịch thô.
+ * @returns Đối tượng CustomerBooking đã được chuẩn hóa.
+ */
 function normalizeCustomerBooking(raw: CustomerBookingRecord): CustomerBooking {
   const branch = raw.branch ?? raw.Branch;
   const vehicle = raw.vehicle ?? raw.Vehicle;
@@ -358,6 +415,14 @@ function normalizeCustomerBooking(raw: CustomerBookingRecord): CustomerBooking {
   };
 }
 
+/**
+ * Lấy danh sách các khung giờ cho một chi nhánh và ngày cụ thể.
+ * 
+ * @param token Token xác thực.
+ * @param branchId ID của chi nhánh mục tiêu.
+ * @param date Chuỗi ngày mục tiêu (YYYY-MM-DD).
+ * @returns Một promise giải quyết thành một mảng các đối tượng BookingSlot.
+ */
 export async function getSlots(
   token: string,
   branchId: string,
@@ -382,6 +447,13 @@ export async function getSlots(
   return rawList.map(normalizeSlot).filter((slot) => slot.time);
 }
 
+/**
+ * Tạo một lịch đặt chỗ rửa xe mới.
+ * 
+ * @param token Token xác thực.
+ * @param payload Chi tiết dữ liệu đặt lịch (chi nhánh, xe, ngày, khung giờ bắt đầu, voucher, điểm đổi).
+ * @returns Một promise giải quyết thành BookingResult chứa thông tin xác nhận đặt lịch.
+ */
 export async function createBooking(
   token: string,
   payload: CreateBookingPayload,
@@ -406,6 +478,18 @@ export async function createBooking(
   return normalizeBookingResult(body);
 }
 
+/**
+ * Lấy danh sách lịch đặt của khách hàng được lọc theo khoảng ngày và trạng thái.
+ * Tự động truyền cả định dạng ngày ISO YYYY-MM-DD và Việt Nam DD/MM/YYYY để bộ lọc backend hoạt động chính xác.
+ * 
+ * @param token Token xác thực.
+ * @param fromDate Chuỗi ngày bắt đầu (YYYY-MM-DD).
+ * @param toDate Chuỗi ngày kết thúc (YYYY-MM-DD).
+ * @param page Chỉ số trang phân trang hiện tại.
+ * @param pageSize Số lượng bản ghi trên mỗi trang.
+ * @param status Tùy chọn trạng thái lọc (ví dụ: "PENDING", "COMPLETED").
+ * @returns Một promise giải quyết thành mảng CustomerBooking đã được chuẩn hóa.
+ */
 export async function getBookings(
   token: string,
   fromDate: string,
@@ -414,8 +498,6 @@ export async function getBookings(
   pageSize = 20,
   status?: string,
 ): Promise<CustomerBooking[]> {
-  // Send both YYYY-MM-DD (ISO) and DD/MM/YYYY (Vietnamese) formats so the
-  // backend date filter works regardless of which format it expects.
   const fromVi = toViDate(fromDate);
   const toVi = toViDate(toDate);
   const params = new URLSearchParams({
@@ -441,6 +523,13 @@ export async function getBookings(
   return unwrapBookings(body).map(normalizeCustomerBooking);
 }
 
+/**
+ * Lấy thông tin chi tiết của một lịch đặt dựa trên ID.
+ * 
+ * @param token Token xác thực.
+ * @param id ID của lịch đặt.
+ * @returns Một promise giải quyết thành đối tượng CustomerBooking tương ứng.
+ */
 export async function getBooking(token: string, id: string): Promise<CustomerBooking> {
   const res = await fetch(`${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}`, {
     cache: "no-store",
@@ -457,6 +546,13 @@ export async function getBooking(token: string, id: string): Promise<CustomerBoo
   return normalizeCustomerBooking(record);
 }
 
+/**
+ * Thực hiện check-in cho khách hàng tại chi nhánh khi họ đến đúng khung giờ.
+ * 
+ * @param token Token xác thực.
+ * @param id ID của lịch đặt cần check-in.
+ * @returns Một promise giải quyết khi hoạt động check-in hoàn tất.
+ */
 export async function checkInBooking(token: string, id: string): Promise<void> {
   const res = await fetch(
     `${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}/check-in`,
@@ -473,6 +569,14 @@ export async function checkInBooking(token: string, id: string): Promise<void> {
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Hủy một lịch đặt đã hẹn kèm theo lý do cụ thể.
+ * 
+ * @param token Token xác thực.
+ * @param id ID của lịch đặt cần hủy.
+ * @param reason Lý do giải thích tại sao lịch đặt bị hủy.
+ * @returns Một promise giải quyết khi hoạt động hủy thành công.
+ */
 export async function cancelBooking(
   token: string,
   id: string,
@@ -487,7 +591,7 @@ export async function cancelBooking(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ Reason: reason }),
+      body: JSON.stringify({ reason }),
     },
   );
 

@@ -215,6 +215,12 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
   );
 }
 
+/**
+ * Thành phần (Component) RewardsTab
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function RewardsTab({ token }: Props) {
   const [rewards, setRewards] = useState<AdminReward[]>([]);
   const [loading, setLoading] = useState(false);

@@ -1,6 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
+/**
+ * Thành phần (Component) HeroSection
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function HeroSection() {
   return (
     <section className="relative h-screen min-h-[680px] flex items-end pb-24 md:pb-32 bg-[#050505] overflow-hidden">

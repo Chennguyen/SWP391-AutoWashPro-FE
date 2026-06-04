@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
+import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Star } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
-import { getLoyaltyInfo, type LoyaltyInfo } from "@/lib/api/loyalty";
+import { getLoyaltyInfo, getAllTiers, type LoyaltyInfo, type LoyaltyTier } from "@/lib/api/loyalty";
 import { getNextRankTier, getRankProgress, RANK_TIERS, resolveRankTier } from "@/lib/rank";
 import { cn } from "@/lib/utils";
 
@@ -16,8 +16,15 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
 
+/**
+ * Thành phần (Component) RankPanel
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
   const [info, setInfo] = useState<LoyaltyInfo | null>(null);
+  const [tiers, setTiers] = useState<LoyaltyTier[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +33,12 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      setInfo(await getLoyaltyInfo(token));
+      const [fetchedInfo, fetchedTiers] = await Promise.all([
+        getLoyaltyInfo(token),
+        getAllTiers(),
+      ]);
+      setInfo(fetchedInfo);
+      setTiers(fetchedTiers.sort((a, b) => a.level - b.level));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         onUnauthorized();
@@ -47,6 +59,17 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
     }, 0);
     return () => window.clearTimeout(id);
   }, [loadRank, token]);
+
+  // Rank-up celebration effect
+  useEffect(() => {
+    if (!info) return;
+    const previousTierId = window.localStorage.getItem("lastTierId");
+    if (previousTierId && info.tier?.id && previousTierId !== info.tier.id) {
+      // Trigger simple notification
+      alert(`🎉 Chúc mừng bạn đã thăng hạng lên ${info.tier.name}! 🎉`);
+    }
+    window.localStorage.setItem("lastTierId", info.tier?.id ?? "");
+  }, [info]);
 
   if (!token) {
     return (
@@ -101,7 +124,7 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
 
       {info ? (
         <>
-          <div className={cn("rounded-lg border p-5", currentRank.cardClass, currentRank.glowClass)}>
+          <div className={cn("rounded-lg border p-5 transition-all duration-700", currentRank.cardClass, currentRank.glowClass)}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest opacity-75">Hạng hiện tại</p>
@@ -110,7 +133,7 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
                   <p className="text-3xl font-black">{currentRank.name}</p>
                 </div>
               </div>
-              <span className={cn("rounded-full border px-3 py-1 text-xs font-bold", currentRank.badgeClass)}>
+              <span className={cn("rounded-full border px-3 py-1 text-xs font-bold transition-all duration-700", currentRank.badgeClass)}>
                 Cấp {currentRank.level}
               </span>
             </div>
@@ -137,7 +160,7 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/20">
                 <div
-                  className={cn("h-full rounded-full bg-gradient-to-r transition-all", currentRank.progressClass)}
+                  className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-1000", currentRank.progressClass)}
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -145,23 +168,27 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            {RANK_TIERS.map((tier) => {
-              const reached = currentRank.level >= tier.level;
+            {(tiers.length > 0 ? tiers : (RANK_TIERS as unknown as LoyaltyTier[])).map((tierData, index) => {
+              // Map dynamic tiers to styled rank UI
+              const tierLevel = tierData.level;
+              const reached = currentRank.level >= tierLevel;
+              const styleTier = RANK_TIERS[index] || RANK_TIERS[0]; // fallback to first style if out of bounds
+
               return (
                 <article
-                  key={tier.level}
+                  key={tierLevel}
                   className={cn(
-                    "rank-tier-card rounded-lg border p-4 transition",
+                    "rank-tier-card rounded-lg border p-4 transition duration-500",
                     reached ? "rank-tier-card-reached" : "rank-tier-card-locked",
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">Cấp {tier.level}</p>
-                      <h3 className="mt-1 text-lg font-bold text-slate-950">{tier.name}</h3>
+                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">Cấp {tierLevel}</p>
+                      <h3 className="mt-1 text-lg font-bold text-slate-950">{tierData.name}</h3>
                     </div>
                     {reached ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 animate-in zoom-in duration-300">
                         <CheckCircle2 size={12} aria-hidden />
                         Đã đạt
                       </span>
@@ -171,20 +198,22 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
                   <div className="mt-4 space-y-2 text-sm text-slate-600">
                     <p className="flex gap-2">
                       <TrendingUp size={15} className="mt-0.5 shrink-0 text-blue-600" aria-hidden />
-                      Yêu cầu: {formatNumber(tier.requiredWashes)} lần rửa
+                      Yêu cầu: {formatNumber(tierData.requiredWashes)} lần rửa
                     </p>
-                    <p className="flex gap-2">
-                      <Sparkles size={15} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
-                      {tier.discount}
-                    </p>
-                    <p className="flex gap-2">
-                      <ShieldCheck size={15} className="mt-0.5 shrink-0 text-emerald-600" aria-hidden />
-                      {tier.priority}
-                    </p>
-                    <p className="flex gap-2">
-                      <Award size={15} className="mt-0.5 shrink-0 text-violet-600" aria-hidden />
-                      {tier.bookingWindow}
-                    </p>
+                    
+                    {tierData.description && (
+                      <p className="flex gap-2">
+                        <Star size={15} className="mt-0.5 shrink-0 text-amber-500" aria-hidden />
+                        {tierData.description}
+                      </p>
+                    )}
+
+                    {tierData.priorityBookingDays !== undefined && tierData.priorityBookingDays > 0 && (
+                      <p className="flex gap-2">
+                        <ShieldCheck size={15} className="mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+                        Quyền đặt lịch trước tối đa {tierData.priorityBookingDays} ngày
+                      </p>
+                    )}
                   </div>
                 </article>
               );

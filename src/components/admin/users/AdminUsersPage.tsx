@@ -17,6 +17,12 @@ import { cn } from "@/lib/utils";
 
 type UserTab = "all" | "pending";
 
+/**
+ * Thành phần (Component) AdminUsersPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminUsersPage() {
   const token = useAdminToken();
   const [tab, setTab] = useState<UserTab>("all");
@@ -301,6 +307,17 @@ export function AdminUsersPage() {
 
             {/* Chân modal */}
             <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdjustTarget(selectedUser);
+                  setSelectedUser(null);
+                }}
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+              >
+                Điều chỉnh điểm
+              </button>
+              
               <button
                 type="button"
                 onClick={() => setSelectedUser(null)}

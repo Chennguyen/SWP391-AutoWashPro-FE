@@ -155,6 +155,12 @@ function normalizeSearch(value: string): string {
   return value.trim().toLowerCase();
 }
 
+/**
+ * Thành phần (Component) AdminBookingsPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminBookingsPage() {
   const token = useAdminToken();
   const [date, setDate] = useState(todayISO());

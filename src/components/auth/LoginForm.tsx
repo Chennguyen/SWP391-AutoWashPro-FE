@@ -108,6 +108,12 @@ function persistAuthSession(token: string, payload: JwtPayload | null) {
   return role;
 }
 
+/**
+ * Thành phần (Component) LoginForm
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -170,6 +176,12 @@ export function LoginForm() {
       if (error instanceof ApiError) {
         if (error.status === 401) {
           setErrors({ email: " ", password: error.message });
+          return;
+        }
+
+        // Che giấu lỗi 5xx khỏi người dùng cuối trên production
+        if (error.status >= 500) {
+          setErrors({ global: "Đang xảy ra lỗi vui lòng quay lại sau" });
           return;
         }
 
@@ -275,7 +287,7 @@ export function LoginForm() {
           id="login-submit-btn"
           type="submit"
           disabled={loading}
-          className="mt-1 w-full rounded-xl bg-[#2563EB] px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition-all duration-200 hover:bg-[#1D4ED8] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+          className="mt-1 w-full rounded-xl bg-[#CDB390] px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition-all duration-200 hover:bg-[#BCA27F] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#CDB390]/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">

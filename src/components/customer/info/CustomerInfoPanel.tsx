@@ -63,6 +63,12 @@ function getServerTokenSnapshot(): string | null {
   return null;
 }
 
+/**
+ * Thành phần (Component) CustomerInfoPanel
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function CustomerInfoPanel() {
   return (
     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Đang tải thông tin cá nhân...</div>}>

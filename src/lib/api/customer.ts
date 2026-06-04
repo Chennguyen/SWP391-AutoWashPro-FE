@@ -30,14 +30,33 @@ export type UpdateCustomerProfilePayload = {
   cccd: string;
 };
 
+/**
+ * Hàm bổ trợ để phân giải đường dẫn endpoint cho các API hồ sơ người dùng.
+ * 
+ * @param path Suffix đường dẫn tương đối tùy chọn.
+ * @returns Chuỗi URL endpoint API đầy đủ cho endpoint me của người dùng hiện tại.
+ */
 function customerEndpoint(path = "") {
   return `${apiBase()}/api/v1/me${path}`;
 }
 
+/**
+ * Trích xuất payload hồ sơ thô từ nội dung phản hồi API lồng nhau.
+ * 
+ * @param body Phản hồi hồ sơ khách hàng không phân biệt chữ hoa/thường.
+ * @returns Bản ghi dữ liệu hồ sơ khách hàng thô.
+ */
 function unwrapProfile(body: CustomerProfileResponse): CustomerProfileRecord {
   return "data" in body && body.data ? body.data : (body as CustomerProfileRecord);
 }
 
+/**
+ * Chuẩn hóa chi tiết hồ sơ khách hàng để đảm bảo định dạng đồng nhất.
+ * Giải quyết các khác biệt về cách viết hoa/thường của tên trường giữa các phiên bản backend khác nhau.
+ * 
+ * @param body Cấu trúc phản hồi thô.
+ * @returns Đối tượng CustomerProfile đã chuẩn hóa.
+ */
 function normalizeProfile(body: CustomerProfileResponse): CustomerProfile {
   const data = unwrapProfile(body) as any;
   const profileData = data.profileData ?? data.ProfileData ?? data;
@@ -51,6 +70,12 @@ function normalizeProfile(body: CustomerProfileResponse): CustomerProfile {
   };
 }
 
+/**
+ * Lấy thông tin hồ sơ của khách hàng hiện tại đang đăng nhập.
+ * 
+ * @param token Token xác thực.
+ * @returns Một promise giải quyết thành dữ liệu CustomerProfile.
+ */
 export async function getCustomerProfile(token: string): Promise<CustomerProfile> {
   const res = await fetch(customerEndpoint(), {
     method: "GET",
@@ -67,6 +92,13 @@ export async function getCustomerProfile(token: string): Promise<CustomerProfile
   return normalizeProfile(body);
 }
 
+/**
+ * Cập nhật thông tin hồ sơ của khách hàng đang đăng nhập.
+ * 
+ * @param token Token xác thực.
+ * @param payload Các trường cập nhật (firstName, lastName, số CCCD).
+ * @returns Một promise giải quyết thành CustomerProfile đã được cập nhật.
+ */
 export async function updateCustomerProfile(
   token: string,
   payload: UpdateCustomerProfilePayload,
@@ -85,6 +117,13 @@ export async function updateCustomerProfile(
   return normalizeProfile(body);
 }
 
+/**
+ * Cập nhật mật khẩu cho tài khoản khách hàng hiện tại.
+ * 
+ * @param token Token xác thực.
+ * @param newPassword Chuỗi mật khẩu mới.
+ * @returns Một promise giải quyết khi việc đổi mật khẩu hoàn tất.
+ */
 export async function changeCustomerPassword(
   token: string,
   newPassword: string,

@@ -8,10 +8,11 @@ interface AuthInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   rightLabel?: ReactNode;
+  showRequiredAsterisk?: boolean;
 }
 
 export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
-  ({ label, error, rightLabel, className, type, id, ...props }, ref) => {
+  ({ label, error, rightLabel, showRequiredAsterisk, className, type, id, ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === "password";
     const inputType = isPassword ? (showPassword ? "text" : "password") : type;
@@ -25,6 +26,9 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
             className="text-sm font-medium text-gray-700 select-none"
           >
             {label}
+            {showRequiredAsterisk && (
+              <span className="text-red-500 ml-1 font-semibold">*</span>
+            )}
           </label>
           {rightLabel && (
             <span className="text-xs text-[#2563EB] hover:text-[#1D4ED8] transition-colors">
@@ -44,7 +48,7 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
               "outline-none ring-0 transition-all duration-200",
               "focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15",
               "hover:border-gray-300",
-              error && "border-red-400 focus:border-red-500 focus:ring-red-400/15",
+              error && "!border-red-500 !ring-1 !ring-red-500 focus:!border-red-500 focus:!ring-2 focus:!ring-red-500/20",
               isPassword && "pr-11",
               className
             )}
@@ -67,7 +71,7 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
 
         {/* Error message */}
         {error && (
-          <p className="text-xs text-red-500 mt-0.5">{error}</p>
+          <p className="text-xs font-medium !text-red-500 mt-1">{error}</p>
         )}
       </div>
     );

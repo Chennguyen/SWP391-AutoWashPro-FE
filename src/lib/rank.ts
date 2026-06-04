@@ -64,6 +64,13 @@ export const RANK_TIERS: RankTier[] = [
   },
 ];
 
+/**
+ * Phân giải cấu hình hạng thành viên (RankTier) hiện tại từ thông tin tích điểm của khách hàng.
+ * So khớp theo cấp độ số hoặc tìm kiếm từ khóa trong tên hạng để dự phòng.
+ * 
+ * @param info Thông tin tích điểm thành viên hiện tại của khách hàng.
+ * @returns Đối tượng cấu hình RankTier phù hợp.
+ */
 export function resolveRankTier(info: LoyaltyInfo | null): RankTier {
   const apiLevel = info?.tier?.level;
   if (apiLevel) {
@@ -77,10 +84,22 @@ export function resolveRankTier(info: LoyaltyInfo | null): RankTier {
   return RANK_TIERS[0];
 }
 
+/**
+ * Lấy thông tin cấu hình của hạng thành viên kế tiếp.
+ * 
+ * @param currentLevel Cấp độ hạng thành viên hiện tại.
+ * @returns Cấu hình RankTier tiếp theo, hoặc null nếu đã đạt hạng cao nhất.
+ */
 export function getNextRankTier(currentLevel: number): RankTier | null {
   return RANK_TIERS.find((tier) => tier.level > currentLevel) ?? null;
 }
 
+/**
+ * Tính toán tỷ lệ tiến trình nâng hạng hiện tại của khách hàng dưới dạng phần trăm (%).
+ * 
+ * @param info Thông tin tích điểm thành viên hiện tại của khách hàng.
+ * @returns Số phần trăm biểu diễn từ 0 đến 100.
+ */
 export function getRankProgress(info: LoyaltyInfo | null): number {
   if (!info) return 0;
   const current = resolveRankTier(info);

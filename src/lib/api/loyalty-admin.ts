@@ -4,9 +4,8 @@ import { apiBase, handleApiResponse } from "./api-error";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /**
- * AdminTier — schema theo đúng BE.
- * BE dùng requiredWashes (số lần rửa) và priorityBookingDays (ngày đặt trước ưu tiên)
- * KHÔNG dùng minPointsRequired hay discountPercent trực tiếp trong Tier.
+ * AdminTier
+ * Sơ đồ cấu trúc đại diện cho Cấu hình Hạng thành viên của backend.
  */
 export type AdminTier = {
   id: string;
@@ -34,15 +33,14 @@ export type UpdateTierPayload = Partial<{
 }>;
 
 /**
- * LoyaltyPointsConfig — cấu hình điểm tích lũy theo định dạng BE.
- * BE lưu dạng configKey / configValue (JSON string).
- * FE sẽ parse configValue để hiển thị các trường thân thiện.
+ * LoyaltyPointsConfig
+ * Đối tượng cấu hình đã phân tích chứa tỉ lệ quy đổi điểm và thời gian hoạt động hệ thống.
  */
 export type LoyaltyPointsConfig = {
-  vndPerPoint: number;      // configKey: "point_earn_rate" → configValue: { VND_per_point }
-  slotDurationMinutes?: number; // configKey: "SlotDurationMinutes" → configValue: "30"
-  workingStartHour?: string;    // configKey: "WorkingStartHour" → configValue: "08:00"
-  workingEndHour?: string;      // configKey: "WorkingEndHour" → configValue: "17:00"
+  vndPerPoint: number;      // configKey: "point_earn_rate"
+  slotDurationMinutes?: number; // configKey: "SlotDurationMinutes"
+  workingStartHour?: string;    // configKey: "WorkingStartHour"
+  workingEndHour?: string;      // configKey: "WorkingEndHour"
 };
 
 export type LoyaltyPointsConfigRaw = {
@@ -86,6 +84,7 @@ export type CreateRewardPayload = {
   quantityAvailable: number;
   validDays: number;
   isActive: boolean;
+  allowedTierIds?: string[];
 };
 
 export type UpdateRewardPayload = Partial<{
@@ -95,13 +94,14 @@ export type UpdateRewardPayload = Partial<{
   quantityAvailable: number;
   validDays: number;
   isActive: boolean;
+  allowedTierIds: string[];
 }>;
 
 export type AdminPromotion = {
   id: string;
   name: string;
   description: string;
-  discountType: number;   // 0 = percent, 1 = fixed amount
+  discountType: string;   // "Percentage" or "FixedAmount"
   discountValue: number;
   startDate: string;
   endDate: string;
@@ -112,11 +112,12 @@ export type AdminPromotion = {
 export type CreatePromotionPayload = {
   name: string;
   description: string;
-  discountType: number;
+  discountType: string;
   discountValue: number;
   startDate: string;
   endDate: string;
   isGlobal: boolean;
+  applicableTierIds?: string[];
 };
 
 export type AdjustPointsAction = "ADD" | "SUBTRACT";
@@ -131,12 +132,26 @@ export type AdjustPointsPayload = {
 
 type Rec = Record<string, unknown>;
 
+/**
+ * Ép kiểu các đầu vào không xác định thành các đối tượng dictionary thông thường.
+ * 
+ * @param value Giá trị cần kiểm tra.
+ * @returns Đối tượng record dictionary.
+ */
 function rec(value: unknown): Rec {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Rec)
     : {};
 }
 
+/**
+ * Đọc giá trị chuỗi từ đối tượng dictionary bằng cách tìm kiếm trên nhiều tên khóa có thể.
+ * 
+ * @param obj Dictionary nguồn.
+ * @param keys Các tên khóa có thể có.
+ * @param fallback Chuỗi mặc định dự phòng.
+ * @returns Chuỗi giải quyết được.
+ */
 function str(obj: Rec, keys: string[], fallback = ""): string {
   for (const k of keys) {
     if (obj[k] !== undefined && obj[k] !== null) return String(obj[k]);
@@ -144,6 +159,14 @@ function str(obj: Rec, keys: string[], fallback = ""): string {
   return fallback;
 }
 
+/**
+ * Đọc một số hữu hạn từ đối tượng dictionary bằng cách kiểm tra nhiều khóa có thể.
+ * 
+ * @param obj Dictionary nguồn.
+ * @param keys Các khóa có thể có.
+ * @param fallback Số mặc định dự phòng.
+ * @returns Số hữu hạn đã được giải quyết.
+ */
 function num(obj: Rec, keys: string[], fallback = 0): number {
   for (const k of keys) {
     const v = Number(obj[k]);
@@ -152,6 +175,13 @@ function num(obj: Rec, keys: string[], fallback = 0): number {
   return fallback;
 }
 
+/**
+ * Đọc một số tùy chọn từ đối tượng dictionary, trả về null nếu trống hoặc không phải số hữu hạn.
+ * 
+ * @param obj Dictionary nguồn.
+ * @param keys Các khóa có thể.
+ * @returns Số đã được phân giải hoặc null.
+ */
 function optNum(obj: Rec, keys: string[]): number | null {
   for (const k of keys) {
     const v = Number(obj[k]);
@@ -160,6 +190,14 @@ function optNum(obj: Rec, keys: string[]): number | null {
   return null;
 }
 
+/**
+ * Đọc một cờ boolean từ các khóa của đối tượng dictionary, xử lý các trường hợp chuỗi true/false/0/1.
+ * 
+ * @param obj Dictionary nguồn.
+ * @param keys Các khóa có thể.
+ * @param fallback Mặc định dự phòng.
+ * @returns Giá trị boolean.
+ */
 function bool(obj: Rec, keys: string[], fallback = false): boolean {
   for (const k of keys) {
     const v = obj[k];
@@ -170,6 +208,12 @@ function bool(obj: Rec, keys: string[], fallback = false): boolean {
   return fallback;
 }
 
+/**
+ * Giải nén các bản ghi lồng nhau từ các phong bì phản hồi bên ngoài.
+ * 
+ * @param body Phản hồi của API.
+ * @returns Bản ghi bên trong.
+ */
 function unwrap(body: unknown): Rec {
   const r = rec(body);
   if (r.data !== undefined) return rec(r.data);
@@ -177,6 +221,12 @@ function unwrap(body: unknown): Rec {
   return r;
 }
 
+/**
+ * Trích xuất danh sách mảng từ phong bì phản hồi REST.
+ * 
+ * @param body Phản hồi API chứa danh sách mảng.
+ * @returns Mảng các phần tử được trích xuất.
+ */
 function unwrapList(body: unknown): unknown[] {
   const r = rec(body);
   if (Array.isArray(body)) return body;
@@ -190,26 +240,44 @@ function unwrapList(body: unknown): unknown[] {
   return [];
 }
 
+/**
+ * Xây dựng URL cho các endpoint cấu hình loyalty quản trị.
+ */
 function loyaltyAdminEndpoint(path: string): string {
   return `${apiBase()}/api/v1/loyalty/admin${path}`;
 }
 
+/**
+ * Xây dựng URL cho các endpoint cấu hình hạng thành viên quản trị.
+ */
 function tierEndpoint(path: string): string {
   return `${apiBase()}/Tier/admin${path}`;
 }
 
+/**
+ * Xây dựng URL cho các endpoint cấu hình phần thưởng quản trị.
+ */
 function rewardEndpoint(path: string): string {
   return `${apiBase()}/Reward/admin${path}`;
 }
 
+/**
+ * Xây dựng URL cho các endpoint cấu hình khuyến mại quản trị.
+ */
 function promotionEndpoint(path: string): string {
   return `${apiBase()}/Promotion/admin${path}`;
 }
 
+/**
+ * Xây dựng URL cho các endpoint admin cũ.
+ */
 function legacyAdminEndpoint(path: string): string {
   return `${apiBase()}/api/v1/admin${path}`;
 }
 
+/**
+ * Xây dựng cấu hình header yêu cầu với token xác thực đi kèm.
+ */
 function authHeaders(token: string): HeadersInit {
   return {
     Authorization: `Bearer ${token}`,
@@ -219,6 +287,12 @@ function authHeaders(token: string): HeadersInit {
 
 // ─── Normalizers ──────────────────────────────────────────────────────────────
 
+/**
+ * Định dạng các thuộc tính hạng thô thành cấu trúc AdminTier.
+ * 
+ * @param raw Bản ghi hạng thô.
+ * @returns Đối tượng AdminTier đã chuẩn hóa.
+ */
 function normalizeTier(raw: unknown): AdminTier {
   const r = rec(raw);
   return {
@@ -231,6 +305,12 @@ function normalizeTier(raw: unknown): AdminTier {
   };
 }
 
+/**
+ * Định dạng chuỗi giờ hoạt động về dạng biểu diễn chuẩn HH:MM.
+ * 
+ * @param val Chuỗi giờ hoạt động thô đầu vào.
+ * @returns Định dạng thời gian chuẩn HH:00.
+ */
 function formatHourString(val: string): string {
   const raw = val.trim();
   if (raw.includes(":")) {
@@ -244,9 +324,13 @@ function formatHourString(val: string): string {
   return raw;
 }
 
+/**
+ * Chuẩn hóa các cài đặt tham số hệ thống (tỉ lệ điểm, thời gian làm việc) từ các khóa cấu hình.
+ * 
+ * @param body Phản hồi API chứa cấu hình điểm.
+ * @returns Cấu hình LoyaltyPointsConfig đã phân tích.
+ */
 function normalizeSettings(body: unknown): LoyaltyPointsConfig {
-  // GET /api/v1/loyalty/admin/points-config trả về array của LoyaltyPointsConfigRaw
-  // hoặc có thể là single object
   const list = unwrapList(body);
   let vndPerPoint = 10000;
   let slotDurationMinutes = 15;
@@ -275,7 +359,7 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
     }
   }
 
-  // Fallback: if body is a single object (not array)
+  // Dự phòng: nếu body là một đối tượng duy nhất (không phải mảng)
   if (list.length === 0) {
     const r = unwrap(body);
     vndPerPoint = num(r, [
@@ -287,12 +371,17 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
   return { vndPerPoint, slotDurationMinutes, workingStartHour, workingEndHour };
 }
 
+/**
+ * Định dạng bản ghi phần thưởng thô thành cấu trúc AdminReward, giải quyết ánh xạ kiểu enum.
+ * 
+ * @param raw Thuộc tính phần thưởng thô.
+ * @returns Cấu trúc AdminReward đã được chuẩn hóa.
+ */
 function normalizeReward(raw: unknown): AdminReward {
   const r = rec(raw);
 
-  // rewardType có thể là int (0,1,2) hoặc string
   const rewardTypeRaw = r.rewardType ?? r.RewardType ?? r.reward_type ?? r.type ?? r.Type;
-  let rewardTypeEnum: AdminRewardTypeEnum = 1; // default VOUCHER
+  let rewardTypeEnum: AdminRewardTypeEnum = 1; // mặc định VOUCHER
   let rewardType: AdminRewardType = "VOUCHER";
   if (typeof rewardTypeRaw === "number") {
     rewardTypeEnum = (rewardTypeRaw as AdminRewardTypeEnum);
@@ -315,13 +404,19 @@ function normalizeReward(raw: unknown): AdminReward {
   };
 }
 
+/**
+ * Định dạng các bản ghi khuyến mại thô thành cấu trúc AdminPromotion tiêu chuẩn.
+ * 
+ * @param raw Thuộc tính khuyến mại thô.
+ * @returns Bản ghi AdminPromotion đã được chuẩn hóa.
+ */
 function normalizePromotion(raw: unknown): AdminPromotion {
   const r = rec(raw);
   return {
     id: str(r, ["id", "Id", "promotionId", "PromotionId"]),
     name: str(r, ["name", "Name"], "Khuyến mãi"),
     description: str(r, ["description", "Description"]),
-    discountType: num(r, ["discountType", "DiscountType", "discount_type"]),
+    discountType: str(r, ["discountType", "DiscountType", "discount_type"], "FixedAmount"),
     discountValue: num(r, ["discountValue", "DiscountValue", "discount_value"]),
     startDate: str(r, ["startDate", "StartDate", "start_date"]),
     endDate: str(r, ["endDate", "EndDate", "end_date"]),
@@ -333,7 +428,10 @@ function normalizePromotion(raw: unknown): AdminPromotion {
 // ─── Loyalty Points Config ────────────────────────────────────────────────────
 
 /**
- * GET /api/v1/loyalty/admin/points-config
+ * Lấy các tham số cấu hình thành viên tích điểm của hệ thống, ví dụ tỷ lệ VNĐ đổi 1 điểm.
+ * 
+ * @param token Token xác thực.
+ * @returns Một promise giải quyết thành cấu hình LoyaltyPointsConfig.
  */
 export async function getLoyaltySettings(token: string): Promise<LoyaltyPointsConfig> {
   const res = await fetch(loyaltyAdminEndpoint("/points-config"), {
@@ -345,8 +443,11 @@ export async function getLoyaltySettings(token: string): Promise<LoyaltyPointsCo
 }
 
 /**
- * PUT /api/v1/loyalty/admin/Update-points-config
- * Body: { configKey, configValue (JSON string) }
+ * Cập nhật cấu hình tỷ lệ quy đổi tích điểm (quy đổi số tiền VNĐ tương ứng với 1 điểm).
+ * 
+ * @param token Token xác thực.
+ * @param settings Các cài đặt cập nhật chứa tham số vndPerPoint.
+ * @returns Hứa giải quyết khi cập nhật cấu hình hoàn tất thành công.
  */
 export async function updateLoyaltySettings(
   token: string,
@@ -370,7 +471,10 @@ export async function updateLoyaltySettings(
 // ─── Tiers ────────────────────────────────────────────────────────────────────
 
 /**
- * GET /Tier/admin/tiers?pageSize=10&pageIndex=1
+ * Lấy tất cả các hạng thành viên (Rank) được cấu hình trong hệ thống dành cho Admin quản lý.
+ * 
+ * @param token Token xác thực.
+ * @returns Một promise giải quyết thành mảng AdminTier.
  */
 export async function getAdminTiers(token: string): Promise<AdminTier[]> {
   const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
@@ -383,7 +487,11 @@ export async function getAdminTiers(token: string): Promise<AdminTier[]> {
 }
 
 /**
- * POST /Tier/admin/create-tier
+ * Định hình và tạo mới một cấp độ hạng thành viên tích điểm mới.
+ * 
+ * @param token Token xác thực.
+ * @param data Payload tạo mới (tên rank, số lần rửa tối thiểu, số ngày đặt trước ưu tiên).
+ * @returns Hứa giải quyết khi hạng thành viên mới được đăng ký thành công.
  */
 export async function createAdminTier(
   token: string,
@@ -405,14 +513,19 @@ export async function createAdminTier(
 }
 
 /**
- * PUT /Tier/admin/update-tier?id={id}
+ * Cập nhật thông tin cấu hình cho một hạng thành viên (Rank) hiện có.
+ * 
+ * @param token Token xác thực.
+ * @param id ID của cấp độ rank cần chỉnh sửa.
+ * @param data Cấu hình cập nhật mới (tên, cấp độ, số lần rửa yêu cầu, mô tả).
+ * @returns Hứa giải quyết khi việc cập nhật hoàn tất thành công.
  */
 export async function updateAdminTier(
   token: string,
   id: string,
   data: UpdateTierPayload,
 ): Promise<void> {
-  const res = await fetch(`${tierEndpoint("/update-tier")}?id=${encodeURIComponent(id)}`, {
+  const res = await fetch(`${tierEndpoint(`/update-tier/${encodeURIComponent(id)}`)}`, {
     method: "PUT",
     cache: "no-store",
     headers: authHeaders(token),
@@ -424,10 +537,14 @@ export async function updateAdminTier(
 // ─── Rewards ─────────────────────────────────────────────────────────────────
 
 /**
- * GET /Reward/admin/rewards (inferred — không có trong cURL docs, dùng endpoint hợp lý)
+ * Lấy tất cả các phần thưởng đổi điểm đã được cấu hình trong hệ thống.
+ * 
+ * @param token Token xác thực.
+ * @returns Một promise giải quyết thành mảng AdminReward.
  */
 export async function getAdminRewards(token: string): Promise<AdminReward[]> {
-  const res = await fetch(rewardEndpoint("/rewards"), {
+  const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
+  const res = await fetch(`${rewardEndpoint("/rewards")}?${params.toString()}`, {
     cache: "no-store",
     headers: authHeaders(token),
   });
@@ -436,8 +553,11 @@ export async function getAdminRewards(token: string): Promise<AdminReward[]> {
 }
 
 /**
- * POST /Reward/admin/create-rewards
- * rewardType là integer enum: 0=FREE_WASH, 1=VOUCHER, 2=GIFT
+ * Đăng ký một phần thưởng mới trong kho phần thưởng để khách đổi điểm lấy quà.
+ * 
+ * @param token Token xác thực.
+ * @param data Payload tạo phần thưởng (tên quà, số điểm yêu cầu, loại số enum, số lượng có sẵn, số ngày hiệu lực).
+ * @returns Hứa giải quyết khi tạo phần thưởng thành công.
  */
 export async function createAdminReward(
   token: string,
@@ -451,6 +571,7 @@ export async function createAdminReward(
     quantityAvailable: data.quantityAvailable,
     validDays: data.validDays,
     isActive: data.isActive,
+    allowedTierIds: data.allowedTierIds ?? [],
   };
   const res = await fetch(rewardEndpoint("/create-rewards"), {
     method: "POST",
@@ -462,7 +583,12 @@ export async function createAdminReward(
 }
 
 /**
- * PUT /Reward/admin/update-reward?id={id}
+ * Cập nhật chi tiết các thuộc tính thông tin của một phần thưởng đổi điểm hiện có.
+ * 
+ * @param token Token xác thực.
+ * @param id ID phần thưởng cần chỉnh sửa.
+ * @param data Các trường thay đổi (tên, mô tả, số điểm, số lượng tồn kho, trạng thái hoạt động).
+ * @returns Hứa giải quyết khi việc cập nhật hoàn tất thành công.
  */
 export async function updateAdminReward(
   token: string,
@@ -476,8 +602,9 @@ export async function updateAdminReward(
   if (data.quantityAvailable !== undefined) payload.quantityAvailable = data.quantityAvailable;
   if (data.validDays !== undefined) payload.validDays = data.validDays;
   if (data.isActive !== undefined) payload.isActive = data.isActive;
+  if (data.allowedTierIds !== undefined) payload.allowedTierIds = data.allowedTierIds;
 
-  const res = await fetch(`${rewardEndpoint("/update-reward")}?id=${encodeURIComponent(id)}`, {
+  const res = await fetch(`${rewardEndpoint(`/update-reward/${encodeURIComponent(id)}`)}`, {
     method: "PUT",
     cache: "no-store",
     headers: authHeaders(token),
@@ -489,10 +616,14 @@ export async function updateAdminReward(
 // ─── Promotions ───────────────────────────────────────────────────────────────
 
 /**
- * GET /Promotion/admin/promotions (inferred — dùng endpoint hợp lý)
+ * Truy vấn tất cả các chương trình khuyến mại/mã giảm giá đang có trong hệ thống.
+ * 
+ * @param token Token xác thực.
+ * @returns Một promise giải quyết thành danh sách các AdminPromotion.
  */
 export async function getAdminPromotions(token: string): Promise<AdminPromotion[]> {
-  const res = await fetch(promotionEndpoint("/promotions"), {
+  const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
+  const res = await fetch(`${promotionEndpoint("/promotions")}?${params.toString()}`, {
     cache: "no-store",
     headers: authHeaders(token),
   });
@@ -501,7 +632,11 @@ export async function getAdminPromotions(token: string): Promise<AdminPromotion[
 }
 
 /**
- * POST /Promotion/admin/create-promotion
+ * Tạo một chiến dịch chương trình khuyến mại giảm giá mới.
+ * 
+ * @param token Token xác thực.
+ * @param data Payload tạo khuyến mại (tên, mô tả, loại giảm giá, giá trị giảm, khung ngày hiệu lực, phạm vi).
+ * @returns Hứa giải quyết khi chiến dịch khuyến mại được tạo thành công.
  */
 export async function createAdminPromotion(
   token: string,
@@ -519,6 +654,7 @@ export async function createAdminPromotion(
       startDate: data.startDate,
       endDate: data.endDate,
       isGlobal: data.isGlobal,
+      applicableTierIds: data.applicableTierIds ?? [],
     }),
   });
   await handleApiResponse<unknown>(res);
@@ -526,6 +662,14 @@ export async function createAdminPromotion(
 
 // ─── Adjust Customer Points (Admin) ──────────────────────────────────────────
 
+/**
+ * Điều chỉnh số dư tích điểm của khách hàng (Cộng thêm hoặc Trừ đi điểm tích lũy thủ công kèm theo lý do cụ thể).
+ * 
+ * @param token Token xác thực.
+ * @param customerId ID của khách hàng đích cần chỉnh sửa điểm.
+ * @param payload Dữ liệu điều chỉnh điểm (loại hành động cộng/trừ, số điểm, lý do điều chỉnh).
+ * @returns Hứa giải quyết khi việc điều chỉnh số dư điểm hoàn tất thành công.
+ */
 export async function adjustCustomerPoints(
   token: string,
   customerId: string,
@@ -547,6 +691,14 @@ export async function adjustCustomerPoints(
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Cập nhật cấu hình hệ thống trực tiếp thông qua cặp khóa-giá trị dạng chuỗi.
+ * 
+ * @param token Token xác thực.
+ * @param key Khóa định danh của cấu hình hệ thống.
+ * @param value Giá trị chuỗi của cấu hình hệ thống cần thiết lập.
+ * @returns Hứa giải quyết khi cấu hình hệ thống được cập nhật thành công.
+ */
 export async function updateSystemConfig(
   token: string,
   key: string,

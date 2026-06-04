@@ -31,6 +31,12 @@ function formatVND(value: number) {
   }).format(value);
 }
 
+/**
+ * Thành phần (Component) AdminReportsPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminReportsPage() {
   const token = useAdminToken();
   const initialRange = monthRange();
@@ -46,11 +52,15 @@ export function AdminReportsPage() {
   const loadBranches = useCallback(async () => {
     if (!token) return;
     try {
-      setBranches(await getBranches(token, { isActive: true }));
+      const result = await getBranches(token, { isActive: true });
+      setBranches(result);
+      if (result.length > 0 && !branchId) {
+        setBranchId(result[0].id);
+      }
     } catch {
       setBranches([]);
     }
-  }, [token]);
+  }, [token, branchId]);
 
   const loadReports = useCallback(async () => {
     if (!token || !fromDate || !toDate) return;
@@ -94,12 +104,11 @@ export function AdminReportsPage() {
             <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
             <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-              <option value="">Tất cả chi nhánh</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>{branch.name}</option>
               ))}
             </select>
-            <button type="button" onClick={loadReports} disabled={loading} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50" title="Tải lại">
+            <button type="button" onClick={loadReports} disabled={loading || !branchId} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50" title="Tải lại">
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
             </button>
           </>

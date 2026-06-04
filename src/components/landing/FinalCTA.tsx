@@ -1,5 +1,11 @@
 import Link from 'next/link';
 
+/**
+ * Thành phần (Component) FinalCTA
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function FinalCTA() {
   return (
     <section className="relative bg-white py-36 px-8 md:px-16 overflow-hidden border-t border-black/[0.06]">

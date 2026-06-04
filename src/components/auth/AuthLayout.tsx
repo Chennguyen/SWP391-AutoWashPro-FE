@@ -5,6 +5,12 @@ interface AuthLayoutProps {
   children: ReactNode;
 }
 
+/**
+ * Thành phần (Component) AuthLayout
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div

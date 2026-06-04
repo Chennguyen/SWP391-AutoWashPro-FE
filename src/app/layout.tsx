@@ -17,6 +17,12 @@ export const metadata: Metadata = {
   description: "Đặt lịch rửa xe dễ dàng. Tích điểm sau mỗi lần sử dụng.",
 };
 
+/**
+ * Bố cục (Layout) RootLayout
+ * 
+ * Chức năng: Định nghĩa khung bố cục chung (Layout Template) cho hệ thống AutoWash Pro.
+ * Vai trò: Quản lý cấu trúc bao bọc giao diện chung cho các trang con.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

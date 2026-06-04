@@ -16,6 +16,12 @@ interface StepIndicatorProps {
   currentStep: number;
 }
 
+/**
+ * Thành phần (Component) StepIndicator
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
     <nav aria-label="Tiến trình đặt lịch" className="w-full">

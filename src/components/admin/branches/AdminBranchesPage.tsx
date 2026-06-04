@@ -21,6 +21,12 @@ type BranchFormState = {
 
 const EMPTY_FORM: BranchFormState = { Name: "", Address: "", IsActive: true };
 
+/**
+ * Thành phần (Component) AdminBranchesPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminBranchesPage() {
   const token = useAdminToken();
   const [branches, setBranches] = useState<AdminBranch[]>([]);

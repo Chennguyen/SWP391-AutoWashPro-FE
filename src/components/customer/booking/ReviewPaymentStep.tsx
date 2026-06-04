@@ -66,6 +66,12 @@ interface ReviewPaymentStepProps {
   onUnauthorized: () => void;
 }
 
+/**
+ * Thành phần (Component) ReviewPaymentStep
+ *
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function ReviewPaymentStep({
   token,
   branch,
@@ -253,14 +259,9 @@ export function ReviewPaymentStep({
         return;
       }
 
-      // Gracefully handle 5xx server errors — BE may crash when applying tier
-      // promotion discount (NullReferenceException in PromotionTiers.Include).
-      // FE-only mitigation: show a clear message and suggest removing the voucher.
+      // Che giấu lỗi 5xx khỏi người dùng cuối trên production
       if (submitError instanceof ApiError && submitError.status >= 500) {
-        const hint = appliedVoucher
-          ? " Nếu lỗi tiếp tục, hãy thử bỏ voucher và đặt lịch lại."
-          : " Vui lòng thử lại sau ít phút hoặc liên hệ hỗ trợ.";
-        setError(`Hệ thống gặp sự cố tạm thời khi xử lý đặt lịch.${hint}`);
+        setError("Đang xảy ra lỗi vui lòng quay lại sau");
         return;
       }
 
@@ -317,34 +318,57 @@ export function ReviewPaymentStep({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex justify-between text-sm text-slate-600">
-          <span>Giá dịch vụ</span>
-          <span className="font-medium">{formatVND(SERVICE_PRICE)}</span>
+      {/* ── Bảng Chi tiết Thanh toán kiểu Shopee (flat list) ── */}
+      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+        <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Chi tiết thanh toán
+          </p>
         </div>
-        {appliedVoucher ? (
-          <div className="mt-3 flex justify-between text-sm text-emerald-600">
-            <span className="flex items-center gap-1.5">
-              <Tag size={14} aria-hidden />
-              Voucher ({appliedVoucher.code})
-            </span>
-            <span className="font-medium">-{formatVND(discount)}</span>
+        <div className="px-5 py-4 space-y-3">
+          {/* Giá gốc dịch vụ */}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Giá dịch vụ gốc</span>
+            <span className="font-medium text-slate-700">{formatVND(SERVICE_PRICE)}</span>
           </div>
-        ) : null}
-        <div className="mt-3 flex justify-between text-sm text-slate-600">
-          <span>Thành tiền sau voucher</span>
-          <span className="font-medium">{formatVND(payableAmount)}</span>
-        </div>
-        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
-          <div>
-            <p className="text-sm font-bold text-slate-950">Số tiền cọc</p>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Thanh toán để giữ slot đã chọn.
-            </p>
+
+          {/* Giảm giá từ Voucher — hiển thị số âm màu đỏ cam */}
+          {appliedVoucher && discount > 0 ? (
+            <div className="flex justify-between text-sm">
+              <span className="flex items-center gap-1.5" style={{ color: "#EE4D2D" }}>
+                <Tag size={14} aria-hidden />
+                Giảm giá Voucher ({appliedVoucher.code})
+              </span>
+              <span className="font-medium" style={{ color: "#EE4D2D" }}>-{formatVND(discount)}</span>
+            </div>
+          ) : null}
+
+          {/* Đường kẻ dashed phân cách */}
+          <div className="border-t border-dashed border-slate-200" />
+
+          {/* Tổng số tiền phải trả — nhãn giữ đậm, giá trị đồng màu các dòng khác */}
+          <div className="flex justify-between text-sm">
+            <span className="font-semibold text-slate-800">Tổng tiền phải trả</span>
+            <span className="font-medium text-slate-700">{formatVND(payableAmount)}</span>
           </div>
-          <span className="text-2xl font-black text-slate-950">
-            {formatVND(deposit)}
-          </span>
+
+          {/* Đường kẻ solid phân cách */}
+          <div className="border-t border-slate-200" />
+
+          {/* Số tiền cọc (30%) — flat, không highlight */}
+          <div className="flex justify-between text-sm">
+            <div>
+              <span className="text-slate-600">Số tiền phải cọc (30%)</span>
+              <p className="text-xs text-slate-400">Trừ ngay từ ví để giữ slot</p>
+            </div>
+            <span className="font-medium text-slate-700">{formatVND(deposit)}</span>
+          </div>
+
+          {/* Thanh toán ngay khi check-in (70%) */}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Thanh toán ngay khi check-in (70%)</span>
+            <span className="font-medium text-slate-700">{formatVND(payableAmount - deposit)}</span>
+          </div>
         </div>
       </div>
 

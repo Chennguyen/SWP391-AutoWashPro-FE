@@ -24,6 +24,12 @@ function formatVND(value: number) {
   }).format(value);
 }
 
+/**
+ * Thành phần (Component) AdminDashboardPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminDashboardPage() {
   const token = useAdminToken();
   const initialRange = monthRange();

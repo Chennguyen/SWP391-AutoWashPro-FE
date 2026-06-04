@@ -45,6 +45,12 @@ function validateProfile(
   return errors;
 }
 
+/**
+ * Thành phần (Component) EditProfilePanel
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function EditProfilePanel({ token, onUnauthorized }: EditProfilePanelProps) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [loading, setLoading] = useState(false);

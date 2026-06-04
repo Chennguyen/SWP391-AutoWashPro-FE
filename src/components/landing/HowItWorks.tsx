@@ -23,6 +23,12 @@ const steps = [
   },
 ];
 
+/**
+ * Thành phần (Component) HowItWorks
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function HowItWorks() {
   return (
     <section id="quy-trinh" className="bg-[#050505] border-t border-white/[0.07]">

@@ -19,6 +19,12 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
 
+/**
+ * Trang (Page) BookingHistoryPage
+ * 
+ * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
+ * Đường dẫn tương đối: src/app/app/customer/history/page.tsx
+ */
 export default function BookingHistoryPage() {
   const tokenSnapshot = useSyncExternalStore(subscribeToToken, getTokenSnapshot, getServerTokenSnapshot);
   const token = tokenSnapshot ?? "";
