@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   LogOut,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,8 @@ const NAV_ITEMS = [
   { label: "Trang chủ",         icon: LayoutDashboard, href: "/customer" },
   { label: "Thông tin cá nhân", icon: Info,             href: "/customer/info" },
   { label: "Đặt lịch",          icon: CalendarPlus,    href: "/customer/booking" },
-  { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history" },
+  { label: "Lịch đang hoạt động", icon: Clock,          href: "/customer/history?tab=active" },
+  { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history?tab=history" },
 ];
 
 /**
@@ -26,7 +28,7 @@ const NAV_ITEMS = [
  * subscribers listening on the "autowash-auth" custom event.
  */
 function clearAuthSession() {
-  ["token", "role", "userId", "email"].forEach((k) =>
+  ["token", "role", "userId", "email", "firstName", "lastName"].forEach((k) =>
     window.localStorage.removeItem(k)
   );
   window.dispatchEvent(new Event("autowash-auth"));
@@ -42,6 +44,8 @@ export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") || "active";
 
   function handleLogout() {
     clearAuthSession();
@@ -68,10 +72,17 @@ export function DashboardSidebar() {
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1" aria-label="Điều hướng chính">
             {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-              const active =
-                href === "/customer"
-                  ? pathname === "/customer"
-                  : pathname === href || pathname.startsWith(href + "/");
+              let active = false;
+              if (href.includes("?")) {
+                const [path, query] = href.split("?");
+                const tabValue = new URLSearchParams(query).get("tab");
+                active = pathname === path && currentTab === tabValue;
+              } else {
+                active =
+                  href === "/customer"
+                    ? pathname === "/customer"
+                    : pathname === href || pathname.startsWith(href + "/");
+              }
               return (
                 <Link
                   key={href}
@@ -149,10 +160,17 @@ export function DashboardSidebar() {
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Điều hướng chính">
           {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-            const active =
-              href === "/customer"
-                ? pathname === "/customer"
-                : pathname === href || pathname.startsWith(href + "/");
+            let active = false;
+            if (href.includes("?")) {
+              const [path, query] = href.split("?");
+              const tabValue = new URLSearchParams(query).get("tab");
+              active = pathname === path && currentTab === tabValue;
+            } else {
+              active =
+                href === "/customer"
+                  ? pathname === "/customer"
+                  : pathname === href || pathname.startsWith(href + "/");
+            }
             return (
               <Link
                 key={href}

@@ -321,10 +321,12 @@ function BookingDetailPanel({
 
       {/* ── Bảng Chi tiết Thanh toán (flat list — giống lúc đặt lịch) ── */}
       {(() => {
-        /* Dự phòng: nếu API không trả totalPrice thì fallback = 100.000₫ */
-        const totalPrice = booking.totalPrice ?? 100_000;
-        const depositAmount = Math.round(totalPrice * 0.3);
-        const remainingAmount = totalPrice - depositAmount;
+        /* Ưu tiên sử dụng FinalPrice từ backend nếu có, nếu không thì fallback về totalPrice hoặc 100.000₫ */
+        const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100_000;
+        const basePrice = booking.basePrice ?? 100_000;
+        const discountAmount = booking.discountAmount ?? (basePrice > finalPrice ? basePrice - finalPrice : 0);
+        const depositAmount = Math.round(finalPrice * 0.3);
+        const remainingAmount = finalPrice - depositAmount;
         return (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
@@ -333,18 +335,18 @@ function BookingDetailPanel({
               </p>
             </div>
             <div className="px-4 py-3 space-y-2.5">
-              {/* Giá dịch vụ gốc (100k cố định) */}
+              {/* Giá dịch vụ gốc */}
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600">Giá dịch vụ gốc</span>
-                <span className="font-medium text-slate-700">100.000 ₫</span>
+                <span className="font-medium text-slate-700">{basePrice.toLocaleString("vi-VN")} ₫</span>
               </div>
 
-              {/* Giảm giá nếu totalPrice < 100k */}
-              {totalPrice < 100_000 && (
+              {/* Giảm giá */}
+              {discountAmount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span style={{ color: "#EE4D2D" }}>Ưu đãi giảm giá</span>
                   <span className="font-medium" style={{ color: "#EE4D2D" }}>
-                    -{(100_000 - totalPrice).toLocaleString("vi-VN")}₫
+                    -{discountAmount.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
               )}
@@ -356,7 +358,7 @@ function BookingDetailPanel({
               <div className="flex justify-between text-sm">
                 <span className="font-semibold text-slate-800">Tổng tiền phải trả</span>
                 <span className="font-medium text-slate-700">
-                  {totalPrice.toLocaleString("vi-VN")}₫
+                  {finalPrice.toLocaleString("vi-VN")}₫
                 </span>
               </div>
 
@@ -611,10 +613,10 @@ export function UpcomingBookingPanel() {
           ))}
 
           <Link
-            href="/customer/history"
+            href="/customer/history?tab=active"
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-500 transition hover:border-blue-400 hover:bg-blue-50/40 hover:text-blue-600"
           >
-            Xem tất cả lịch sử
+            Xem tất cả lịch đặt
             <ChevronRight size={15} aria-hidden />
           </Link>
         </div>

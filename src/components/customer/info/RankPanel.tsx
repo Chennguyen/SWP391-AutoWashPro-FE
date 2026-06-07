@@ -35,7 +35,7 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
     try {
       const [fetchedInfo, fetchedTiers] = await Promise.all([
         getLoyaltyInfo(token),
-        getAllTiers(),
+        getAllTiers(token),
       ]);
       setInfo(fetchedInfo);
       setTiers(fetchedTiers.sort((a, b) => a.level - b.level));
@@ -93,16 +93,6 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
             Theo dõi hạng thành viên, số lần rửa và quyền lợi tiếp theo.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadRank}
-          disabled={loading}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
-          title="Tải lại"
-        >
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} aria-hidden />
-          <span className="sr-only">Tải lại</span>
-        </button>
       </div>
 
       {error ? (

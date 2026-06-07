@@ -295,12 +295,16 @@ function authHeaders(token: string): HeadersInit {
  */
 function normalizeTier(raw: unknown): AdminTier {
   const r = rec(raw);
+  const benefitsRec = rec(r.benefits ?? r.Benefits);
   return {
     id: str(r, ["id", "Id", "tierId", "TierId"]),
     name: str(r, ["name", "Name", "tierName", "TierName"], "Tier"),
     level: num(r, ["level", "Level"], 1),
     requiredWashes: num(r, ["requiredWashes", "RequiredWashes", "required_washes", "minWashes", "MinWashes"], 0),
-    priorityBookingDays: num(r, ["priorityBookingDays", "PriorityBookingDays", "priority_booking_days"], 0),
+    priorityBookingDays:
+      optNum(r, ["priorityBookingDays", "PriorityBookingDays", "priority_booking_days"]) ??
+      optNum(benefitsRec, ["priorityBookingDays", "priority_booking_days"]) ??
+      0,
     description: str(r, ["description", "Description"]) || undefined,
   };
 }

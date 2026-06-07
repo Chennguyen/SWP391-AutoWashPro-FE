@@ -11,6 +11,7 @@ export type RankTier = {
   badgeClass: string;
   glowClass: string;
   progressClass: string;
+  priorityBookingDays: number;
 };
 
 export const RANK_TIERS: RankTier[] = [
@@ -25,6 +26,7 @@ export const RANK_TIERS: RankTier[] = [
     badgeClass: "border-amber-300/40 bg-amber-300/15 text-amber-100",
     glowClass: "shadow-[0_18px_45px_rgba(146,64,14,0.25)]",
     progressClass: "from-amber-600 to-orange-400",
+    priorityBookingDays: 3,
   },
   {
     level: 2,
@@ -37,6 +39,7 @@ export const RANK_TIERS: RankTier[] = [
     badgeClass: "border-slate-400 bg-white/70 text-slate-700",
     glowClass: "shadow-[0_18px_45px_rgba(148,163,184,0.35)]",
     progressClass: "from-slate-400 to-slate-100",
+    priorityBookingDays: 5,
   },
   {
     level: 3,
@@ -49,6 +52,7 @@ export const RANK_TIERS: RankTier[] = [
     badgeClass: "border-white/40 bg-white/20 text-white",
     glowClass: "shadow-[0_18px_45px_rgba(245,158,11,0.35)]",
     progressClass: "from-yellow-300 to-orange-400",
+    priorityBookingDays: 7,
   },
   {
     level: 4,
@@ -61,6 +65,7 @@ export const RANK_TIERS: RankTier[] = [
     badgeClass: "border-cyan-200/40 bg-cyan-200/15 text-cyan-50",
     glowClass: "shadow-[0_18px_60px_rgba(99,102,241,0.45)]",
     progressClass: "from-cyan-300 via-violet-300 to-fuchsia-300",
+    priorityBookingDays: 10,
   },
 ];
 

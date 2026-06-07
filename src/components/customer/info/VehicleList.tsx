@@ -143,30 +143,18 @@ export function VehicleList({
               Danh sách xe
             </button>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={onRefresh}
-                disabled={loading}
-                title="Tải lại danh sách xe"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-                <span className="sr-only">Tải lại danh sách xe</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setFormMode((current) =>
-                    current.type === "create" ? { type: "closed" } : { type: "create" },
-                  )
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                {formMode.type === "create" ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
-                {formMode.type === "create" ? "Đóng" : "Thêm xe"}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() =>
+                setFormMode((current) =>
+                  current.type === "create" ? { type: "closed" } : { type: "create" },
+                )
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              {formMode.type === "create" ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
+              {formMode.type === "create" ? "Đóng" : "Thêm xe"}
+            </button>
           )}
         </div>
       </div>
@@ -229,21 +217,19 @@ export function VehicleList({
               <button
                 type="button"
                 onClick={() => setFormMode({ type: "edit", vehicle: selectedVehicle })}
-                title="Sửa xe"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950"
               >
-                <Pencil size={17} aria-hidden />
-                <span className="sr-only">Sửa xe</span>
+                <Pencil size={14} aria-hidden />
+                Sửa
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(selectedVehicle)}
                 disabled={deletingId === selectedVehicle.id}
-                title="Xóa xe"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-500 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Trash2 size={17} aria-hidden />
-                <span className="sr-only">Xóa xe</span>
+                <Trash2 size={14} aria-hidden />
+                Xóa
               </button>
             </div>
           </div>

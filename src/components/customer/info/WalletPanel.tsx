@@ -78,16 +78,6 @@ export function WalletPanel({
           <h2 className="text-xl font-bold text-slate-950">Thông tin ví</h2>
           <p className="mt-1 text-sm text-slate-500">Xem số dư và nạp tiền vào ví AutoWash Pro.</p>
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Tải lại thông tin ví"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-          <span className="sr-only">Tải lại thông tin ví</span>
-        </button>
       </div>
 
       {error ? (

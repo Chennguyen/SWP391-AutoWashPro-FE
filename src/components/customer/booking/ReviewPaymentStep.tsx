@@ -14,6 +14,7 @@ import {
 import { ApiError } from "@/lib/api/api-error";
 import { createBooking, getSlots } from "@/lib/api/booking";
 import { getWallet, topUpWallet, type Wallet } from "@/lib/api/wallet";
+import { type AdminPromotion } from "@/lib/api/loyalty-admin";
 import type { BookingResult, Branch, VoucherValidation } from "@/types/booking";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -96,6 +97,8 @@ export function ReviewPaymentStep({
   const [submitted, setSubmitted] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState(15);
   const [endTime, setEndTime] = useState<string | undefined>(undefined);
+  const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -156,8 +159,129 @@ export function ReviewPaymentStep({
     return () => window.clearTimeout(timeoutId);
   }, [loadWallet]);
 
-  const discount = appliedVoucher?.discountAmount ?? 0;
-  const payableAmount = Math.max(0, SERVICE_PRICE - discount);
+  useEffect(() => {
+    let active = true;
+    async function loadPromotions() {
+      if (!token) return;
+      setPromotionsLoading(true);
+      try {
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+        const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
+        
+        // 1. Thử endpoint của khách hàng trước
+        let res = await fetch(`${apiBaseUrl}/Promotion/promotions?${params.toString()}`, {
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        
+        // 2. Nếu không thành công, thử endpoint /api/v1/promotions
+        if (!res.ok) {
+          res = await fetch(`${apiBaseUrl}/api/v1/promotions?${params.toString()}`, {
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
+        // 3. Nếu vẫn không được, thử /Promotion/admin/promotions (bản gốc quản trị)
+        if (!res.ok) {
+          res = await fetch(`${apiBaseUrl}/Promotion/admin/promotions?${params.toString()}`, {
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+        
+        if (!res.ok) {
+          throw new Error(`Tất cả các endpoint khuyến mãi đều trả về lỗi: ${res.status}`);
+        }
+
+        const text = await res.text();
+        let body: any = null;
+        if (text) {
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = text;
+          }
+        }
+
+        const rawData = body?.data ?? body?.Data ?? body;
+        const rawList = Array.isArray(rawData) ? rawData : (rawData?.items ?? rawData?.results ?? []);
+        const promotionsList = Array.isArray(rawList) ? rawList.map((p: any) => ({
+          id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
+          name: String(p.name ?? p.Name ?? "Khuyến mãi"),
+          description: String(p.description ?? p.Description ?? ""),
+          discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
+          discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
+          startDate: String(p.startDate ?? p.StartDate ?? ""),
+          endDate: String(p.endDate ?? p.EndDate ?? ""),
+          isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? false),
+          isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+        })) : [];
+
+        if (active) {
+          setPromotions(promotionsList);
+        }
+      } catch (err) {
+        console.warn("DEBUG [loadPromotions] Không thể tải danh sách khuyến mãi:", err);
+        if (active) {
+          setPromotions([]);
+        }
+      } finally {
+        if (active) {
+          setPromotionsLoading(false);
+        }
+      }
+    }
+    void loadPromotions();
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  const promotionDiscount = useMemo(() => {
+    const activePromos = promotions.filter((p) => {
+      if (!p.isGlobal) return false;
+      const start = new Date(p.startDate).getTime();
+      const end = new Date(p.endDate).getTime();
+      const now = Date.now();
+      const bookingMs = new Date(date + "T00:00:00").getTime();
+      // Thỏa mãn nếu hôm nay đang chạy khuyến mãi hoặc ngày đặt nằm trong đợt khuyến mãi
+      const isTimeValid = (now >= start && now <= end) || (bookingMs >= start && bookingMs <= end);
+      return isTimeValid;
+    });
+
+    let maxPromoDiscount = 0;
+    activePromos.forEach((p) => {
+      let currentDiscount = 0;
+      if (p.discountType === "Percentage") {
+        if (p.discountValue > 100) {
+          // Nếu nhập nhầm % là số tiền (như 10000%) thì coi là số tiền cố định
+          currentDiscount = Math.min(SERVICE_PRICE, p.discountValue);
+        } else {
+          currentDiscount = Math.min(SERVICE_PRICE, (SERVICE_PRICE * p.discountValue) / 100);
+        }
+      } else {
+        currentDiscount = Math.min(SERVICE_PRICE, p.discountValue);
+      }
+      if (currentDiscount > maxPromoDiscount) {
+        maxPromoDiscount = currentDiscount;
+      }
+    });
+
+    return maxPromoDiscount;
+  }, [promotions, date]);
+
+  const discount = appliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
+  const payableAmount = Math.max(0, SERVICE_PRICE - promotionDiscount - discount);
   const deposit = Math.round(payableAmount * DEPOSIT_RATE);
   const voucherId = appliedVoucher?.voucherId ?? appliedVoucher?.id ?? null;
   const walletBalance = wallet?.balance ?? 0;
@@ -326,48 +450,57 @@ export function ReviewPaymentStep({
           </p>
         </div>
         <div className="px-5 py-4 space-y-3">
-          {/* Giá gốc dịch vụ */}
+          {/* Giá dịch vụ gốc */}
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Giá dịch vụ gốc</span>
             <span className="font-medium text-slate-700">{formatVND(SERVICE_PRICE)}</span>
           </div>
 
-          {/* Giảm giá từ Voucher — hiển thị số âm màu đỏ cam */}
-          {appliedVoucher && discount > 0 ? (
-            <div className="flex justify-between text-sm">
-              <span className="flex items-center gap-1.5" style={{ color: "#EE4D2D" }}>
-                <Tag size={14} aria-hidden />
-                Giảm giá Voucher ({appliedVoucher.code})
+          {/* Ưu đãi giảm giá */}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Ưu đãi giảm giá</span>
+            {promotionDiscount > 0 ? (
+              <span className="font-medium" style={{ color: "#EE4D2D" }}>
+                -{formatVND(promotionDiscount)}
               </span>
-              <span className="font-medium" style={{ color: "#EE4D2D" }}>-{formatVND(discount)}</span>
-            </div>
-          ) : null}
+            ) : (
+              <span className="font-medium text-slate-700">0₫</span>
+            )}
+          </div>
+
+          {/* Voucher */}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">
+              Voucher{appliedVoucher ? ` (${appliedVoucher.code})` : ""}
+            </span>
+            {appliedVoucher && discount > 0 ? (
+              <span className="font-medium" style={{ color: "#EE4D2D" }}>
+                -{formatVND(discount)}
+              </span>
+            ) : (
+              <span className="font-medium text-slate-700">0₫</span>
+            )}
+          </div>
 
           {/* Đường kẻ dashed phân cách */}
           <div className="border-t border-dashed border-slate-200" />
 
-          {/* Tổng số tiền phải trả — nhãn giữ đậm, giá trị đồng màu các dòng khác */}
+          {/* Số tiền phải trả */}
           <div className="flex justify-between text-sm">
-            <span className="font-semibold text-slate-800">Tổng tiền phải trả</span>
+            <span className="font-semibold text-slate-800">Số tiền phải trả</span>
             <span className="font-medium text-slate-700">{formatVND(payableAmount)}</span>
           </div>
 
           {/* Đường kẻ solid phân cách */}
           <div className="border-t border-slate-200" />
 
-          {/* Số tiền cọc (30%) — flat, không highlight */}
+          {/* Số tiền cọc (30%) */}
           <div className="flex justify-between text-sm">
             <div>
               <span className="text-slate-600">Số tiền phải cọc (30%)</span>
-              <p className="text-xs text-slate-400">Trừ ngay từ ví để giữ slot</p>
+              <p className="text-xs text-slate-400">Bạn phải cọc trước 30% để giữ slot</p>
             </div>
             <span className="font-medium text-slate-700">{formatVND(deposit)}</span>
-          </div>
-
-          {/* Thanh toán ngay khi check-in (70%) */}
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-500">Thanh toán ngay khi check-in (70%)</span>
-            <span className="font-medium text-slate-700">{formatVND(payableAmount - deposit)}</span>
           </div>
         </div>
       </div>

@@ -113,6 +113,12 @@ type CustomerBookingRecord = {
   TotalPrice?: number;
   price?: number;
   Price?: number;
+  finalPrice?: number;
+  FinalPrice?: number;
+  basePrice?: number;
+  BasePrice?: number;
+  discountAmount?: number;
+  DiscountAmount?: number;
   cancelReason?: string;
   CancelReason?: string;
 };
@@ -411,6 +417,9 @@ function normalizeCustomerBooking(raw: CustomerBookingRecord): CustomerBooking {
     status: raw.status ?? raw.Status ?? "Đã đặt",
     serviceName: raw.serviceName ?? raw.ServiceName ?? service?.name ?? service?.Name,
     totalPrice: raw.totalPrice ?? raw.TotalPrice ?? raw.price ?? raw.Price,
+    finalPrice: raw.finalPrice ?? raw.FinalPrice,
+    basePrice: raw.basePrice ?? raw.BasePrice,
+    discountAmount: raw.discountAmount ?? raw.DiscountAmount,
     cancelReason: raw.cancelReason ?? raw.CancelReason,
   };
 }

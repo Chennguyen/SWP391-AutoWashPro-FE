@@ -193,15 +193,18 @@ function authHeaders(token: string): HeadersInit {
 function normalizeTier(raw: unknown): LoyaltyTier | null {
   if (!raw) return null;
   const r = rec(raw);
-  const id = str(r, ["id", "Id", "tierId", "TierId"]);
-  if (!id) return null;
+  const level = num(r, ["level", "Level"], 1);
+  const id = str(r, ["id", "Id", "tierId", "TierId"]) || `tier-level-${level}`;
   const benefitsRec = rec(r.benefits ?? r.Benefits);
   return {
     id,
     name: str(r, ["name", "Name", "tierName", "TierName"], "Member"),
     level: num(r, ["level", "Level"], 1),
     requiredWashes: num(r, ["requiredWashes", "RequiredWashes", "required_washes"], 0),
-    priorityBookingDays: num(r, ["priorityBookingDays", "PriorityBookingDays", "priority_booking_days"], 0),
+    priorityBookingDays:
+      optNum(r, ["priorityBookingDays", "PriorityBookingDays", "priority_booking_days"]) ??
+      optNum(benefitsRec, ["priorityBookingDays", "priority_booking_days"]) ??
+      0,
     description: str(r, ["description", "Description"]) || undefined,
     benefits: {
       prioritySlotBooking:
@@ -443,10 +446,14 @@ export async function redeemReward(
  * 
  * @returns Một promise giải quyết thành danh sách LoyaltyTier.
  */
-export async function getAllTiers(): Promise<LoyaltyTier[]> {
-  const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
-  const res = await fetch(`${apiBase()}/Tier/tiers?${params.toString()}`, {
+export async function getAllTiers(token?: string): Promise<LoyaltyTier[]> {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${apiBase()}/api/v1/tiers`, {
     cache: "no-store",
+    headers,
   });
   const body = await handleApiResponse<unknown>(res);
   return unwrapList(body).map(normalizeTier).filter((t): t is LoyaltyTier => t !== null);

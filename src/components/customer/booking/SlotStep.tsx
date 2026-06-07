@@ -1,20 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, RefreshCw } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { getBookings, getSlots } from "@/lib/api/booking";
 import type { BookingSlot, CustomerBooking } from "@/types/booking";
 
 const SLOT_INTERVAL_MINUTES = 15;
 
-function generateSlots(): string[] {
+function generateSlots(openTime = "08:00", closeTime = "17:00"): string[] {
   const slots: string[] = [];
 
-  for (let hour = 8; hour < 17; hour += 1) {
-    for (let minute = 0; minute < 60; minute += SLOT_INTERVAL_MINUTES) {
-      slots.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
-    }
+  let [startHour, startMinute] = (openTime || "08:00").split(":").map(Number);
+  let [endHour, endMinute] = (closeTime || "17:00").split(":").map(Number);
+
+  if (Number.isNaN(startHour) || startHour < 0 || startHour > 23) startHour = 8;
+  if (Number.isNaN(startMinute) || startMinute < 0 || startMinute > 59) startMinute = 0;
+  if (Number.isNaN(endHour) || endHour < 0 || endHour > 23) endHour = 17;
+  if (Number.isNaN(endMinute) || endMinute < 0 || endMinute > 59) endMinute = 0;
+
+  let currentMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  while (currentMinutes < endMinutes) {
+    const h = Math.floor(currentMinutes / 60);
+    const m = currentMinutes % 60;
+    slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    currentMinutes += SLOT_INTERVAL_MINUTES;
   }
 
   return slots;
@@ -39,6 +51,20 @@ function todayISO(): string {
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Tính ngày cuối cùng được đặt lịch dựa trên số ngày đặt trước tối đa.
+ * Nếu priorityBookingDays = 0 thì không giới hạn (trả về null).
+ */
+function calcMaxDateISO(priorityBookingDays: number): string | null {
+  if (priorityBookingDays <= 0) return null;
+  const max = new Date();
+  max.setDate(max.getDate() + priorityBookingDays);
+  const year = max.getFullYear();
+  const month = String(max.getMonth() + 1).padStart(2, "0");
+  const day = String(max.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -157,8 +183,12 @@ interface SlotStepProps {
   token: string;
   branchId: string;
   branchName: string;
+  openTime: string;
+  closeTime: string;
   notice: string | null;
   forcedDisabledSlots: string[];
+  /** Số ngày đặt trước tối đa theo hạng thành viên. 0 = không giới hạn. */
+  priorityBookingDays: number;
   selectedDate: string;
   selectedSlot: string;
   onDateChange: (date: string) => void;
@@ -170,7 +200,7 @@ interface SlotStepProps {
 
 /**
  * Thành phần (Component) SlotStep
- * 
+ *
  * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
@@ -178,8 +208,11 @@ export function SlotStep({
   token,
   branchId,
   branchName,
+  openTime,
+  closeTime,
   notice,
   forcedDisabledSlots,
+  priorityBookingDays,
   selectedDate,
   selectedSlot,
   onDateChange,
@@ -188,13 +221,14 @@ export function SlotStep({
   onBack,
   onUnauthorized,
 }: SlotStepProps) {
-  const allSlots = useMemo(() => generateSlots(), []);
+  const allSlots = useMemo(() => generateSlots(openTime, closeTime), [openTime, closeTime]);
   const [serverSlots, setServerSlots] = useState<BookingSlot[]>([]);
   const [occupiedSlots, setOccupiedSlots] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const today = todayISO();
+  const maxDate = useMemo(() => calcMaxDateISO(priorityBookingDays), [priorityBookingDays]);
   const effectiveDate = selectedDate || today;
   const currentHHMM = nowHHMM();
   const slotByTime = useMemo(() => {
@@ -229,6 +263,16 @@ export function SlotStep({
   const loadSlots = useCallback(async () => {
     if (!branchId || !effectiveDate) return;
 
+    // Kiểm tra ngày vượt quá giới hạn hạng thành viên
+    if (maxDate && effectiveDate > maxDate) {
+      setError(
+        `Hạng của bạn chỉ cho phép đặt lịch trước tối đa ${priorityBookingDays} ngày. Vui lòng chọn lại ngày phù hợp.`,
+      );
+      setServerSlots([]);
+      setOccupiedSlots(new Set());
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -258,7 +302,7 @@ export function SlotStep({
     } finally {
       setLoading(false);
     }
-  }, [branchId, branchName, effectiveDate, onUnauthorized, token]);
+  }, [branchId, branchName, effectiveDate, maxDate, priorityBookingDays, onUnauthorized, token]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -290,23 +334,8 @@ export function SlotStep({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-950">Ngày và khung giờ</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Slot rửa xe kéo dài 15 phút, từ 08:00 đến 17:00.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={loadSlots}
-          disabled={loading}
-          title="Tải lại slot"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-          <span className="sr-only">Tải lại slot</span>
-        </button>
+      <div>
+        <h2 className="text-xl font-bold text-slate-950">Ngày và khung giờ</h2>
       </div>
 
       <div>
@@ -318,12 +347,24 @@ export function SlotStep({
             id="booking-date"
             type="date"
             min={today}
+            max={maxDate ?? undefined}
             value={effectiveDate}
             onChange={(event) => handleDateChange(event.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <Calendar size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
         </div>
+        {maxDate ? (
+          <p className="mt-1.5 text-xs text-slate-500">
+            ⚠️ Hạng thành viên của bạn chỉ được đặt trước tối đa{" "}
+            <span className="font-semibold text-orange-600">{priorityBookingDays} ngày</span>
+            {" "}(tới hết ngày{" "}
+            <span className="font-semibold">
+              {new Date(maxDate + "T00:00:00").toLocaleDateString("vi-VN")}
+            </span>
+            ).
+          </p>
+        ) : null}
       </div>
 
       <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">

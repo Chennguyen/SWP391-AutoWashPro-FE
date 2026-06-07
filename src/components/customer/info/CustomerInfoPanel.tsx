@@ -12,18 +12,14 @@ import { cn } from "@/lib/utils";
 import { VehicleList } from "./VehicleList";
 import { WalletPanel } from "./WalletPanel";
 import { ProfilePanel } from "./ProfilePanel";
-import { EditProfilePanel } from "./EditProfilePanel";
-import { LoyaltyPanel } from "./LoyaltyPanel";
 import { RankPanel } from "./RankPanel";
 
-type InfoTab = "profile" | "edit-profile" | "vehicles" | "wallet" | "loyalty" | "rank";
+type InfoTab = "profile" | "vehicles" | "wallet" | "rank";
 
 const SIDEBAR_ITEMS = [
   { id: "profile", label: "Thông tin cá nhân", icon: User },
-  { id: "edit-profile", label: "Chỉnh sửa thông tin", icon: UserCog },
   { id: "vehicles", label: "Thông tin xe", icon: Car },
   { id: "wallet", label: "Thông tin ví", icon: WalletCards },
-  { id: "loyalty", label: "Điểm & Ưu đãi", icon: Star },
   { id: "rank", label: "Bậc rank", icon: Award },
 ] satisfies Array<{ id: InfoTab; label: string; icon: LucideIcon }>;
 
@@ -83,7 +79,7 @@ function CustomerInfoPanelContent() {
   const [activeTab, setActiveTab] = useState<InfoTab>("profile");
 
   useEffect(() => {
-    if (tabParam && ["profile", "edit-profile", "vehicles", "wallet", "loyalty", "rank"].includes(tabParam)) {
+    if (tabParam && ["profile", "vehicles", "wallet", "rank"].includes(tabParam)) {
       const id = window.setTimeout(() => setActiveTab(tabParam), 0);
       return () => window.clearTimeout(id);
     }
@@ -253,12 +249,7 @@ function CustomerInfoPanelContent() {
           />
         ) : null}
 
-        {(!authChecked || token) && activeTab === "edit-profile" ? (
-          <EditProfilePanel
-            token={token}
-            onUnauthorized={handleUnauthorized}
-          />
-        ) : null}
+
 
         {(!authChecked || token) && activeTab === "vehicles" ? (
           <VehicleList
@@ -282,12 +273,6 @@ function CustomerInfoPanelContent() {
           />
         ) : null}
 
-        {(!authChecked || token) && activeTab === "loyalty" ? (
-          <LoyaltyPanel
-            token={token}
-            onUnauthorized={handleUnauthorized}
-          />
-        ) : null}
 
         {(!authChecked || token) && activeTab === "rank" ? (
           <RankPanel

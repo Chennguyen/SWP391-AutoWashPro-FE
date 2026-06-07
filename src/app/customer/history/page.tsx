@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { getBookings } from "@/lib/api/booking";
 import type { CustomerBooking } from "@/types/booking";
@@ -11,28 +12,47 @@ import {
   getServerTokenSnapshot,
   toISODate,
   extractISODate,
+  isUpcomingStatus,
+  isCompletedStatus,
+  isCancelledStatus,
 } from "@/lib/booking-helpers";
-import { BookingCard } from "@/components/customer/booking/BookingCard";
 import { BookingDetailModal } from "@/components/customer/booking/BookingDetailModal";
 import { CancelBookingModal } from "@/components/customer/booking/CancelBookingModal";
-import { cn } from "@/lib/utils";
+import { BookingHistoryFilter } from "@/components/customer/history/BookingHistoryFilter";
+import { BookingHistoryList } from "@/components/customer/history/BookingHistoryList";
 
 const PAGE_SIZE = 5;
 
 /**
  * Trang (Page) BookingHistoryPage
- * 
+ *
  * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
  * Đường dẫn tương đối: src/app/app/customer/history/page.tsx
  */
 export default function BookingHistoryPage() {
+  return (
+    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Đang tải lịch sử...</div>}>
+      <BookingHistoryPageContent />
+    </Suspense>
+  );
+}
+
+function BookingHistoryPageContent() {
   const tokenSnapshot = useSyncExternalStore(subscribeToToken, getTokenSnapshot, getServerTokenSnapshot);
   const token = tokenSnapshot ?? "";
   const authChecked = tokenSnapshot !== null;
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectId = searchParams.get("selectId");
+
   const [allBookings, setAllBookings] = useState<CustomerBooking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sub tab state driven by URL tab query param
+  const tabParam = searchParams.get("tab");
+  const subTab = tabParam === "history" ? "history" : "active";
 
   // Modal state
   const [detailBooking, setDetailBooking] = useState<CustomerBooking | null>(null);
@@ -54,12 +74,24 @@ export default function BookingHistoryPage() {
     setError(null);
   }, [token]);
 
-  // Client-side filter by date for instant UX
+  // Client-side filter by tab and date
   const filtered = allBookings.filter((b) => {
-    const source = b.startTime || b.bookingDate || "";
-    const dateStr = extractISODate(source);
-    if (!dateStr) return true;
-    return dateStr >= fromDate && dateStr <= toDate;
+    // 1. Filter by tab
+    const isTabMatch = subTab === "active"
+      ? isUpcomingStatus(b.status)
+      : (isCompletedStatus(b.status) || isCancelledStatus(b.status));
+
+    if (!isTabMatch) return false;
+
+    // 2. Filter by date range (only if history tab is selected)
+    if (subTab === "history") {
+      const source = b.startTime || b.bookingDate || "";
+      const dateStr = extractISODate(source);
+      if (!dateStr) return true;
+      return dateStr >= fromDate && dateStr <= toDate;
+    }
+
+    return true;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -93,10 +125,29 @@ export default function BookingHistoryPage() {
     void loadBookings();
   }, [authChecked, loadBookings, token]);
 
-  // Reset to page 1 when filter changes
+  // Auto-select booking from URL param selectId
+  useEffect(() => {
+    if (selectId && allBookings.length > 0) {
+      const found = allBookings.find((b) => b.id === selectId);
+      if (found) {
+        setDetailBooking(found);
+        
+        // Check if we need to switch tab URL to match the booking status
+        const isUpcoming = isUpcomingStatus(found.status);
+        const expectedTab = isUpcoming ? "active" : "history";
+        if (subTab !== expectedTab) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("tab", expectedTab);
+          router.replace(`/customer/history?${params.toString()}`);
+        }
+      }
+    }
+  }, [selectId, allBookings, subTab, router, searchParams]);
+
+  // Reset to page 1 when tab or filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [fromDate, toDate]);
+  }, [subTab, fromDate, toDate]);
 
   function handlePageChange(page: number) {
     if (page < 1 || page > totalPages) return;
@@ -104,155 +155,63 @@ export default function BookingHistoryPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function getPageNumbers(): number[] {
-    const delta = 2;
-    const start = Math.max(1, currentPage - delta);
-    const end = Math.min(totalPages, currentPage + delta);
-    const pages: number[] = [];
-    for (let i = start; i <= end; i++) pages.push(i);
-    return pages;
-  }
+  // Dynamic titles and descriptions based on subTab
+  const pageTitle = subTab === "active" ? "Lịch đang hoạt động" : "Lịch sử rửa xe";
+  const pageDescription = subTab === "active"
+    ? "Theo dõi các lịch hẹn rửa xe đang diễn ra của bạn."
+    : "Xem lại toàn bộ lịch sử rửa xe của bạn.";
 
   return (
     <main className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto w-full">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-900">Lịch sử rửa xe</h1>
-        <p className="mt-1 text-sm text-slate-500">Xem toàn bộ lịch đặt rửa xe của bạn.</p>
+        <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
+        <p className="mt-1 text-sm text-slate-500">{pageDescription}</p>
       </div>
 
-      {/* Date filter */}
-      <div className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <SlidersHorizontal size={16} className="text-slate-400 shrink-0 mt-auto mb-1" aria-hidden />
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Từ ngày
-          </label>
-          <input
-            type="date"
-            value={fromDate}
-            max={toDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
+      {/* Date filter / Refresh bar */}
+      {subTab === "history" ? (
+        <BookingHistoryFilter
+          fromDate={fromDate}
+          toDate={toDate}
+          loading={loading}
+          token={token}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+          onRefresh={loadBookings}
+        />
+      ) : (
+        <div className="mb-5 flex justify-end">
+          <button
+            onClick={loadBookings}
+            disabled={loading || !token}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
+            Tải lại
+          </button>
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Đến ngày
-          </label>
-          <input
-            type="date"
-            value={toDate}
-            min={fromDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <button
-          onClick={loadBookings}
-          disabled={loading || !token}
-          className="ml-auto flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
-          Tải lại
-        </button>
-      </div>
+      )}
 
-      {/* Not logged in */}
-      {!authChecked || !token ? (
-        <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
-          Vui lòng đăng nhập để xem lịch sử.
-        </div>
-      ) : null}
-
-      {/* Loading */}
-      {authChecked && token && loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-slate-100" />
-          ))}
-        </div>
-      ) : null}
-
-      {/* Error */}
-      {authChecked && token && !loading && error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
-      {/* Empty */}
-      {authChecked && token && !loading && !error && filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
-          Không có lịch đặt nào trong khoảng thời gian này.
-        </div>
-      ) : null}
-
-      {/* Booking list */}
-      {authChecked && token && !loading && !error && filtered.length > 0 ? (
-        <>
-          <p className="mb-3 text-xs font-medium text-slate-400">
-            Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–
-            {Math.min(currentPage * PAGE_SIZE, filtered.length)} / {filtered.length} lịch đặt
-          </p>
-
-          <div className="space-y-3">
-            {paginated.map((b) => (
-              <BookingCard
-                key={b.id}
-                booking={b}
-                onClick={(clicked) => setDetailBooking(clicked)}
-              />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 ? (
-            <nav
-              className="mt-6 flex items-center justify-center gap-1"
-              aria-label="Phân trang lịch sử"
-            >
-              {/* Prev */}
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                aria-label="Trang trước"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-              </button>
-
-              {/* Page numbers */}
-              {getPageNumbers().map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  aria-label={`Trang ${page}`}
-                  aria-current={page === currentPage ? "page" : undefined}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium transition",
-                    page === currentPage
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50",
-                  )}
-                >
-                  {page}
-                </button>
-              ))}
-
-              {/* Next */}
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                aria-label="Trang sau"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </nav>
-          ) : null}
-        </>
-      ) : null}
+      {/* Booking list (handles all states: not-logged-in / loading / error / empty / list) */}
+      <BookingHistoryList
+        authChecked={authChecked}
+        token={token}
+        loading={loading}
+        error={error}
+        filtered={filtered}
+        paginated={paginated}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={PAGE_SIZE}
+        onBookingClick={(clicked) => setDetailBooking(clicked)}
+        onPageChange={handlePageChange}
+        emptyMessage={
+          subTab === "active"
+            ? "Bạn không có lịch hẹn nào đang hoạt động."
+            : "Không có lịch đặt nào trong khoảng thời gian này."
+        }
+      />
 
       {/* Detail modal */}
       {detailBooking ? (

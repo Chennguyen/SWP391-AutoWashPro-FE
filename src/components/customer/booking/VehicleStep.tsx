@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Car, CheckCircle2, RefreshCw } from "lucide-react";
+import { Car, CheckCircle2 } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { getVehicles } from "@/lib/api/vehicle";
 import type { Vehicle } from "@/types/vehicle";
@@ -68,23 +68,11 @@ export function VehicleStep({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-950">Chọn xe của bạn</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Chọn phương tiện bạn muốn đặt lịch.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={loadData}
-          disabled={loading}
-          title="Tải lại danh sách xe"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-          <span className="sr-only">Tải lại danh sách xe</span>
-        </button>
+      <div>
+        <h2 className="text-xl font-bold text-slate-950">Chọn xe của bạn</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Chọn phương tiện bạn muốn đặt lịch.
+        </p>
       </div>
 
       {loading ? (

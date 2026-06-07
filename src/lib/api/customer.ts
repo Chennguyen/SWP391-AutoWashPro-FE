@@ -28,6 +28,7 @@ export type UpdateCustomerProfilePayload = {
   firstName: string;
   lastName: string;
   cccd: string;
+  phone?: string;
 };
 
 /**

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { getVehicles } from "@/lib/api/vehicle";
+import { getCustomerProfile } from "@/lib/api/customer";
 
 /**
  * Component DashboardHeader
@@ -19,9 +20,15 @@ export function DashboardHeader() {
   const [name, setName] = useState("Khách hàng");
   const [showVehicleNotice, setShowVehicleNotice] = useState(false);
 
-  // Đồng bộ trạng thái với email tên người dùng từ local storage
+  // Đồng bộ trạng thái với họ tên hoặc email từ local storage
   useEffect(() => {
     function updateName() {
+      const firstName = window.localStorage.getItem("firstName");
+      const lastName = window.localStorage.getItem("lastName");
+      if (firstName || lastName) {
+        setName(`${lastName ?? ""} ${firstName ?? ""}`.trim());
+        return;
+      }
       const email = window.localStorage.getItem("email");
       if (email) {
         const username = email.split("@")[0];
@@ -34,7 +41,11 @@ export function DashboardHeader() {
 
     updateName();
     window.addEventListener("autowash-auth", updateName);
-    return () => window.removeEventListener("autowash-auth", updateName);
+    window.addEventListener("storage", updateName);
+    return () => {
+      window.removeEventListener("autowash-auth", updateName);
+      window.removeEventListener("storage", updateName);
+    };
   }, []);
 
   // Lấy danh sách xe để xác định xem có hiển thị biểu ngữ nhắc nhở đăng ký hay không
@@ -64,6 +75,39 @@ export function DashboardHeader() {
     return () => {
       cancelled = true;
       window.removeEventListener("autowash-auth", updateVehicleNotice);
+    };
+  }, []);
+
+  // Lấy thông tin họ tên khách hàng để cập nhật trạng thái
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchProfile() {
+      const rawToken = window.localStorage.getItem("token") ?? "";
+      const token = rawToken.replace(/^Bearer\s+/i, "").replace(/^"|"$/g, "").trim();
+      if (!token) return;
+
+      try {
+        const profile = await getCustomerProfile(token);
+        if (cancelled) return;
+        const firstName = profile.firstName;
+        const lastName = profile.lastName;
+        const oldFirstName = window.localStorage.getItem("firstName");
+        const oldLastName = window.localStorage.getItem("lastName");
+
+        if (firstName !== oldFirstName || lastName !== oldLastName) {
+          window.localStorage.setItem("firstName", firstName);
+          window.localStorage.setItem("lastName", lastName);
+          window.dispatchEvent(new Event("autowash-auth"));
+        }
+      } catch {
+        // Có phương án fallback bằng email nên bỏ qua lỗi ở đây
+      }
+    }
+
+    void fetchProfile();
+    return () => {
+      cancelled = true;
     };
   }, []);
 

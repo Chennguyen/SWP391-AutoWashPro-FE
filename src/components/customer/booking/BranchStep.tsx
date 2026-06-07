@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, MapPin, RefreshCw } from "lucide-react";
+import { CheckCircle2, Clock, MapPin } from "lucide-react";
 import type { Branch } from "@/types/booking";
 
 interface BranchStepProps {
@@ -7,7 +7,6 @@ interface BranchStepProps {
   error: string | null;
   usingMock: boolean;
   selected: Branch | null;
-  onRefresh: () => Promise<void>;
   onSelect: (branch: Branch) => void;
   onNext: () => void;
 }
@@ -24,29 +23,16 @@ export function BranchStep({
   error,
   usingMock,
   selected,
-  onRefresh,
   onSelect,
   onNext,
 }: BranchStepProps) {
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-950">Chọn chi nhánh</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Chọn chi nhánh AutoWash Pro gần bạn nhất.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Tải lại chi nhánh"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-          <span className="sr-only">Tải lại chi nhánh</span>
-        </button>
+      <div>
+        <h2 className="text-xl font-bold text-slate-950">Chọn chi nhánh</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Chọn chi nhánh AutoWash Pro gần bạn nhất.
+        </p>
       </div>
 
       {loading ? (
