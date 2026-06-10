@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { getVehicles } from "@/lib/api/vehicle";
-import { getCustomerProfile } from "@/lib/api/customer";
+import { getCustomerProfile, getMyVerificationStatus } from "@/lib/api/customer";
+import { Info } from "lucide-react";
 
 /**
  * Component DashboardHeader
@@ -19,6 +20,8 @@ import { getCustomerProfile } from "@/lib/api/customer";
 export function DashboardHeader() {
   const [name, setName] = useState("Khách hàng");
   const [showVehicleNotice, setShowVehicleNotice] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>("");
 
   // Đồng bộ trạng thái với họ tên hoặc email từ local storage
   useEffect(() => {
@@ -88,16 +91,25 @@ export function DashboardHeader() {
       if (!token) return;
 
       try {
-        const profile = await getCustomerProfile(token);
+        const verification = await getMyVerificationStatus(token);
         if (cancelled) return;
-        const firstName = profile.firstName;
-        const lastName = profile.lastName;
+
+        let firstName = verification.firstName;
+        let lastName = verification.lastName;
+
+        if (verification.status === "Active") {
+          const officialProfile = await getCustomerProfile(token);
+          if (cancelled) return;
+          firstName = officialProfile.firstName;
+          lastName = officialProfile.lastName;
+        }
+
         const oldFirstName = window.localStorage.getItem("firstName");
         const oldLastName = window.localStorage.getItem("lastName");
 
         if (firstName !== oldFirstName || lastName !== oldLastName) {
-          window.localStorage.setItem("firstName", firstName);
-          window.localStorage.setItem("lastName", lastName);
+          window.localStorage.setItem("firstName", firstName || "");
+          window.localStorage.setItem("lastName", lastName || "");
           window.dispatchEvent(new Event("autowash-auth"));
         }
       } catch {
@@ -111,13 +123,66 @@ export function DashboardHeader() {
     };
   }, []);
 
+  // Lấy trạng thái xác minh FaceID
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchVerification() {
+      const rawToken = window.localStorage.getItem("token") ?? "";
+      const token = rawToken.replace(/^Bearer\s+/i, "").replace(/^"|"$/g, "").trim();
+      if (!token) return;
+
+      try {
+        const data = await getMyVerificationStatus(token);
+        if (cancelled) return;
+        
+        setVerificationStatus(data.status);
+        if (data.rejectReason) {
+          setRejectReason(data.rejectReason);
+        }
+      } catch {
+        // Có thể API chưa sẵn sàng hoặc lỗi mạng
+      }
+    }
+
+    void fetchVerification();
+    window.addEventListener("autowash-auth", fetchVerification);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("autowash-auth", fetchVerification);
+    };
+  }, []);
+
   return (
     <header className="mb-8">
-      {showVehicleNotice ? (
+      {verificationStatus === "Pending" ? (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <Info size={20} className="mt-0.5 shrink-0 text-blue-600" aria-hidden />
+          <div>
+            <p className="font-semibold">Hồ sơ FaceID của bạn đang chờ phê duyệt</p>
+            <p className="mt-1">
+              Bạn cần chờ quản trị viên phê duyệt hồ sơ trước khi có thể đặt lịch, nạp ví, hoặc quản lý xe. Vui lòng kiểm tra lại sau.
+            </p>
+          </div>
+        </div>
+      ) : verificationStatus === "Rejected" ? (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-600" aria-hidden />
+          <div>
+            <p className="font-semibold">Hồ sơ FaceID của bạn đã bị từ chối</p>
+            <p className="mt-1">
+              Lý do: <span className="font-medium">{rejectReason || "Không có lý do cụ thể"}</span>
+            </p>
+            <p className="mt-1">
+              Vui lòng vào phần Tài khoản cá nhân để cập nhật lại thông tin và ảnh khuôn mặt.
+            </p>
+          </div>
+        </div>
+      ) : showVehicleNotice ? (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+          <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
           <span className="text-amber-800">
-            bạn nên đăng ký xe tại mục tài khoản cá nhân trước khi đặt lịch
+            Bạn nên đăng ký xe tại mục tài khoản cá nhân trước khi đặt lịch
           </span>
         </div>
       ) : null}

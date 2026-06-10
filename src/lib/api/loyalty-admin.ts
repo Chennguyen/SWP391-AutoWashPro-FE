@@ -720,3 +720,68 @@ export async function updateSystemConfig(
   });
   await handleApiResponse<unknown>(res);
 }
+
+/**
+ * Xóa một hạng thành viên (Tier) khỏi hệ thống.
+ */
+export async function deleteAdminTier(token: string, id: string): Promise<void> {
+  const res = await fetch(`${tierEndpoint(`/delete-tier/${encodeURIComponent(id)}`)}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
+  await handleApiResponse<unknown>(res);
+}
+
+/**
+ * Xóa một phần thưởng (Reward) khỏi hệ thống.
+ */
+export async function deleteAdminReward(token: string, id: string): Promise<void> {
+  const res = await fetch(`${rewardEndpoint(`/delete-reward/${encodeURIComponent(id)}`)}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
+  await handleApiResponse<unknown>(res);
+}
+
+/**
+ * Xóa một chương trình khuyến mãi (Promotion) khỏi hệ thống.
+ */
+export async function deleteAdminPromotion(token: string, id: string): Promise<void> {
+  const res = await fetch(`${promotionEndpoint(`/delete-promotion/${encodeURIComponent(id)}`)}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
+  await handleApiResponse<unknown>(res);
+}
+
+export type UpdatePromotionPayload = Partial<{
+  name: string;
+  description: string;
+  discountType: string;
+  discountValue: number;
+  startDate: string;
+  endDate: string;
+  isGlobal: boolean;
+  isActive: boolean;
+  applicableTierIds: string[];
+}>;
+
+/**
+ * Cập nhật một chương trình khuyến mãi (Promotion) trong hệ thống.
+ */
+export async function updateAdminPromotion(
+  token: string,
+  id: string,
+  data: UpdatePromotionPayload,
+): Promise<void> {
+  const res = await fetch(`${promotionEndpoint(`/update-promotion/${encodeURIComponent(id)}`)}`, {
+    method: "PATCH",
+    cache: "no-store",
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+  await handleApiResponse<unknown>(res);
+}

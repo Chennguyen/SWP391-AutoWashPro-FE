@@ -7,8 +7,11 @@ import {
   getCustomerProfile,
   updateCustomerProfile,
   changeCustomerPassword,
+  getMyVerificationStatus,
+  resubmitVerification,
   type CustomerProfile,
 } from "@/lib/api/customer";
+import { AlertTriangle, Info, Image as ImageIcon } from "lucide-react";
 
 interface ProfilePanelProps {
   token: string;
@@ -25,6 +28,10 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Trạng thái Xác minh
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>("");
 
   // Trạng thái Chỉnh sửa thông tin cá nhân
   const [isEditing, setIsEditing] = useState(false);
@@ -48,6 +55,12 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Trạng thái Gửi lại xác minh
+  const [faceImages, setFaceImages] = useState<{ file: File; preview: string }[]>([]);
+  const [resubmitting, setResubmitting] = useState(false);
+  const [resubmitSuccess, setResubmitSuccess] = useState(false);
+  const [resubmitError, setResubmitError] = useState<string | null>(null);
+
   const loadProfile = useCallback(async () => {
     if (!token) {
       return;
@@ -56,21 +69,42 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await getCustomerProfile(token);
-      setProfile(data);
-      setFirstName(data.firstName || "");
-      setLastName(data.lastName || "");
-      setPhone(data.phone || "");
+      // 1. Luôn lấy trạng thái xác minh trước bằng /my-status
+      const verification = await getMyVerificationStatus(token);
+      
+      setVerificationStatus(verification.status);
+      setRejectReason(verification.rejectReason || "");
 
-      window.localStorage.setItem("firstName", data.firstName);
-      window.localStorage.setItem("lastName", data.lastName);
-      window.dispatchEvent(new Event("autowash-auth"));
+      // 2. Nếu đã Active, gọi API chính thức /api/v1/me để lấy hồ sơ chính xác nhất
+      if (verification.status === "Active") {
+        const officialProfile = await getCustomerProfile(token);
+        console.log(">>> [ProfilePanel] Active profile from /me SUCCESS:", officialProfile);
+        setProfile(officialProfile);
+        setFirstName(officialProfile.firstName || "");
+        setLastName(officialProfile.lastName || "");
+        setPhone(officialProfile.phone || "");
+
+        window.localStorage.setItem("firstName", officialProfile.firstName || "");
+        window.localStorage.setItem("lastName", officialProfile.lastName || "");
+        window.dispatchEvent(new Event("autowash-auth"));
+      } else {
+        // Tài khoản Pending hoặc Rejected -> Dùng thông tin từ /my-status
+        console.log(">>> [ProfilePanel] Non-active profile from /my-status SUCCESS:", verification);
+        setProfile(verification);
+        setFirstName(verification.firstName || "");
+        setLastName(verification.lastName || "");
+        setPhone(verification.phone || "");
+
+        window.localStorage.setItem("firstName", verification.firstName || "");
+        window.localStorage.setItem("lastName", verification.lastName || "");
+        window.dispatchEvent(new Event("autowash-auth"));
+      }
     } catch (error) {
+      console.error(">>> [ProfilePanel] loadProfile FAILED:", error);
       if (error instanceof ApiError && error.status === 401) {
         onUnauthorized();
         return;
       }
-
       setLoadError(
         error instanceof Error
           ? error.message
@@ -107,6 +141,57 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       setProfileSuccess(false);
       setProfileError(null);
       setIsEditing(true);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      const newImages = files.map((file) => {
+        const preview = URL.createObjectURL(file);
+        return { file, preview };
+      });
+      setFaceImages((prev) => {
+        const combined = [...prev, ...newImages];
+        if (combined.length > 3) {
+          combined.slice(3).forEach((img) => URL.revokeObjectURL(img.preview));
+        }
+        return combined.slice(0, 3);
+      });
+      e.target.value = "";
+    }
+  };
+
+  const handleResubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firstName.trim() || !lastName.trim()) {
+      setResubmitError("Vui lòng nhập tên đệm và tên chính.");
+      return;
+    }
+    if (faceImages.length !== 3) {
+      setResubmitError("Vui lòng chọn đủ 3 ảnh khuôn mặt.");
+      return;
+    }
+
+    setResubmitting(true);
+    setResubmitError(null);
+    setResubmitSuccess(false);
+
+    try {
+      await resubmitVerification(token, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        faceImages: faceImages.map((img) => img.file),
+      });
+      setResubmitSuccess(true);
+      setVerificationStatus("Pending");
+      setRejectReason("");
+      faceImages.forEach((img) => URL.revokeObjectURL(img.preview));
+      setFaceImages([]);
+    } catch (error) {
+       setResubmitError(error instanceof Error ? error.message : "Có lỗi xảy ra khi gửi lại hồ sơ.");
+    } finally {
+      setResubmitting(false);
     }
   };
 
@@ -206,7 +291,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
     setPasswordSuccess(false);
 
     try {
-      await changeCustomerPassword(token, newPassword);
+      await changeCustomerPassword(token, oldPassword, newPassword, confirmPassword);
       setPasswordSuccess(true);
 
       // Reset các trường mật khẩu
@@ -244,10 +329,22 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       {/* Tiêu đề phần thông tin cá nhân */}
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-950">Thông tin cá nhân</h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-bold text-slate-950">Thông tin cá nhân</h2>
+            {verificationStatus === "Pending" && (
+              <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                Tài khoản chưa được duyệt
+              </span>
+            )}
+            {verificationStatus === "Rejected" && (
+              <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">
+                Tài khoản bị từ chối
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-slate-500">Xem hồ sơ tài khoản của bạn.</p>
         </div>
-        {profile && (
+        {profile && verificationStatus !== "Pending" && verificationStatus !== "Rejected" && (
           <button
             type="button"
             onClick={toggleEditing}
@@ -274,9 +371,156 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
 
       {profile ? (
         <div className="space-y-6">
+          {/* Status banner */}
+          {verificationStatus === "Pending" && (
+             <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-blue-800">
+               <Info size={20} className="mt-0.5 shrink-0 text-blue-600" />
+               <div>
+                 <p className="font-semibold">Hồ sơ FaceID đang chờ duyệt</p>
+                 <p className="mt-1 text-sm">Vui lòng chờ quản trị viên phê duyệt hồ sơ của bạn để mở khóa các tính năng đặt lịch, nạp ví.</p>
+               </div>
+             </div>
+          )}
+          {verificationStatus === "Rejected" && (
+             <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
+               <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-600" />
+               <div>
+                 <p className="font-semibold">Hồ sơ FaceID bị từ chối</p>
+                 <p className="mt-1 text-sm">Lý do: <span className="font-medium">{rejectReason || "Không rõ"}</span></p>
+                 <p className="mt-1 text-sm">Vui lòng cập nhật thông tin và tải lên 3 ảnh khuôn mặt rõ nét dưới đây.</p>
+               </div>
+             </div>
+          )}
 
-          {/* Form Thông tin hồ sơ */}
-          <form onSubmit={handleUpdateProfile} className="space-y-5" noValidate>
+          {verificationStatus === "Rejected" ? (
+             <form onSubmit={handleResubmit} className="space-y-5 rounded-2xl border border-red-100 bg-white p-5 shadow-sm" noValidate>
+                <h3 className="text-lg font-semibold text-slate-900">Gửi lại yêu cầu xác minh</h3>
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                  {/* Họ */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Họ</label>
+                    <input
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="Nhập họ"
+                    />
+                  </div>
+                  {/* Tên */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Tên</label>
+                    <input
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      placeholder="Nhập tên"
+                    />
+                  </div>
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Email (Không thể chỉnh sửa)</label>
+                    <input
+                      type="email"
+                      value={profile?.email || ""}
+                      disabled
+                      className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
+                    />
+                  </div>
+                  {/* Số điện thoại */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Số điện thoại (Không thể chỉnh sửa)</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      disabled
+                      className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
+                    />
+                  </div>
+                  {/* Số CCCD */}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Số CCCD (Không thể chỉnh sửa)</label>
+                    <input
+                      type="text"
+                      value={profile?.cccd || ""}
+                      disabled
+                      className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Tải lên 3 ảnh khuôn mặt mới</label>
+                    <div className="flex items-center justify-center w-full">
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <ImageIcon size={24} className="mb-2 text-slate-500" />
+                          <p className="mb-1 text-sm text-slate-500">
+                            {faceImages.length < 3 ? (
+                              <>
+                                <span className="font-semibold">Nhấn để chọn</span> ảnh ({faceImages.length}/3)
+                              </>
+                            ) : (
+                              <span className="font-semibold text-emerald-600">Đã đủ 3 ảnh</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-400">Ảnh chân dung rõ nét (JPG, PNG)</p>
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          multiple
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          disabled={faceImages.length >= 3}
+                        />
+                      </label>
+                    </div>
+                    {faceImages.length > 0 && (
+                      <div className="mt-4 space-y-3">
+                        <p className="text-sm font-semibold text-slate-700">Ảnh đã chọn ({faceImages.length}/3):</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          {faceImages.map((img, idx) => (
+                            <div key={idx} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={img.preview}
+                                alt={`Ảnh khuôn mặt ${idx + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  URL.revokeObjectURL(img.preview);
+                                  setFaceImages((prev) => prev.filter((_, i) => i !== idx));
+                                }}
+                                aria-label={`Xóa ảnh ${idx + 1}`}
+                                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black transition-colors"
+                              >
+                                <span className="text-xs" aria-hidden>✕</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {resubmitError && <p className="text-sm text-red-600">{resubmitError}</p>}
+                {resubmitSuccess && <p className="text-sm text-emerald-600 font-medium">Gửi lại hồ sơ thành công! Đang chờ duyệt.</p>}
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={resubmitting}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm w-full sm:w-auto"
+                  >
+                    {resubmitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Save size={15} />}
+                    Gửi lại yêu cầu xác minh
+                  </button>
+                </div>
+             </form>
+          ) : (
+            <form onSubmit={handleUpdateProfile} className="space-y-5" noValidate>
+
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               {/* Tên đệm / tên */}
               <div className="space-y-1.5">
@@ -396,6 +640,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
               </p>
             ) : null}
           </form>
+          )}
 
           {/* Form đổi mật khẩu (Chỉ hiển thị khi bấm nút sửa) */}
           {isEditing && (

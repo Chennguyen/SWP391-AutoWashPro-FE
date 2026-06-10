@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Star, X } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { getLoyaltyInfo, type LoyaltyInfo } from "@/lib/api/loyalty";
+import { getMyVerificationStatus } from "@/lib/api/customer";
 import { resolveRankTier, type RankTier } from "@/lib/rank";
 import { FireworksCelebration } from "./FireworksCelebration";
 
@@ -35,18 +36,30 @@ function getDisplayRankName(rankName: string): string {
 export function DashboardRankWidget() {
   const [token, setToken] = useState("");
   const [info, setInfo] = useState<LoyaltyInfo | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [celebratedRank, setCelebratedRank] = useState<RankTier | null>(null);
 
   const loadRank = useCallback(async (nextToken: string) => {
     if (!nextToken) {
       setInfo(null);
+      setStatus(null);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
+      // Kiểm tra trạng thái xác minh trước tiên
+      const verification = await getMyVerificationStatus(nextToken);
+      setStatus(verification.status);
+
+      if (verification.status === "Pending" || verification.status === "Rejected") {
+        setInfo(null);
+        setLoading(false);
+        return;
+      }
+
       const nextInfo = await getLoyaltyInfo(nextToken);
       const currentRank = resolveRankTier(nextInfo);
       const previousLevelRaw = window.localStorage.getItem(PREVIOUS_RANK_LEVEL_KEY);
@@ -85,9 +98,10 @@ export function DashboardRankWidget() {
     };
   }, [loadRank]);
 
-  if (!token) {
+  if (!token || status === "Pending" || status === "Rejected") {
     return null;
   }
+
 
   const rank = resolveRankTier(info);
 

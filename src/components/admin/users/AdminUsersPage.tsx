@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, RefreshCw, Search, XCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, Search, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getPendingUsers,
   getUser,
   getUsers,
   updateUserStatus,
   verifyUser,
+  rejectUser,
   type AdminUser,
 } from "@/lib/api/admin";
 import { adjustCustomerPoints, type AdjustPointsAction } from "@/lib/api/loyalty-admin";
@@ -16,6 +17,24 @@ import { useAdminToken } from "@/components/admin/shared/useAdminToken";
 import { cn } from "@/lib/utils";
 
 type UserTab = "all" | "pending";
+
+function formatStatus(status?: string): string {
+  if (!status) return "-";
+  switch (status) {
+    case "Pending":
+      return "Chờ xác minh";
+    case "Active":
+      return "Hoạt động";
+    case "Rejected":
+      return "Bị từ chối";
+    case "Locked":
+      return "Bị khóa";
+    case "Inactive":
+      return "Không hoạt động";
+    default:
+      return status;
+  }
+}
 
 /**
  * Thành phần (Component) AdminUsersPage
@@ -33,28 +52,49 @@ export function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [adjustTarget, setAdjustTarget] = useState<AdminUser | null>(null);
+  const [pageIndex, setPageIndex] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const loadUsers = useCallback(async () => {
+  // Xử lý fallback khi backend không trả về totalCount chính xác (hoặc fallback = pageSize)
+  const isFullPage = users.length === 5;
+  const calculatedTotalPages = Math.max(1, Math.ceil(totalCount / 5));
+  const displayTotalPages = Math.max(pageIndex + (isFullPage ? 1 : 0), calculatedTotalPages);
+
+  function getPageNumbers(): number[] {
+    const delta = 2;
+    const start = Math.max(1, pageIndex - delta);
+    const end = Math.min(displayTotalPages, pageIndex + delta);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  }
+
+  const loadUsers = useCallback(async (page = pageIndex) => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
       const result =
         tab === "pending"
-          ? await getPendingUsers(token, { searchTerm, pageIndex: 1, pageSize: 10 })
-          : await getUsers(token, { searchTerm, pageIndex: 1, pageSize: 10 });
+          ? await getPendingUsers(token, { searchTerm, pageIndex: page, pageSize: 5 })
+          : await getUsers(token, { searchTerm, pageIndex: page, pageSize: 5 });
       setUsers(result.items);
+      setTotalCount(result.totalCount);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Không thể tải người dùng.");
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, tab, token]);
+  }, [searchTerm, tab, token, pageIndex]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadUsers(), 0);
+    setPageIndex(1);
+  }, [tab, searchTerm]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadUsers(pageIndex), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadUsers]);
+  }, [loadUsers, pageIndex]);
 
   async function handleView(user: AdminUser) {
     setActionLoading(user.id);
@@ -72,9 +112,28 @@ export function AdminUsersPage() {
     setActionLoading(user.id);
     try {
       await verifyUser(token, user.id);
-      await loadUsers();
+      await loadUsers(pageIndex);
     } catch (verifyError) {
       window.alert(verifyError instanceof Error ? verifyError.message : "Không thể xác minh người dùng.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function handleReject(user: AdminUser) {
+    const reason = window.prompt("Nhập lý do từ chối hồ sơ FaceID của người dùng này:");
+    if (reason === null) return; // User cancelled
+    if (!reason.trim()) {
+      window.alert("Bạn phải nhập lý do từ chối.");
+      return;
+    }
+
+    setActionLoading(user.id);
+    try {
+      await rejectUser(token, user.id, reason.trim());
+      await loadUsers(pageIndex);
+    } catch (rejectError) {
+      window.alert(rejectError instanceof Error ? rejectError.message : "Không thể từ chối người dùng.");
     } finally {
       setActionLoading("");
     }
@@ -85,7 +144,7 @@ export function AdminUsersPage() {
     setActionLoading(user.id);
     try {
       await updateUserStatus(token, user.id, nextStatus);
-      await loadUsers();
+      await loadUsers(pageIndex);
     } catch (statusError) {
       window.alert(statusError instanceof Error ? statusError.message : "Không thể cập nhật trạng thái.");
     } finally {
@@ -127,7 +186,10 @@ export function AdminUsersPage() {
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id as UserTab)}
+              onClick={() => {
+                setTab(id as UserTab);
+                setPageIndex(1);
+              }}
               className={cn(
                 "rounded-lg px-4 py-2 text-sm font-semibold transition",
                 tab === id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
@@ -140,7 +202,8 @@ export function AdminUsersPage() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void loadUsers();
+            setPageIndex(1);
+            void loadUsers(1);
           }}
           className="relative md:w-80"
         >
@@ -154,7 +217,7 @@ export function AdminUsersPage() {
         </form>
       </div>
 
-      {error ? <AdminError message={error} onRetry={loadUsers} /> : null}
+      {error ? <AdminError message={error} onRetry={() => void loadUsers(pageIndex)} /> : null}
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -202,12 +265,17 @@ export function AdminUsersPage() {
                         {user.isVerified ? "Đã xác minh" : "Chờ xác minh"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{user.status || "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatStatus(user.status)}</td>
                     <td className="px-4 py-3 text-right">
                       {!user.isVerified ? (
-                        <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
-                          Duyệt
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
+                            Duyệt
+                          </button>
+                          <button type="button" onClick={() => void handleReject(user)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100" title="Từ chối">
+                            Từ chối
+                          </button>
+                        </div>
                       ) : (
                         <>
                           <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
@@ -226,6 +294,56 @@ export function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {(pageIndex > 1 || users.length > 0) && (
+          <nav
+            className="mt-6 mb-4 flex items-center justify-center gap-1"
+            aria-label="Phân trang người dùng"
+          >
+            {/* Prev */}
+            <button
+              type="button"
+              onClick={() => setPageIndex(pageIndex - 1)}
+              disabled={pageIndex === 1 || loading}
+              aria-label="Trang trước"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Page numbers */}
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setPageIndex(page)}
+                disabled={loading}
+                aria-label={`Trang ${page}`}
+                aria-current={page === pageIndex ? "page" : undefined}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium transition",
+                  page === pageIndex
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                {page}
+              </button>
+            ))}
+
+            {/* Next */}
+            <button
+              type="button"
+              onClick={() => setPageIndex(pageIndex + 1)}
+              disabled={(pageIndex >= displayTotalPages && !isFullPage) || loading}
+              aria-label="Trang sau"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </nav>
+        )}
       </div>
 
       {selectedUser ? (
@@ -256,7 +374,7 @@ export function AdminUsersPage() {
               </div>
               <div>
                 <dt className="font-semibold text-slate-500">Trạng thái</dt>
-                <dd className="text-slate-950">{selectedUser.status || "-"}</dd>
+                <dd className="text-slate-950">{formatStatus(selectedUser.status)}</dd>
               </div>
               <div>
                 <dt className="font-semibold text-slate-500">Xác minh Face ID</dt>
@@ -328,17 +446,43 @@ export function AdminUsersPage() {
 
               {/* Nút xác minh nhanh nếu chưa duyệt */}
               {!selectedUser.isVerified && (
-                <button
-                  id="user-detail-verify-btn"
-                  type="button"
-                  onClick={async () => {
-                    await handleVerify(selectedUser);
-                    setSelectedUser(null);
-                  }}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-[0.98]"
-                >
-                  ✓ Xác minh tài khoản này
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = window.prompt("Nhập lý do từ chối hồ sơ FaceID:");
+                      if (reason === null) return;
+                      if (!reason.trim()) {
+                        window.alert("Vui lòng nhập lý do.");
+                        return;
+                      }
+                      setActionLoading(selectedUser.id);
+                      try {
+                        await rejectUser(token, selectedUser.id, reason.trim());
+                        await loadUsers(pageIndex);
+                        setSelectedUser(null);
+                      } catch (rejectError) {
+                        window.alert(rejectError instanceof Error ? rejectError.message : "Không thể từ chối người dùng.");
+                      } finally {
+                        setActionLoading("");
+                      }
+                    }}
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                  >
+                    Từ chối
+                  </button>
+                  <button
+                    id="user-detail-verify-btn"
+                    type="button"
+                    onClick={async () => {
+                      await handleVerify(selectedUser);
+                      setSelectedUser(null);
+                    }}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-[0.98]"
+                  >
+                    ✓ Xác minh
+                  </button>
+                </>
               )}
             </div>
           </div>

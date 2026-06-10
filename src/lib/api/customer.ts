@@ -6,6 +6,8 @@ export type CustomerProfile = {
   cccd: string;
   email?: string;
   phone?: string;
+  status?: string;
+  rejectReason?: string;
 };
 
 type CustomerProfileRecord = {
@@ -16,6 +18,10 @@ type CustomerProfileRecord = {
   cccd?: string;
   Cccd?: string;
   CCCD?: string;
+  status?: string;
+  Status?: string;
+  rejectReason?: string;
+  RejectReason?: string;
 };
 
 type CustomerProfileResponse =
@@ -68,6 +74,8 @@ function normalizeProfile(body: CustomerProfileResponse): CustomerProfile {
     cccd: profileData.cccd ?? profileData.Cccd ?? profileData.CCCD ?? data.cccd ?? data.Cccd ?? data.CCCD ?? "",
     email: data.email ?? data.Email ?? "",
     phone: data.phone ?? data.Phone ?? "",
+    status: profileData.status ?? profileData.Status ?? data.status ?? data.Status,
+    rejectReason: profileData.rejectReason ?? profileData.RejectReason ?? data.rejectReason ?? data.RejectReason,
   };
 }
 
@@ -122,12 +130,16 @@ export async function updateCustomerProfile(
  * Cập nhật mật khẩu cho tài khoản khách hàng hiện tại.
  * 
  * @param token Token xác thực.
+ * @param currentPassword Chuỗi mật khẩu hiện tại.
  * @param newPassword Chuỗi mật khẩu mới.
+ * @param confirmPassword Xác nhận chuỗi mật khẩu mới.
  * @returns Một promise giải quyết khi việc đổi mật khẩu hoàn tất.
  */
 export async function changeCustomerPassword(
   token: string,
+  currentPassword: string,
   newPassword: string,
+  confirmPassword: string,
 ): Promise<void> {
   const res = await fetch(customerEndpoint("/password"), {
     method: "PATCH",
@@ -136,7 +148,67 @@ export async function changeCustomerPassword(
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ newPassword }),
+    body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+  });
+
+  await handleApiResponse<unknown>(res);
+}
+
+/**
+ * Lấy trạng thái xác minh FaceID của khách hàng hiện tại.
+ * 
+ * @param token Token xác thực.
+ * @returns Trạng thái xác minh và lý do từ chối nếu có.
+ */
+export async function getMyVerificationStatus(
+  token: string,
+): Promise<CustomerProfile & { status: string; rejectReason: string }> {
+  const res = await fetch(customerEndpoint("/my-status"), {
+    method: "GET",
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const body = await handleApiResponse<CustomerProfileResponse>(res);
+  const profile = normalizeProfile(body);
+  
+  return {
+    ...profile,
+    status: profile.status ?? "",
+    rejectReason: profile.rejectReason ?? "",
+  };
+}
+
+/**
+ * Gửi lại thông tin hồ sơ và FaceID để xác minh.
+ * 
+ * @param token Token xác thực.
+ * @param payload Dữ liệu form bao gồm họ tên và 3 ảnh khuôn mặt.
+ * @returns Một promise giải quyết khi việc gửi lại thông tin thành công.
+ */
+export async function resubmitVerification(
+  token: string,
+  payload: { firstName: string; lastName: string; faceImages: File[] },
+): Promise<void> {
+  const formData = new FormData();
+  formData.append("FirstName", payload.firstName);
+  formData.append("LastName", payload.lastName);
+  
+  for (const image of payload.faceImages) {
+    formData.append("FaceImages", image);
+  }
+
+  const res = await fetch(customerEndpoint("/verification-resubmission"), {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Không set Content-Type, trình duyệt sẽ tự động set boundary cho multipart/form-data
+    },
+    body: formData,
   });
 
   await handleApiResponse<unknown>(res);

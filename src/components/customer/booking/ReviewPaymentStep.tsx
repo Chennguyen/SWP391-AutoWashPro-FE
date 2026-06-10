@@ -249,6 +249,7 @@ export function ReviewPaymentStep({
 
   const promotionDiscount = useMemo(() => {
     const activePromos = promotions.filter((p) => {
+      if (p.isActive === false) return false;
       if (!p.isGlobal) return false;
       const start = new Date(p.startDate).getTime();
       const end = new Date(p.endDate).getTime();
@@ -485,22 +486,24 @@ export function ReviewPaymentStep({
           {/* Đường kẻ dashed phân cách */}
           <div className="border-t border-dashed border-slate-200" />
 
-          {/* Số tiền phải trả */}
-          <div className="flex justify-between text-sm">
-            <span className="font-semibold text-slate-800">Số tiền phải trả</span>
-            <span className="font-medium text-slate-700">{formatVND(payableAmount)}</span>
-          </div>
-
-          {/* Đường kẻ solid phân cách */}
-          <div className="border-t border-slate-200" />
-
-          {/* Số tiền cọc (30%) */}
+          {/* Số tiền phải cọc (30%) */}
           <div className="flex justify-between text-sm">
             <div>
               <span className="text-slate-600">Số tiền phải cọc (30%)</span>
               <p className="text-xs text-slate-400">Bạn phải cọc trước 30% để giữ slot</p>
             </div>
-            <span className="font-medium text-slate-700">{formatVND(deposit)}</span>
+            <span className="font-medium text-slate-700">-{formatVND(deposit)}</span>
+          </div>
+
+          {/* Đường kẻ dashed phân cách */}
+          <div className="border-t border-dashed border-slate-200" />
+
+          {/* Tổng tiền phải trả khi check-in */}
+          <div className="flex justify-between text-sm">
+            <span className="font-semibold text-slate-800">Tổng tiền phải trả khi check-in</span>
+            <span className="font-bold text-slate-950">
+              {formatVND(Math.max(0, payableAmount - deposit))}
+            </span>
           </div>
         </div>
       </div>

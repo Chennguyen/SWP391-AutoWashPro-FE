@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { ApiError } from "@/lib/api/api-error";
 import { cancelBooking, checkInBooking, getBookings } from "@/lib/api/booking";
+import { getMyVerificationStatus } from "@/lib/api/customer";
 import type { CustomerBooking } from "@/types/booking";
 import {
   subscribeToToken,
@@ -325,8 +326,10 @@ function BookingDetailPanel({
         const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100_000;
         const basePrice = booking.basePrice ?? 100_000;
         const discountAmount = booking.discountAmount ?? (basePrice > finalPrice ? basePrice - finalPrice : 0);
+
         const depositAmount = Math.round(finalPrice * 0.3);
         const remainingAmount = finalPrice - depositAmount;
+
         return (
           <div className="mt-4 rounded-lg border border-slate-200 bg-white overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
@@ -341,31 +344,22 @@ function BookingDetailPanel({
                 <span className="font-medium text-slate-700">{basePrice.toLocaleString("vi-VN")} ₫</span>
               </div>
 
-              {/* Giảm giá */}
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span style={{ color: "#EE4D2D" }}>Ưu đãi giảm giá</span>
+              {/* Tổng cộng giảm giá */}
+              <div className="flex justify-between text-sm">
+                <div>
+                  <span className="text-slate-600">Tổng cộng giảm giá</span>
+                  <p className="text-xs text-slate-400 font-normal">(Đã cộng khuyến mãi và voucher)</p>
+                </div>
+                {discountAmount > 0 ? (
                   <span className="font-medium" style={{ color: "#EE4D2D" }}>
                     -{discountAmount.toLocaleString("vi-VN")}₫
                   </span>
-                </div>
-              )}
-
-              {/* Dashed divider */}
-              <div className="border-t border-dashed border-slate-200" />
-
-              {/* Tổng tiền phải trả — nhãn giữ đậm, giá trị đồng màu các dòng khác */}
-              <div className="flex justify-between text-sm">
-                <span className="font-semibold text-slate-800">Tổng tiền phải trả</span>
-                <span className="font-medium text-slate-700">
-                  {finalPrice.toLocaleString("vi-VN")}₫
-                </span>
+                ) : (
+                  <span className="font-medium text-slate-700">0₫</span>
+                )}
               </div>
 
-              {/* Solid divider */}
-              <div className="border-t border-slate-200" />
-
-              {/* Số tiền phải cọc (30%) — flat, đồng màu, có dấu trừ để thể hiện khấu trừ */}
+              {/* Số tiền phải cọc (30%) */}
               <div className="flex justify-between text-sm">
                 <div>
                   <span className="text-slate-600">Số tiền phải cọc (30%)</span>
@@ -376,10 +370,13 @@ function BookingDetailPanel({
                 </span>
               </div>
 
-              {/* Thanh toán ngay khi check-in (70%) — flat */}
+              {/* Dashed divider */}
+              <div className="border-t border-dashed border-slate-200" />
+
+              {/* Tổng tiền phải trả khi check-in */}
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Thanh toán ngay khi check-in (70%)</span>
-                <span className="font-medium text-slate-700">
+                <span className="font-semibold text-slate-800">Tổng tiền phải trả khi check-in</span>
+                <span className="font-bold text-slate-950">
                   {remainingAmount.toLocaleString("vi-VN")}₫
                 </span>
               </div>
@@ -468,6 +465,7 @@ export function UpcomingBookingPanel() {
   const authChecked = tokenSnapshot !== null;
 
   const [bookings, setBookings] = useState<CustomerBooking[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -476,6 +474,7 @@ export function UpcomingBookingPanel() {
   // ⚡ FIX: Clear stale data immediately when token changes (account switch / logout)
   useEffect(() => {
     setBookings([]);
+    setStatus(null);
     setSelectedId(null);
     setShowDetail(false);
     setError(null);
@@ -488,13 +487,24 @@ export function UpcomingBookingPanel() {
 
   const loadBookings = useCallback(async () => {
     if (!token) return;
-    const from = new Date();
-    from.setDate(from.getDate() - 1);
-    const to = new Date();
-    to.setDate(to.getDate() + 60);
     setLoading(true);
     setError(null);
     try {
+      // Kiểm tra trạng thái xác minh trước tiên
+      const verification = await getMyVerificationStatus(token);
+      setStatus(verification.status);
+
+      if (verification.status === "Pending" || verification.status === "Rejected") {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
+
+      const from = new Date();
+      from.setDate(from.getDate() - 1);
+      const to = new Date();
+      to.setDate(to.getDate() + 60);
+
       const next = await getBookings(token, toISODate(from), toISODate(to), 1, 50);
       // Only upcoming (not cancelled / completed)
       const upcoming = next.filter((b) => isUpcomingStatus(b.status));
@@ -533,7 +543,12 @@ export function UpcomingBookingPanel() {
     await loadBookings();
   }
 
+  if (status === "Pending" || status === "Rejected") {
+    return null;
+  }
+
   return (
+
     <section
       id="upcoming-booking"
       className="rounded-2xl border border-slate-200 bg-white p-6"

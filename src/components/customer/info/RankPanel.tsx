@@ -142,19 +142,6 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
                 <p className="mt-1 text-2xl font-black">{nextRank?.name ?? "Tối đa"}</p>
               </div>
             </div>
-
-            <div className="mt-5">
-              <div className="flex justify-between text-xs font-semibold opacity-80">
-                <span>{nextRank ? `Còn ${formatNumber(washesToNext)} lần rửa để lên ${nextRank.name}` : "Bạn đã ở hạng cao nhất"}</span>
-                <span>{progress}%</span>
-              </div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/20">
-                <div
-                  className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-1000", currentRank.progressClass)}
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -188,7 +175,7 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
                   <div className="mt-4 space-y-2 text-sm text-slate-600">
                     <p className="flex gap-2">
                       <TrendingUp size={15} className="mt-0.5 shrink-0 text-blue-600" aria-hidden />
-                      Yêu cầu: {formatNumber(tierData.requiredWashes)} lần rửa
+                      Yêu cầu: Sau {formatNumber(tierData.requiredWashes)} lần rửa
                     </p>
                     
                     {tierData.description && (

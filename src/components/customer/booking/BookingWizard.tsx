@@ -304,12 +304,10 @@ export function BookingWizard() {
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      {/* Cột trái: Thông tin tài khoản – ẩn khi bước 6 */}
-      {currentStep < 6 && (
-        <div className="w-full lg:w-56 xl:w-60 lg:shrink-0 lg:sticky lg:top-20">
-          <BookingCustomerSummary />
-        </div>
-      )}
+      {/* Cột trái: Thông tin tài khoản */}
+      <div className="w-full lg:w-56 xl:w-60 lg:shrink-0 lg:sticky lg:top-20">
+        <BookingCustomerSummary />
+      </div>
 
       {/* Cột giữa: Nội dung đặt lịch chính */}
       <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">

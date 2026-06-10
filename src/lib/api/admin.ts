@@ -18,7 +18,7 @@ export type PageResult<T> = {
   totalCount: number;
 };
 
-export type AccountStatus = "Active" | "Locked" | "Inactive";
+export type AccountStatus = "Pending" | "Active" | "Rejected" | "Locked" | "Inactive";
 export type BookingStatus =
   | "Available"
   | "Pending"
@@ -782,13 +782,36 @@ export async function getUser(token: string, id: string): Promise<AdminUser> {
  * @returns Hứa giải quyết khi cập nhật xác minh thành công.
  */
 export async function verifyUser(token: string, id: string): Promise<void> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/verify`), {
+  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/approval`), {
     method: "PATCH",
     cache: "no-store",
     headers: authHeaders(token),
   });
   await handleApiResponse<unknown>(res);
 }
+
+/**
+ * Từ chối hồ sơ Face ID của người dùng.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID người dùng.
+ * @param rejectReason Lý do từ chối.
+ * @returns Hứa giải quyết khi cập nhật thành công.
+ */
+export async function rejectUser(
+  token: string,
+  id: string,
+  rejectReason: string,
+): Promise<void> {
+  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/reject`), {
+    method: "PATCH",
+    cache: "no-store",
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ rejectReason: rejectReason }),
+  });
+  await handleApiResponse<unknown>(res);
+}
+
 
 /**
  * Cập nhật cờ trạng thái tài khoản của người dùng (Active, Locked, Inactive).

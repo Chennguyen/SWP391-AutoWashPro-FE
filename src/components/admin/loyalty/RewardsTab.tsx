@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Edit2, Plus, RefreshCw, Save, X } from "lucide-react";
+import { Plus, RefreshCw, Save, X } from "lucide-react";
 import {
   createAdminReward,
   getAdminRewards,
   updateAdminReward,
+  deleteAdminReward,
   type AdminReward,
   type AdminRewardTypeEnum,
   type CreateRewardPayload,
@@ -38,12 +39,13 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 interface RewardFormProps {
   initial?: AdminReward | null;
+  readOnly?: boolean;
   onClose: () => void;
   onSaved: () => void;
   token: string;
 }
 
-function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) {
+function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }: RewardFormProps) {
   const isEdit = !!initial;
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -59,6 +61,10 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnly) {
+      onClose();
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -97,7 +103,7 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-950">
-            {isEdit ? "Sửa phần thưởng" : "Thêm phần thưởng mới"}
+            {readOnly ? "Chi tiết phần thưởng" : isEdit ? "Sửa phần thưởng" : "Thêm phần thưởng mới"}
           </h3>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
             <X size={18} />
@@ -111,18 +117,20 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
             <label className="mb-1 block text-sm font-medium text-slate-700">Tên phần thưởng</label>
             <input
               required
+              disabled={readOnly}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Mô tả</label>
             <textarea
               rows={2}
+              disabled={readOnly}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
 
@@ -132,9 +140,10 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
               <input
                 type="number"
                 min={1}
+                disabled={readOnly}
                 value={pointsRequired}
                 onChange={(e) => setPointsRequired(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
             <div>
@@ -142,9 +151,10 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
               <input
                 type="number"
                 min={0}
+                disabled={readOnly}
                 value={quantityAvailable ?? 0}
                 onChange={(e) => setQuantityAvailable(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
           </div>
@@ -153,9 +163,10 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Loại phần thưởng</label>
               <select
+                disabled={readOnly}
                 value={rewardTypeEnum}
                 onChange={(e) => setRewardTypeEnum(Number(e.target.value) as AdminRewardTypeEnum)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               >
                 {REWARD_TYPE_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -171,20 +182,22 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
             <input
               type="number"
               min={1}
+              disabled={readOnly}
               value={validDays ?? 30}
               onChange={(e) => setValidDays(Number(e.target.value))}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
 
-          {isEdit && (
+          {(isEdit || readOnly) && (
             <div className="flex items-center gap-3">
               <input
                 id="reward-active"
                 type="checkbox"
+                disabled={readOnly}
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
               />
               <label htmlFor="reward-active" className="text-sm font-medium text-slate-700">
                 Kích hoạt (active)
@@ -193,21 +206,33 @@ function RewardFormModal({ initial, onClose, onSaved, token }: RewardFormProps) 
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-              {isEdit ? "Cập nhật" : "Thêm mới"}
-            </button>
+            {readOnly ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Đóng
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                  {isEdit ? "Cập nhật" : "Thêm mới"}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>
@@ -225,7 +250,8 @@ export function RewardsTab({ token }: Props) {
   const [rewards, setRewards] = useState<AdminReward[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formTarget, setFormTarget] = useState<"new" | AdminReward | null>(null);
+  const [formMode, setFormMode] = useState<"new" | "edit" | "view" | null>(null);
+  const [selectedReward, setSelectedReward] = useState<AdminReward | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -246,6 +272,19 @@ export function RewardsTab({ token }: Props) {
     return () => window.clearTimeout(id);
   }, [load]);
 
+  async function handleDelete(rewardId: string, name: string) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa phần thưởng "${name}"?`)) return;
+    setLoading(true);
+    try {
+      await deleteAdminReward(token, rewardId);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể xóa phần thưởng.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function rewardTypeLabel(r: AdminReward): string {
     return REWARD_TYPE_OPTIONS.find((t) => t.value === r.rewardTypeEnum)?.label
       ?? REWARD_TYPE_MAP[r.rewardTypeEnum]
@@ -257,7 +296,10 @@ export function RewardsTab({ token }: Props) {
       <div className="mb-4 flex justify-end">
         <button
           type="button"
-          onClick={() => setFormTarget("new")}
+          onClick={() => {
+            setSelectedReward(null);
+            setFormMode("new");
+          }}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
         >
           <Plus size={15} />
@@ -296,7 +338,14 @@ export function RewardsTab({ token }: Props) {
               </tr>
             ) : (
               rewards.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50">
+                <tr
+                  key={r.id}
+                  className="hover:bg-slate-50 cursor-pointer"
+                  onClick={() => {
+                    setSelectedReward(r);
+                    setFormMode("view");
+                  }}
+                >
                   <td className="px-4 py-3">
                     <p className="font-semibold text-slate-950">{r.name}</p>
                     {r.description && (
@@ -314,15 +363,26 @@ export function RewardsTab({ token }: Props) {
                   <td className="px-4 py-3">
                     <StatusBadge isActive={r.isActive} />
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setFormTarget(r)}
-                      className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600"
-                      title="Sửa"
-                    >
-                      <Edit2 size={15} />
-                    </button>
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedReward(r);
+                          setFormMode("edit");
+                        }}
+                        className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(r.id, r.name)}
+                        className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -331,11 +391,15 @@ export function RewardsTab({ token }: Props) {
         </table>
       </div>
 
-      {formTarget !== null ? (
+      {formMode !== null ? (
         <RewardFormModal
-          initial={formTarget === "new" ? null : formTarget}
+          initial={formMode === "new" ? null : selectedReward}
+          readOnly={formMode === "view"}
           token={token}
-          onClose={() => setFormTarget(null)}
+          onClose={() => {
+            setFormMode(null);
+            setSelectedReward(null);
+          }}
           onSaved={load}
         />
       ) : null}
