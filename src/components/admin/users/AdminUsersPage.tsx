@@ -11,7 +11,7 @@ import {
   rejectUser,
   type AdminUser,
 } from "@/lib/api/admin";
-import { adjustCustomerPoints, type AdjustPointsAction } from "@/lib/api/loyalty-admin";
+
 import { AdminError, AdminPageHeader, AdminShell } from "@/components/admin/shared/AdminUi";
 import { useAdminToken } from "@/components/admin/shared/useAdminToken";
 import { cn } from "@/lib/utils";
@@ -51,7 +51,6 @@ export function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [adjustTarget, setAdjustTarget] = useState<AdminUser | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
@@ -152,23 +151,7 @@ export function AdminUsersPage() {
     }
   }
 
-  async function handleAdjustPoints(
-    user: AdminUser,
-    action: AdjustPointsAction,
-    points: number,
-    reason: string,
-  ) {
-    setActionLoading(user.id);
-    try {
-      await adjustCustomerPoints(token, user.id, { action, points, reason });
-      window.alert(`${action === "ADD" ? "Cộng" : "Trừ"} ${points} điểm cho ${user.fullName} thành công.`);
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Không thể điều chỉnh điểm.");
-    } finally {
-      setActionLoading("");
-      setAdjustTarget(null);
-    }
-  }
+
 
   return (
     <AdminShell>
@@ -277,14 +260,9 @@ export function AdminUsersPage() {
                           </button>
                         </div>
                       ) : (
-                        <>
-                          <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
-                            {user.status === "Locked" ? "Mở khóa" : "Khóa"}
-                          </button>
-                          <button type="button" onClick={() => setAdjustTarget(user)} className="ml-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100" title="Điều chỉnh điểm">
-                            Điểm
-                          </button>
-                        </>
+                        <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
+                          {user.status === "Locked" ? "Mở khóa" : "Khóa"}
+                        </button>
                       )}
                       {actionLoading === user.id ? <RefreshCw className="ml-1 inline animate-spin text-blue-600" size={14} aria-hidden /> : null}
                     </td>
@@ -425,16 +403,7 @@ export function AdminUsersPage() {
 
             {/* Chân modal */}
             <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setAdjustTarget(selectedUser);
-                  setSelectedUser(null);
-                }}
-                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"
-              >
-                Điều chỉnh điểm
-              </button>
+
               
               <button
                 type="button"
@@ -489,96 +458,6 @@ export function AdminUsersPage() {
         </div>
       ) : null}
 
-
-      {adjustTarget ? (
-        <AdjustPointsDialog
-          user={adjustTarget}
-          onClose={() => setAdjustTarget(null)}
-          onConfirm={handleAdjustPoints}
-        />
-      ) : null}
     </AdminShell>
-  );
-}
-
-function AdjustPointsDialog({
-  user,
-  onClose,
-  onConfirm,
-}: {
-  user: AdminUser;
-  onClose: () => void;
-  onConfirm: (user: AdminUser, action: AdjustPointsAction, points: number, reason: string) => Promise<void>;
-}) {
-  const [action, setAction] = useState<AdjustPointsAction>("ADD");
-  const [points, setPoints] = useState(100);
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!reason.trim()) { window.alert("Vui lòng nhập lý do."); return; }
-    setSaving(true);
-    await onConfirm(user, action, points, reason.trim());
-    setSaving(false);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-950">Điều chỉnh điểm: {user.fullName}</h3>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
-            <XCircle size={18} />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
-            {(["ADD", "SUBTRACT"] as AdjustPointsAction[]).map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAction(a)}
-                className={`flex-1 rounded-lg border py-2 text-sm font-bold transition ${
-                  action === a
-                    ? a === "ADD"
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-red-500 bg-red-50 text-red-700"
-                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {a === "ADD" ? "+ Cộng điểm" : "− Trừ điểm"}
-              </button>
-            ))}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Số điểm</label>
-            <input
-              type="number"
-              min={1}
-              value={points}
-              onChange={(e) => setPoints(Number(e.target.value))}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Lý do</label>
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Tặng điểm sự kiện..."
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : null}
-              Xác nhận
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 }

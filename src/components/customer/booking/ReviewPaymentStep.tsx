@@ -251,8 +251,13 @@ export function ReviewPaymentStep({
     const activePromos = promotions.filter((p) => {
       if (p.isActive === false) return false;
       if (!p.isGlobal) return false;
-      const start = new Date(p.startDate).getTime();
-      const end = new Date(p.endDate).getTime();
+      const startDateObj = new Date(p.startDate);
+      startDateObj.setHours(0, 0, 0, 0);
+      const start = startDateObj.getTime();
+
+      const endDateObj = new Date(p.endDate);
+      endDateObj.setHours(23, 59, 59, 999);
+      const end = endDateObj.getTime();
       const now = Date.now();
       const bookingMs = new Date(date + "T00:00:00").getTime();
       // Thỏa mãn nếu hôm nay đang chạy khuyến mãi hoặc ngày đặt nằm trong đợt khuyến mãi

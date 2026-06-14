@@ -1,5 +1,7 @@
 import { ReactNode, Suspense } from "react";
 import { DashboardSidebar } from "@/components/customer/DashboardSidebar";
+import { NotificationProvider } from "@/context/NotificationContext";
+import { NotificationToaster } from "@/components/shared/NotificationToaster";
 
 /**
  * Bố cục (Layout) CustomerLayout
@@ -9,15 +11,18 @@ import { DashboardSidebar } from "@/components/customer/DashboardSidebar";
  */
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen bg-background-outer text-slate-900">
-      <Suspense fallback={<div className="h-14 bg-[#050505] border-b border-white/10" />}>
-        <DashboardSidebar />
-      </Suspense>
+    <NotificationProvider>
+      <div className="flex flex-col min-h-screen bg-background-outer text-slate-900">
+        <Suspense fallback={<div className="h-14 bg-[#050505] border-b border-white/10" />}>
+          <DashboardSidebar />
+        </Suspense>
 
-      {/* Main content wrapper */}
-      <div className="flex-1 min-w-0">
-        {children}
+        {/* Main content wrapper */}
+        <div className="flex-1 min-w-0">
+          {children}
+        </div>
       </div>
-    </div>
+      <NotificationToaster />
+    </NotificationProvider>
   );
 }

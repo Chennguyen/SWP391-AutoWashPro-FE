@@ -3,6 +3,8 @@
 import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { NotificationProvider } from "@/context/NotificationContext";
+import { NotificationToaster } from "@/components/shared/NotificationToaster";
 
 function getStoredRole() {
   if (typeof window === "undefined") return "";
@@ -48,9 +50,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background-outer text-slate-900 lg:flex">
-      <AdminSidebar />
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <NotificationProvider>
+      <div className="min-h-screen bg-background-outer text-slate-900 lg:flex">
+        <AdminSidebar />
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+      <NotificationToaster />
+    </NotificationProvider>
   );
 }

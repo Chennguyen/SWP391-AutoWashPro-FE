@@ -36,8 +36,13 @@ function PromotionStatusBadge({ promotion }: { promotion: AdminPromotion }) {
   }
 
   const now = Date.now();
-  const start = new Date(promotion.startDate).getTime();
-  const end = new Date(promotion.endDate).getTime();
+  const startDateObj = new Date(promotion.startDate);
+  startDateObj.setHours(0, 0, 0, 0);
+  const start = startDateObj.getTime();
+
+  const endDateObj = new Date(promotion.endDate);
+  endDateObj.setHours(23, 59, 59, 999);
+  const end = endDateObj.getTime();
 
   if (now < start) {
     return (

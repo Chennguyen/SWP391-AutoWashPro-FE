@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 
 const NAV_ITEMS = [
   { label: "Trang chủ",         icon: LayoutDashboard, href: "/customer" },
@@ -107,6 +108,7 @@ export function DashboardSidebar() {
 
           {/* Right: logout + hamburger */}
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <button
               type="button"
               onClick={handleLogout}

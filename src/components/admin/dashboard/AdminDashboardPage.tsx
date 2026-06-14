@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BadgeCheck, CalendarCheck, RefreshCw, Users, WalletCards, XCircle } from "lucide-react";
-import { getDashboardStats, type DashboardStats } from "@/lib/api/admin";
+import { getDashboardStats, getBranches, type DashboardStats, type AdminBranch } from "@/lib/api/admin";
 import { AdminError, AdminLoading, AdminPageHeader, AdminShell, MetricCard } from "@/components/admin/shared/AdminUi";
 import { useAdminToken } from "@/components/admin/shared/useAdminToken";
 
@@ -35,9 +35,24 @@ export function AdminDashboardPage() {
   const initialRange = monthRange();
   const [fromDate, setFromDate] = useState(initialRange.from);
   const [toDate, setToDate] = useState(initialRange.to);
+  const [branchId, setBranchId] = useState("");
+  const [branches, setBranches] = useState<AdminBranch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadBranches = useCallback(async () => {
+    if (!token) return;
+    try {
+      const result = await getBranches(token, { isActive: true });
+      setBranches(result);
+      if (result.length > 0 && !branchId) {
+        setBranchId(result[0].id);
+      }
+    } catch {
+      setBranches([]);
+    }
+  }, [token, branchId]);
 
   const loadStats = useCallback(async () => {
     if (!token || !fromDate || !toDate) return;
@@ -47,6 +62,7 @@ export function AdminDashboardPage() {
       const nextStats = await getDashboardStats(token, {
         FromDate: fromDate,
         ToDate: toDate,
+        BranchId: branchId || undefined,
       });
       setStats(nextStats);
     } catch (loadError) {
@@ -54,7 +70,12 @@ export function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, token]);
+  }, [fromDate, toDate, token, branchId]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadBranches(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadBranches]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadStats(), 0);
@@ -80,6 +101,18 @@ export function AdminDashboardPage() {
               onChange={(event) => setToDate(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
+            <select
+              value={branchId}
+              onChange={(event) => setBranchId(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Tất cả chi nhánh</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={loadStats}

@@ -63,7 +63,7 @@ export function AdminReportsPage() {
   }, [token, branchId]);
 
   const loadReports = useCallback(async () => {
-    if (!token || !fromDate || !toDate) return;
+    if (!token || !fromDate || !toDate || !branchId) return;
     setLoading(true);
     setError(null);
     try {
@@ -126,15 +126,102 @@ export function AdminReportsPage() {
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-bold text-slate-950">Chi tiết doanh thu</h2>
-          <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
-            {JSON.stringify(revenue, null, 2)}
-          </pre>
+          {revenue && Array.isArray((revenue as any).data) && ((revenue as any).data as any[]).length > 0 ? (
+            <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm text-slate-500 border-collapse">
+                <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider sticky top-0 border-b border-slate-200">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Ngày</th>
+                    <th scope="col" className="px-4 py-3 text-center">Tổng đặt</th>
+                    <th scope="col" className="px-4 py-3 text-center">Hoàn thành</th>
+                    <th scope="col" className="px-4 py-3 text-right">Doanh thu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {((revenue as any).data as any[]).map((item: any, idx: number) => (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        {item.date ? item.date.split("-").reverse().join("/") : "-"}
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-slate-700">{item.bookingCount ?? 0}</td>
+                      <td className="px-4 py-2.5 text-center text-slate-700">{item.completedBookingCount ?? 0}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">
+                        {formatVND(item.revenue ?? 0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-400">
+              Không có dữ liệu doanh thu chi tiết.
+            </div>
+          )}
         </section>
+
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-bold text-slate-950">Chi tiết loyalty</h2>
-          <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
-            {JSON.stringify(loyalty, null, 2)}
-          </pre>
+          {loyalty ? (
+            <div className="mt-3 space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <span className="block text-xs font-medium text-slate-500">Điểm tích lũy</span>
+                  <span className="text-lg font-bold text-slate-800">
+                    {(loyalty as any).summary?.totalPointsEarned ?? 0}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <span className="block text-xs font-medium text-slate-500">Điểm đã đổi</span>
+                  <span className="text-lg font-bold text-slate-800">
+                    {(loyalty as any).summary?.totalPointsRedeemed ?? 0}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <span className="block text-xs font-medium text-slate-500">Quà đã nhận</span>
+                  <span className="text-lg font-bold text-slate-800">
+                    {(loyalty as any).summary?.totalRewardsRedeemed ?? 0}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <span className="block text-xs font-medium text-slate-500">Lượt nâng hạng</span>
+                  <span className="text-lg font-bold text-slate-800">
+                    {(loyalty as any).summary?.tierUpgradeCount ?? 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tier Distribution Table */}
+              {Array.isArray((loyalty as any).tierDistribution) && ((loyalty as any).tierDistribution as any[]).length > 0 ? (
+                <div className="mt-4">
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phân bố hạng thành viên</h3>
+                  <div className="overflow-hidden rounded-lg border border-slate-200">
+                    <table className="w-full text-left text-sm text-slate-500 border-collapse">
+                      <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th scope="col" className="px-4 py-2">Hạng</th>
+                          <th scope="col" className="px-4 py-2 text-right">Số lượng khách hàng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {((loyalty as any).tierDistribution as any[]).map((tier: any, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-2 font-medium text-slate-900">{tier.tierName ?? "Chưa rõ"}</td>
+                            <td className="px-4 py-2 text-right text-slate-700 font-semibold">{tier.customerCount ?? 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-400">
+              Không có dữ liệu loyalty chi tiết.
+            </div>
+          )}
         </section>
       </div>
     </AdminShell>
