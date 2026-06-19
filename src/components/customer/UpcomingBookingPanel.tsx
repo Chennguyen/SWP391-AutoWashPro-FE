@@ -325,8 +325,11 @@ function BookingDetailPanel({
         /* Ưu tiên sử dụng FinalPrice từ backend nếu có, nếu không thì fallback về totalPrice hoặc 100.000₫ */
         const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100_000;
         const basePrice = booking.basePrice ?? 100_000;
-        const discountAmount = booking.discountAmount ?? (basePrice > finalPrice ? basePrice - finalPrice : 0);
-
+        // Tổng giảm giá (promotion + voucher gộp chung — do backend trả về 1 trường)
+        const discountAmount = booking.discountAmount ?? 0;
+        // Suy luận phụ phí xe: nếu finalPrice > basePrice - discount thì có phụ phí
+        // surcharge = (finalPrice + discountAmount) - basePrice (số dương nếu có phụ phí)
+        const surcharge = Math.max(0, finalPrice + discountAmount - basePrice);
         const depositAmount = Math.round(finalPrice * 0.3);
         const remainingAmount = finalPrice - depositAmount;
 
@@ -344,7 +347,17 @@ function BookingDetailPanel({
                 <span className="font-medium text-slate-700">{basePrice.toLocaleString("vi-VN")} ₫</span>
               </div>
 
-              {/* Tổng cộng giảm giá */}
+              {/* Phụ phí dòng xe (không in đậm, màu thường) */}
+              {surcharge > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Phụ phí dòng xe</span>
+                  <span className="font-normal text-slate-700">
+                    +{surcharge.toLocaleString("vi-VN")}₫
+                  </span>
+                </div>
+              )}
+
+              {/* Tổng cộng giảm giá (cộng gộp promotion + voucher) */}
               <div className="flex justify-between text-sm">
                 <div>
                   <span className="text-slate-600">Tổng cộng giảm giá</span>

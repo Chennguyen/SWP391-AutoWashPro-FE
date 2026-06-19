@@ -44,13 +44,18 @@ const COLOR_MAP: Record<NotificationType, string> = {
   SystemAlert: "text-sky-500 bg-sky-50 border-sky-100",
 };
 
-export function getNotificationDetails(type: NotificationType, message: string, title: string) {
+export function getNotificationDetails(type: NotificationType, message: string | undefined | null, title: string | undefined | null) {
+  const msgStr = typeof message === "string" ? message : "";
+  const titleStr = typeof title === "string" ? title : "";
+  
   const isPromo =
     type === "SystemAlert" &&
-    (message.toLowerCase().includes("khuyến mãi") ||
-      message.toLowerCase().includes("chương trình") ||
-      title.toLowerCase().includes("khuyến mãi") ||
-      title.toLowerCase().includes("chương trình"));
+    (msgStr.toLowerCase().includes("khuyến mãi") ||
+      msgStr.toLowerCase().includes("chương trình") ||
+      titleStr.toLowerCase().includes("khuyến mãi") ||
+      titleStr.toLowerCase().includes("chương trình") ||
+      msgStr.toLowerCase().includes("promotion") ||
+      titleStr.toLowerCase().includes("promotion"));
 
   if (isPromo) {
     return {
@@ -59,8 +64,8 @@ export function getNotificationDetails(type: NotificationType, message: string, 
     };
   }
 
-  const Icon = ICON_MAP[type] || Info;
-  const colorClass = COLOR_MAP[type] || "text-slate-500 bg-slate-50 border-slate-100";
+  const Icon = (type && ICON_MAP[type]) || Info;
+  const colorClass = (type && COLOR_MAP[type]) || "text-slate-500 bg-slate-50 border-slate-100";
 
   return { Icon, colorClass };
 }

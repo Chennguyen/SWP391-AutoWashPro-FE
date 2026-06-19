@@ -46,7 +46,7 @@ function formatPoints(value: number): string {
  *
  * Chức năng: Hiển thị thông tin tóm tắt tài khoản khách hàng tại trang đặt lịch.
  * Bao gồm: Tên khách hàng, Hạng thành viên, Điểm tích lũy và Số dư ví.
- * Lắng nghe sự kiện storage và autowash-auth để đồng bộ thời gian thực.
+ * Lắng nghe sự kiện storage, autowash-auth và autowash-wallet-updated để đồng bộ thời gian thực.
  */
 export function BookingCustomerSummary() {
   const [name, setName] = useState("Khách hàng");
@@ -116,13 +116,21 @@ export function BookingCustomerSummary() {
       }
     }
 
+    // Cập nhật số dư ví ngay lập tức khi nhận được tín hiệu sau đặt lịch thành công
+    function handleWalletUpdated(e: Event) {
+      const wallet = (e as CustomEvent).detail;
+      if (wallet) setWallet(wallet);
+    }
+
     sync();
     window.addEventListener("storage", sync);
     window.addEventListener("autowash-auth", sync);
+    window.addEventListener("autowash-wallet-updated", handleWalletUpdated);
 
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("autowash-auth", sync);
+      window.removeEventListener("autowash-wallet-updated", handleWalletUpdated);
     };
   }, [loadData]);
 

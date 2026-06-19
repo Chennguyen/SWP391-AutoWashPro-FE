@@ -2,6 +2,7 @@ import { ReactNode, Suspense } from "react";
 import { DashboardSidebar } from "@/components/customer/DashboardSidebar";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { NotificationToaster } from "@/components/shared/NotificationToaster";
+import { RankUpgradeCelebration } from "@/components/customer/RankUpgradeCelebration";
 
 /**
  * Bố cục (Layout) CustomerLayout
@@ -23,6 +24,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
       <NotificationToaster />
+      <RankUpgradeCelebration />
     </NotificationProvider>
   );
 }

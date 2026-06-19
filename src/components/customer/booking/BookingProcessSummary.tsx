@@ -1,10 +1,7 @@
 "use client";
 
-import { Building2, Car, CalendarClock, Tag, Check, ChevronRight, WalletCards } from "lucide-react";
+import { Building2, Car, CalendarClock, Tag, Check, ChevronRight } from "lucide-react";
 import type { WizardState } from "@/types/booking";
-
-const SERVICE_PRICE = 100_000;
-const DEPOSIT_RATE = 0.3;
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -115,10 +112,6 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
   const isStep3Done = selectedDate !== "" && selectedSlot !== "";
   const isStep4Done = currentStep > 4;
 
-  const discount = appliedVoucher?.discountAmount ?? 0;
-  const payable = Math.max(0, SERVICE_PRICE - discount);
-  const deposit = Math.round(payable * DEPOSIT_RATE);
-
   const hasAnyProgress = isStep1Done || isStep2Done || isStep3Done || currentStep >= 4;
 
   return (
@@ -205,44 +198,7 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
         />
       </div>
 
-      {/* Price breakdown – chỉ hiện khi đã có tiến trình */}
-      {hasAnyProgress && currentStep >= 4 && (
-        <>
-          <div className="mx-3 border-t border-slate-100" />
-
-          <div className="space-y-2 p-3 pb-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tạm tính</p>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">Giá dịch vụ</span>
-                <span className="text-xs font-semibold text-slate-700">{formatVND(SERVICE_PRICE)}</span>
-              </div>
-
-              {discount > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-emerald-600">Giảm giá</span>
-                  <span className="text-xs font-semibold text-emerald-600">-{formatVND(discount)}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between border-t border-slate-100 pt-1.5">
-                <span className="text-xs font-bold text-slate-800">Tổng thanh toán</span>
-                <span className="text-sm font-black text-slate-950">{formatVND(payable)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mx-3 mb-3 rounded-lg border border-blue-100 bg-blue-50 p-3">
-            <div className="flex items-center gap-2">
-              <WalletCards size={13} className="shrink-0 text-blue-500" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600">Đặt cọc 30%</p>
-            </div>
-            <p className="mt-1 text-xl font-black text-blue-700">{formatVND(deposit)}</p>
-            <p className="text-[10px] text-blue-400">Thanh toán qua ví AutoWash</p>
-          </div>
-        </>
-      )}
+      {/* Ghi chú: Chi tiết tính tiền và đặt cọc được hiển thị ở bước Xác nhận thanh toán */}
 
       {/* Empty state khi mới vào trang */}
       {!hasAnyProgress && (

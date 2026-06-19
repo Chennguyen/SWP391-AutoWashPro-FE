@@ -232,12 +232,25 @@ export function AdminUsersPage() {
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50">
-                    <td
+                     <td
                       className="cursor-pointer px-4 py-3"
                       onClick={() => void handleView(user)}
                       title="Xem chi tiết"
                     >
-                      <p className="font-semibold text-slate-950 hover:text-blue-600">{user.fullName}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-slate-950 hover:text-blue-600">{user.fullName}</p>
+                        {user.tierName && (
+                          <span className={cn(
+                            "inline-flex items-center rounded-full px-1.5 py-0.2 text-[10px] font-semibold border leading-tight",
+                            user.tierName === "Platinum" || user.tierName.toLowerCase().includes("bạch kim") ? "bg-purple-50 text-purple-700 border-purple-200" :
+                            user.tierName === "Gold" || user.tierName.toLowerCase().includes("vàng") ? "bg-amber-50 text-amber-700 border-amber-200" :
+                            user.tierName === "Silver" || user.tierName.toLowerCase().includes("bạc") ? "bg-slate-50 text-slate-700 border-slate-200" :
+                            "bg-blue-50 text-blue-700 border-blue-200"
+                          )}>
+                            {user.tierName}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{user.phone || "-"}</td>
@@ -368,6 +381,22 @@ export function AdminUsersPage() {
                   )}
                 </dd>
               </div>
+              {selectedUser.role === "Customer" && (
+                <>
+                  <div>
+                    <dt className="font-semibold text-slate-500">Hạng thành viên</dt>
+                    <dd className="text-slate-950">
+                      {selectedUser.tierName || "Member"} {selectedUser.tierLevel ? `(Lv.${selectedUser.tierLevel})` : ""}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-500">Tích lũy / Số lần rửa</dt>
+                    <dd className="text-slate-950">
+                      {selectedUser.totalPoints ?? 0} pts / {selectedUser.totalWashes ?? 0} lần
+                    </dd>
+                  </div>
+                </>
+              )}
             </dl>
 
             {/* Lưới ảnh khuôn mặt */}

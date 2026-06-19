@@ -41,6 +41,10 @@ export type LoyaltyPointsConfig = {
   slotDurationMinutes?: number; // configKey: "SlotDurationMinutes"
   workingStartHour?: string;    // configKey: "WorkingStartHour"
   workingEndHour?: string;      // configKey: "WorkingEndHour"
+  basePrice?: number;           // configKey: "BasePrice"
+  suvBasePrice?: number;        // configKey: "SuvBasePrice"
+  sedanBasePrice?: number;      // configKey: "SedanBasePrice"
+  paymentDeposite?: number;     // configKey: "PaymentDeposite"
 };
 
 export type LoyaltyPointsConfigRaw = {
@@ -74,6 +78,7 @@ export type AdminReward = {
   quantityAvailable: number | null;
   validDays: number | null;
   isActive: boolean;
+  tierIds?: string[];
 };
 
 export type CreateRewardPayload = {
@@ -84,7 +89,7 @@ export type CreateRewardPayload = {
   quantityAvailable: number;
   validDays: number;
   isActive: boolean;
-  allowedTierIds?: string[];
+  tierIds?: string[];
 };
 
 export type UpdateRewardPayload = Partial<{
@@ -94,7 +99,7 @@ export type UpdateRewardPayload = Partial<{
   quantityAvailable: number;
   validDays: number;
   isActive: boolean;
-  allowedTierIds: string[];
+  tierIds: string[];
 }>;
 
 export type AdminPromotion = {
@@ -107,6 +112,7 @@ export type AdminPromotion = {
   endDate: string;
   isGlobal: boolean;
   isActive?: boolean;
+  tierIds?: string[];
 };
 
 export type CreatePromotionPayload = {
@@ -117,7 +123,7 @@ export type CreatePromotionPayload = {
   startDate: string;
   endDate: string;
   isGlobal: boolean;
-  applicableTierIds?: string[];
+  tierIds?: string[];
 };
 
 export type AdjustPointsAction = "ADD" | "SUBTRACT";
@@ -228,15 +234,20 @@ function unwrap(body: unknown): Rec {
  * @returns Mảng các phần tử được trích xuất.
  */
 function unwrapList(body: unknown): unknown[] {
-  const r = rec(body);
+  if (!body) return [];
   if (Array.isArray(body)) return body;
-  if (Array.isArray(r.data)) return r.data as unknown[];
-  if (Array.isArray(r.Data)) return r.Data as unknown[];
-  if (Array.isArray(r.items)) return r.items as unknown[];
-  if (Array.isArray(r.results)) return r.results as unknown[];
-  const inner = rec(r.data ?? r.Data);
-  if (Array.isArray(inner.items)) return inner.items as unknown[];
-  if (Array.isArray(inner.results)) return inner.results as unknown[];
+  
+  const r = rec(body);
+  const directList = r.items ?? r.Items ?? r.results ?? r.Results;
+  if (Array.isArray(directList)) return directList as unknown[];
+
+  const dataPayload = r.data ?? r.Data;
+  if (Array.isArray(dataPayload)) return dataPayload as unknown[];
+
+  const inner = rec(dataPayload);
+  const nestedList = inner.items ?? inner.Items ?? inner.results ?? inner.Results;
+  if (Array.isArray(nestedList)) return nestedList as unknown[];
+
   return [];
 }
 
@@ -340,6 +351,10 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
   let slotDurationMinutes = 15;
   let workingStartHour = "08:00";
   let workingEndHour = "17:00";
+  let basePrice = 100000;
+  let suvBasePrice = 30000;
+  let sedanBasePrice = 0;
+  let paymentDeposite = 30;
 
   for (const item of list) {
     const r = rec(item);
@@ -360,6 +375,18 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
       workingStartHour = formatHourString(value);
     } else if (key === "WorkingEndHour" && value) {
       workingEndHour = formatHourString(value);
+    } else if (key === "BasePrice" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) basePrice = v;
+    } else if (key === "SuvBasePrice" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) suvBasePrice = v;
+    } else if (key === "SedanBasePrice" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) sedanBasePrice = v;
+    } else if (key === "PaymentDeposite" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) paymentDeposite = v;
     }
   }
 
@@ -372,7 +399,16 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
     ], 10000);
   }
 
-  return { vndPerPoint, slotDurationMinutes, workingStartHour, workingEndHour };
+  return {
+    vndPerPoint,
+    slotDurationMinutes,
+    workingStartHour,
+    workingEndHour,
+    basePrice,
+    suvBasePrice,
+    sedanBasePrice,
+    paymentDeposite,
+  };
 }
 
 /**
@@ -405,6 +441,7 @@ function normalizeReward(raw: unknown): AdminReward {
     quantityAvailable: optNum(r, ["quantityAvailable", "QuantityAvailable", "stockQuantity", "StockQuantity", "stock_quantity"]),
     validDays: optNum(r, ["validDays", "ValidDays", "validDaysAfterRedeem", "ValidDaysAfterRedeem", "valid_days_after_redeem"]),
     isActive: bool(r, ["isActive", "IsActive"], str(r, ["status", "Status"]) === "active"),
+    tierIds: Array.isArray(r.tierIds ?? r.TierIds) ? (r.tierIds ?? r.TierIds) as string[] : [],
   };
 }
 
@@ -426,6 +463,7 @@ function normalizePromotion(raw: unknown): AdminPromotion {
     endDate: str(r, ["endDate", "EndDate", "end_date"]),
     isGlobal: bool(r, ["isGlobal", "IsGlobal", "is_global"]),
     isActive: bool(r, ["isActive", "IsActive"], true),
+    tierIds: Array.isArray(r.tierIds ?? r.TierIds) ? (r.tierIds ?? r.TierIds) as string[] : [],
   };
 }
 
@@ -575,7 +613,7 @@ export async function createAdminReward(
     quantityAvailable: data.quantityAvailable,
     validDays: data.validDays,
     isActive: data.isActive,
-    allowedTierIds: data.allowedTierIds ?? [],
+    tierIds: data.tierIds ?? [],
   };
   const res = await fetch(rewardEndpoint("/create-rewards"), {
     method: "POST",
@@ -606,7 +644,7 @@ export async function updateAdminReward(
   if (data.quantityAvailable !== undefined) payload.quantityAvailable = data.quantityAvailable;
   if (data.validDays !== undefined) payload.validDays = data.validDays;
   if (data.isActive !== undefined) payload.isActive = data.isActive;
-  if (data.allowedTierIds !== undefined) payload.allowedTierIds = data.allowedTierIds;
+  if (data.tierIds !== undefined) payload.tierIds = data.tierIds;
 
   const res = await fetch(`${rewardEndpoint(`/update-reward/${encodeURIComponent(id)}`)}`, {
     method: "PUT",
@@ -658,7 +696,7 @@ export async function createAdminPromotion(
       startDate: data.startDate,
       endDate: data.endDate,
       isGlobal: data.isGlobal,
-      applicableTierIds: data.applicableTierIds ?? [],
+      tierIds: data.tierIds ?? [],
     }),
   });
   await handleApiResponse<unknown>(res);
@@ -766,7 +804,7 @@ export type UpdatePromotionPayload = Partial<{
   endDate: string;
   isGlobal: boolean;
   isActive: boolean;
-  applicableTierIds: string[];
+  tierIds: string[];
 }>;
 
 /**

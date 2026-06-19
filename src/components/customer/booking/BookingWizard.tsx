@@ -17,6 +17,7 @@ import { SlotStep } from "./SlotStep";
 import { StepIndicator } from "./StepIndicator";
 import { VehicleStep } from "./VehicleStep";
 import { VoucherStep } from "./VoucherStep";
+import { PriceTableStep } from "./PriceTableStep";
 
 const INITIAL_STATE: WizardState = {
   selectedBranch: null,
@@ -263,12 +264,9 @@ export function BookingWizard() {
         ) : null}
 
         {currentStep === 4 ? (
-          <VoucherStep
+          <PriceTableStep
             token={token}
-            voucherCode={state.voucherCode}
-            appliedVoucher={state.appliedVoucher}
-            onVoucherChange={(code) => patch({ voucherCode: code })}
-            onVoucherApplied={(voucher) => patch({ appliedVoucher: voucher })}
+            vehicle={state.selectedVehicle}
             onNext={() => goTo(5)}
             onBack={() => goTo(3)}
           />

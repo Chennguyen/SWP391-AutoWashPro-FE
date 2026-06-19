@@ -57,17 +57,24 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
       setError(null);
       void loadRank();
     }, 0);
-    return () => window.clearTimeout(id);
+
+    function handleRefresh() {
+      void loadRank();
+    }
+
+    window.addEventListener("autowash-auth", handleRefresh);
+    window.addEventListener("autowash-rank-upgrade", handleRefresh);
+
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener("autowash-auth", handleRefresh);
+      window.removeEventListener("autowash-rank-upgrade", handleRefresh);
+    };
   }, [loadRank, token]);
 
   // Rank-up celebration effect
   useEffect(() => {
     if (!info) return;
-    const previousTierId = window.localStorage.getItem("lastTierId");
-    if (previousTierId && info.tier?.id && previousTierId !== info.tier.id) {
-      // Trigger simple notification
-      alert(`🎉 Chúc mừng bạn đã thăng hạng lên ${info.tier.name}! 🎉`);
-    }
     window.localStorage.setItem("lastTierId", info.tier?.id ?? "");
   }, [info]);
 

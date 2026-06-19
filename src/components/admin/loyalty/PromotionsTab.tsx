@@ -7,8 +7,10 @@ import {
   getAdminPromotions,
   updateAdminPromotion,
   deleteAdminPromotion,
+  getAdminTiers,
   type AdminPromotion,
   type CreatePromotionPayload,
+  type AdminTier,
 } from "@/lib/api/loyalty-admin";
 import { AdminError } from "@/components/admin/shared/AdminUi";
 
@@ -78,11 +80,19 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [discountType, setDiscountType] = useState(initial?.discountType ?? "FixedAmount"); // default: fixed amount
-  const [discountValue, setDiscountValue] = useState(initial?.discountValue ?? 15000);
+  const [discountValueStr, setDiscountValueStr] = useState(initial ? String(initial.discountValue) : "15000");
   
   const formatDateForInput = (iso: string) => {
     if (!iso) return "";
     return iso.split("T")[0];
+  };
+
+  const getTodayString = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   };
   
   const [startDate, setStartDate] = useState(formatDateForInput(initial?.startDate ?? ""));
@@ -92,12 +102,31 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [tiers, setTiers] = useState<AdminTier[]>([]);
+  const [selectedTierIds, setSelectedTierIds] = useState<string[]>(initial?.tierIds ?? []);
+  const [loadingTiers, setLoadingTiers] = useState(false);
+
+  useEffect(() => {
+    async function loadTiers() {
+      setLoadingTiers(true);
+      try {
+        const data = await getAdminTiers(token);
+        setTiers(data.sort((a, b) => a.level - b.level));
+      } catch (err) {
+        console.error("Failed to load tiers:", err);
+      } finally {
+        setLoadingTiers(false);
+      }
+    }
+    loadTiers();
+  }, [token]);
+
   useEffect(() => {
     if (!initial) {
       if (discountType === "Percentage") {
-        setDiscountValue(10);
+        setDiscountValueStr("10");
       } else {
-        setDiscountValue(15000);
+        setDiscountValueStr("15000");
       }
     }
   }, [discountType, initial]);
@@ -108,6 +137,7 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
       onClose();
       return;
     }
+    const discountValue = Number(discountValueStr || 0);
     if (!startDate || !endDate) {
       setError("Vui lòng chọn ngày bắt đầu và kết thúc.");
       return;
@@ -116,9 +146,14 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
       setError("Giá trị giảm theo % phải nằm trong khoảng từ 1% đến 100%.");
       return;
     }
+    if (!isGlobal && selectedTierIds.length === 0) {
+      setError("Vui lòng chọn ít nhất một hạng thành viên áp dụng.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      const tierIdsToSend = isGlobal ? [] : selectedTierIds;
       if (isEdit && initial) {
         await updateAdminPromotion(token, initial.id, {
           name,
@@ -129,6 +164,7 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
           endDate: new Date(endDate).toISOString(),
           isGlobal,
           isActive,
+          tierIds: tierIdsToSend,
         });
       } else {
         const payload: CreatePromotionPayload = {
@@ -139,12 +175,13 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
           startDate: new Date(startDate).toISOString(),
           endDate: new Date(endDate).toISOString(),
           isGlobal,
+          tierIds: tierIdsToSend,
         };
         await createAdminPromotion(token, payload);
       }
       onSaved();
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       setError(err instanceof Error ? err.message : "Không thể lưu chương trình khuyến mãi.");
     } finally {
       setSaving(false);
@@ -209,12 +246,16 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
                 Giá trị giảm {discountType === "Percentage" ? "(%)" : "(VNĐ)"}
               </label>
               <input
-                type="number"
-                min={1}
-                max={discountType === "Percentage" ? 100 : undefined}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 disabled={readOnly}
-                value={discountValue}
-                onChange={(e) => setDiscountValue(Number(e.target.value))}
+                value={discountValueStr}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setDiscountValueStr(cleanVal);
+                }}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
@@ -227,6 +268,7 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
                 type="date"
                 required
                 disabled={readOnly}
+                min={getTodayString()}
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
@@ -239,7 +281,7 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
                 required
                 disabled={readOnly}
                 value={endDate}
-                min={startDate}
+                min={startDate || getTodayString()}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
@@ -259,6 +301,50 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
               Áp dụng toàn hệ thống (isGlobal)
             </label>
           </div>
+
+          {!isGlobal && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 space-y-2">
+              <label className="block text-sm font-semibold text-slate-800">
+                Hạng thành viên áp dụng
+              </label>
+              {loadingTiers ? (
+                <p className="text-xs text-slate-400 animate-pulse">Đang tải danh sách hạng...</p>
+              ) : tiers.length === 0 ? (
+                <p className="text-xs text-slate-400">Không có hạng thành viên nào.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {tiers.map((t) => {
+                    const isChecked = selectedTierIds.includes(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className={`flex items-center gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-all duration-200 ${
+                          isChecked
+                            ? "border-blue-500 bg-blue-50/40 text-blue-900 shadow-sm"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={readOnly}
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTierIds([...selectedTierIds, t.id]);
+                            } else {
+                              setSelectedTierIds(selectedTierIds.filter((id) => id !== t.id));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
+                        />
+                        <span className="text-sm font-medium text-xs md:text-sm">{t.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {(isEdit || readOnly) && (
             <div className="flex items-center gap-3">
@@ -402,68 +488,77 @@ export function PromotionsTab({ token }: Props) {
                 </td>
               </tr>
             ) : (
-              promotions.map((p) => (
-                <tr
-                  key={p.id}
-                  className="hover:bg-slate-50 cursor-pointer"
-                  onClick={() => {
-                    setSelectedPromotion(p);
-                    setFormMode("view");
-                  }}
-                >
-                  <td className="px-4 py-3">
-                    <p className="font-semibold text-slate-950">{p.name}</p>
-                    {p.description && (
-                      <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{p.description}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600 text-xs">
-                    {DISCOUNT_TYPE_OPTIONS.find((o) => o.value === p.discountType)?.label ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-emerald-600">
-                    {p.discountType === "Percentage"
-                      ? `${p.discountValue}%`
-                      : `${p.discountValue.toLocaleString("vi-VN")}đ`}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <Calendar size={12} />
-                      {formatDate(p.startDate)} – {formatDate(p.endDate)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {p.isGlobal ? (
-                      <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">Toàn hệ thống</span>
-                    ) : (
-                      <span className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500">Theo hạng</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <PromotionStatusBadge promotion={p} />
-                  </td>
-                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPromotion(p);
-                          setFormMode("edit");
-                        }}
-                        className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(p.id, p.name)}
-                        className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              promotions.map((p) => {
+                const now = Date.now();
+                const endDateObj = new Date(p.endDate);
+                endDateObj.setHours(23, 59, 59, 999);
+                const hasEnded = now > endDateObj.getTime();
+
+                return (
+                  <tr
+                    key={p.id}
+                    className="hover:bg-slate-50 cursor-pointer"
+                    onClick={() => {
+                      setSelectedPromotion(p);
+                      setFormMode("view");
+                    }}
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-slate-950">{p.name}</p>
+                      {p.description && (
+                        <p className="mt-0.5 text-xs text-slate-500 line-clamp-1">{p.description}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 text-xs">
+                      {DISCOUNT_TYPE_OPTIONS.find((o) => o.value === p.discountType)?.label ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-emerald-600">
+                      {p.discountType === "Percentage"
+                        ? `${p.discountValue}%`
+                        : `${p.discountValue.toLocaleString("vi-VN")}đ`}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-600">
+                      <div className="flex items-center gap-1">
+                        <Calendar size={12} />
+                        {formatDate(p.startDate)} – {formatDate(p.endDate)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.isGlobal ? (
+                        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700">Toàn hệ thống</span>
+                      ) : (
+                        <span className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-500">Theo hạng</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <PromotionStatusBadge promotion={p} />
+                    </td>
+                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-2">
+                        {!hasEnded && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPromotion(p);
+                              setFormMode("edit");
+                            }}
+                            className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100"
+                          >
+                            Sửa
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p.id, p.name)}
+                          className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

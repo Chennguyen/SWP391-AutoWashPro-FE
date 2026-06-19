@@ -10,16 +10,19 @@ import {
   Plus,
   Tag,
   WalletCards,
+  Ticket,
+  X,
 } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { createBooking, getSlots } from "@/lib/api/booking";
 import { getWallet, topUpWallet, type Wallet } from "@/lib/api/wallet";
-import { type AdminPromotion } from "@/lib/api/loyalty-admin";
+import { type AdminPromotion, getLoyaltySettings } from "@/lib/api/loyalty-admin";
+import { getLoyaltyInfo, getMyVouchers } from "@/lib/api/loyalty";
+import { validateVoucher } from "@/lib/api/voucher";
+import { cn } from "@/lib/utils";
 import type { BookingResult, Branch, VoucherValidation } from "@/types/booking";
 import type { Vehicle } from "@/types/vehicle";
 
-const SERVICE_PRICE = 100_000;
-const DEPOSIT_RATE = 0.3;
 const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
 
 function formatVND(amount: number) {
@@ -54,6 +57,24 @@ function formatSlotRange(slot: string, duration: number, endTime?: string) {
   return `${slot}-${addMinutes(slot, duration)}`;
 }
 
+function unwrapList(body: any): any[] {
+  if (!body) return [];
+  if (Array.isArray(body)) return body;
+
+  const directList = body.items ?? body.Items ?? body.results ?? body.Results;
+  if (Array.isArray(directList)) return directList;
+
+  const dataPayload = body.data ?? body.Data;
+  if (Array.isArray(dataPayload)) return dataPayload;
+
+  if (dataPayload && typeof dataPayload === "object") {
+    const nestedList = dataPayload.items ?? dataPayload.Items ?? dataPayload.results ?? dataPayload.Results;
+    if (Array.isArray(nestedList)) return nestedList;
+  }
+
+  return [];
+}
+
 interface ReviewPaymentStepProps {
   token: string;
   branch: Branch;
@@ -85,6 +106,40 @@ export function ReviewPaymentStep({
   onSlotUnavailable,
   onUnauthorized,
 }: ReviewPaymentStepProps) {
+  const [configs, setConfigs] = useState({
+    basePrice: 100_000,
+    sedanBasePrice: 0,
+    suvBasePrice: 30_000,
+    paymentDeposite: 30, // 30%
+  });
+
+  useEffect(() => {
+    let active = true;
+    async function loadConfigs() {
+      try {
+        const role = typeof window !== "undefined" ? window.localStorage.getItem("role") : "";
+        if (role !== "Admin") {
+          return;
+        }
+        const settings = await getLoyaltySettings(token);
+        if (active) {
+          setConfigs({
+            basePrice: settings.basePrice ?? 100_000,
+            sedanBasePrice: settings.sedanBasePrice ?? 0,
+            suvBasePrice: settings.suvBasePrice ?? 30_000,
+            paymentDeposite: settings.paymentDeposite ?? 30,
+          });
+        }
+      } catch (err) {
+        console.warn("DEBUG [ReviewPaymentStep] Không thể tải cấu hình từ API, sử dụng cấu hình mặc định:", err);
+      }
+    }
+    void loadConfigs();
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -99,6 +154,63 @@ export function ReviewPaymentStep({
   const [endTime, setEndTime] = useState<string | undefined>(undefined);
   const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(false);
+  const [localAppliedVoucher, setLocalAppliedVoucher] = useState<VoucherValidation | null>(appliedVoucher);
+  const [loyalty, setLoyalty] = useState<any>(null);
+  const [myVouchers, setMyVouchers] = useState<any[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
+  const [selectedVoucherInModal, setSelectedVoucherInModal] = useState<any>(null);
+  const [voucherCodeInput, setVoucherCodeInput] = useState("");
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherValidationLoading, setVoucherValidationLoading] = useState(false);
+
+  // Sync prop changes to local state
+  useEffect(() => {
+    setLocalAppliedVoucher(appliedVoucher);
+  }, [appliedVoucher]);
+
+  // Load loyalty info and user's vouchers when token is changed
+  useEffect(() => {
+    let active = true;
+    async function loadLoyaltyAndVouchers() {
+      if (!token) return;
+      const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
+      if (!userId) return;
+
+      setVouchersLoading(true);
+      try {
+        const loyaltyInfo = await getLoyaltyInfo(token);
+        if (active) {
+          setLoyalty(loyaltyInfo);
+        }
+
+        const list = await getMyVouchers(token, userId);
+        const now = Date.now();
+        const validVouchers = list.filter((v) => {
+          if (v.isUsed) return false;
+          if (v.expiresAt) {
+            return new Date(v.expiresAt).getTime() > now;
+          }
+          return true;
+        });
+
+        if (active) {
+          setMyVouchers(validVouchers);
+        }
+      } catch (err) {
+        console.warn("Failed to load loyalty or vouchers:", err);
+      } finally {
+        if (active) {
+          setVouchersLoading(false);
+        }
+      }
+    }
+
+    void loadLoyaltyAndVouchers();
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     let active = true;
@@ -168,8 +280,7 @@ export function ReviewPaymentStep({
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
         const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
         
-        // 1. Thử endpoint của khách hàng trước
-        let res = await fetch(`${apiBaseUrl}/Promotion/promotions?${params.toString()}`, {
+        let res = await fetch(`${apiBaseUrl}/api/v1/promotions/available?${params.toString()}`, {
           cache: "no-store",
           headers: {
             "Content-Type": "application/json",
@@ -177,8 +288,29 @@ export function ReviewPaymentStep({
           },
         });
         
-        // 2. Nếu không thành công, thử endpoint /api/v1/promotions
-        if (!res.ok) {
+        let rawList: any[] = [];
+        if (res.ok) {
+          const text = await res.text();
+          const body = text ? JSON.parse(text) : null;
+          rawList = unwrapList(body);
+        }
+        
+        if (!res.ok || rawList.length === 0) {
+          res = await fetch(`${apiBaseUrl}/Promotion/promotions?${params.toString()}`, {
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (res.ok) {
+            const text = await res.text();
+            const body = text ? JSON.parse(text) : null;
+            rawList = unwrapList(body);
+          }
+        }
+        
+        if (!res.ok || rawList.length === 0) {
           res = await fetch(`${apiBaseUrl}/api/v1/promotions?${params.toString()}`, {
             cache: "no-store",
             headers: {
@@ -186,10 +318,14 @@ export function ReviewPaymentStep({
               Authorization: `Bearer ${token}`,
             },
           });
+          if (res.ok) {
+            const text = await res.text();
+            const body = text ? JSON.parse(text) : null;
+            rawList = unwrapList(body);
+          }
         }
 
-        // 3. Nếu vẫn không được, thử /Promotion/admin/promotions (bản gốc quản trị)
-        if (!res.ok) {
+        if (!res.ok || rawList.length === 0) {
           res = await fetch(`${apiBaseUrl}/Promotion/admin/promotions?${params.toString()}`, {
             cache: "no-store",
             headers: {
@@ -197,24 +333,13 @@ export function ReviewPaymentStep({
               Authorization: `Bearer ${token}`,
             },
           });
-        }
-        
-        if (!res.ok) {
-          throw new Error(`Tất cả các endpoint khuyến mãi đều trả về lỗi: ${res.status}`);
-        }
-
-        const text = await res.text();
-        let body: any = null;
-        if (text) {
-          try {
-            body = JSON.parse(text);
-          } catch {
-            body = text;
+          if (res.ok) {
+            const text = await res.text();
+            const body = text ? JSON.parse(text) : null;
+            rawList = unwrapList(body);
           }
         }
 
-        const rawData = body?.data ?? body?.Data ?? body;
-        const rawList = Array.isArray(rawData) ? rawData : (rawData?.items ?? rawData?.results ?? []);
         const promotionsList = Array.isArray(rawList) ? rawList.map((p: any) => ({
           id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
           name: String(p.name ?? p.Name ?? "Khuyến mãi"),
@@ -225,6 +350,7 @@ export function ReviewPaymentStep({
           endDate: String(p.endDate ?? p.EndDate ?? ""),
           isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? false),
           isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+          tierIds: Array.isArray(p.tierIds ?? p.TierIds) ? (p.tierIds ?? p.TierIds) as string[] : [],
         })) : [];
 
         if (active) {
@@ -247,36 +373,50 @@ export function ReviewPaymentStep({
     };
   }, [token]);
 
+  const isSUV = vehicle?.vehicleType === "SUV";
+  const isSedan = vehicle?.vehicleType === "SEDAN";
+  const surcharge = isSUV
+    ? configs.suvBasePrice
+    : isSedan
+    ? configs.sedanBasePrice
+    : 0;
+  const servicePrice = configs.basePrice + surcharge;
+  const depositRate = configs.paymentDeposite / 100;
+
   const promotionDiscount = useMemo(() => {
     const activePromos = promotions.filter((p) => {
       if (p.isActive === false) return false;
-      if (!p.isGlobal) return false;
-      const startDateObj = new Date(p.startDate);
-      startDateObj.setHours(0, 0, 0, 0);
-      const start = startDateObj.getTime();
+      
+      const isPromoGlobal = p.isGlobal || !p.tierIds || p.tierIds.length === 0;
+      if (!isPromoGlobal) {
+        if (!loyalty?.tier?.id) return false;
+        const tierIds = p.tierIds ?? [];
+        if (!tierIds.includes(loyalty.tier.id)) return false;
+      }
 
-      const endDateObj = new Date(p.endDate);
-      endDateObj.setHours(23, 59, 59, 999);
-      const end = endDateObj.getTime();
-      const now = Date.now();
-      const bookingMs = new Date(date + "T00:00:00").getTime();
-      // Thỏa mãn nếu hôm nay đang chạy khuyến mãi hoặc ngày đặt nằm trong đợt khuyến mãi
-      const isTimeValid = (now >= start && now <= end) || (bookingMs >= start && bookingMs <= end);
-      return isTimeValid;
+      console.warn("DEBUG [ReviewPaymentStep] Promotion active check (Ignoring date validation as requested):", {
+        name: p.name,
+        isGlobal: p.isGlobal,
+        isActive: p.isActive,
+        loyaltyTier: loyalty?.tier?.name
+      });
+
+      return true;
     });
+
+    console.warn("DEBUG [ReviewPaymentStep] Active promotions found:", activePromos);
 
     let maxPromoDiscount = 0;
     activePromos.forEach((p) => {
       let currentDiscount = 0;
       if (p.discountType === "Percentage") {
         if (p.discountValue > 100) {
-          // Nếu nhập nhầm % là số tiền (như 10000%) thì coi là số tiền cố định
-          currentDiscount = Math.min(SERVICE_PRICE, p.discountValue);
+          currentDiscount = Math.min(servicePrice, p.discountValue);
         } else {
-          currentDiscount = Math.min(SERVICE_PRICE, (SERVICE_PRICE * p.discountValue) / 100);
+          currentDiscount = Math.min(servicePrice, (servicePrice * p.discountValue) / 100);
         }
       } else {
-        currentDiscount = Math.min(SERVICE_PRICE, p.discountValue);
+        currentDiscount = Math.min(servicePrice, p.discountValue);
       }
       if (currentDiscount > maxPromoDiscount) {
         maxPromoDiscount = currentDiscount;
@@ -284,12 +424,12 @@ export function ReviewPaymentStep({
     });
 
     return maxPromoDiscount;
-  }, [promotions, date]);
+  }, [promotions, date, servicePrice, loyalty]);
 
-  const discount = appliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
-  const payableAmount = Math.max(0, SERVICE_PRICE - promotionDiscount - discount);
-  const deposit = Math.round(payableAmount * DEPOSIT_RATE);
-  const voucherId = appliedVoucher?.voucherId ?? appliedVoucher?.id ?? null;
+  const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
+  const payableAmount = Math.max(0, servicePrice - promotionDiscount - discount);
+  const deposit = Math.round(payableAmount * depositRate);
+  const voucherId = localAppliedVoucher?.voucherId ?? localAppliedVoucher?.id ?? null;
   const walletBalance = wallet?.balance ?? 0;
   const insufficientBalance = !walletLoading && walletBalance < deposit;
   const missingDepositAmount = Math.max(0, deposit - walletBalance);
@@ -340,6 +480,40 @@ export function ReviewPaymentStep({
     }
   }
 
+  async function handleApplyVoucherCode(codeToApply?: string) {
+    const code = (codeToApply ?? voucherCodeInput).trim().toUpperCase();
+    if (!code) return;
+
+    const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
+    if (!userId) {
+      setVoucherError("Không tìm thấy thông tin tài khoản.");
+      return;
+    }
+
+    setVoucherValidationLoading(true);
+    setVoucherError(null);
+    try {
+      const result = await validateVoucher(token, userId, code, servicePrice);
+      if (result.valid) {
+        setLocalAppliedVoucher(result);
+        setIsVoucherModalOpen(false);
+      } else {
+        setVoucherError(result.message || "Mã voucher không hợp lệ.");
+      }
+    } catch (err) {
+      setVoucherError(err instanceof Error ? err.message : "Không thể kiểm tra voucher.");
+    } finally {
+      setVoucherValidationLoading(false);
+    }
+  }
+
+  function handleRemoveVoucher() {
+    setLocalAppliedVoucher(null);
+    setSelectedVoucherInModal(null);
+    setVoucherCodeInput("");
+    setVoucherError(null);
+  }
+
   async function handleConfirm() {
     if (!agreed || submitted) {
       return;
@@ -373,6 +547,8 @@ export function ReviewPaymentStep({
       });
       const nextWallet = await getWallet(token);
       setWallet(nextWallet);
+      // Thông báo cho Sidebar và các widget khác cập nhật số dư ví ngay lập tức
+      window.dispatchEvent(new CustomEvent("autowash-wallet-updated", { detail: nextWallet }));
       setSubmitted(true);
       onSuccess(result);
     } catch (submitError) {
@@ -448,6 +624,38 @@ export function ReviewPaymentStep({
         </div>
       </div>
 
+      {/* ── Voucher Selection Card (Shopee style, between details and checkout) ── */}
+      <div 
+        onClick={() => setIsVoucherModalOpen(true)}
+        className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <Tag size={16} className="text-amber-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-slate-900">
+              Voucher của bạn
+            </p>
+            {localAppliedVoucher ? (
+              <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                Đã áp dụng mã: {localAppliedVoucher.code} (-{formatVND(localAppliedVoucher.discountAmount)})
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chọn hoặc nhập mã giảm giá
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          {!localAppliedVoucher && (
+            <span className="text-xs text-slate-500 font-medium mr-1">
+              Chọn voucher
+            </span>
+          )}
+          <span className="text-slate-400 font-bold text-sm">&gt;</span>
+        </div>
+      </div>
+
       {/* ── Bảng Chi tiết Thanh toán kiểu Shopee (flat list) ── */}
       <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
         <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
@@ -459,7 +667,17 @@ export function ReviewPaymentStep({
           {/* Giá dịch vụ gốc */}
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Giá dịch vụ gốc</span>
-            <span className="font-medium text-slate-700">{formatVND(SERVICE_PRICE)}</span>
+            <span className="font-medium text-slate-700">{formatVND(configs.basePrice)}</span>
+          </div>
+
+          {/* Phụ phí dòng xe */}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">
+              Phụ phí dòng xe({vehicle?.vehicleType === "SUV" ? "SUV" : vehicle?.vehicleType === "SEDAN" ? "sedan" : "sedan/SUV"})
+            </span>
+            <span className="font-normal text-slate-700">
+              +{formatVND(surcharge)}
+            </span>
           </div>
 
           {/* Ưu đãi giảm giá */}
@@ -477,9 +695,9 @@ export function ReviewPaymentStep({
           {/* Voucher */}
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">
-              Voucher{appliedVoucher ? ` (${appliedVoucher.code})` : ""}
+              Voucher
             </span>
-            {appliedVoucher && discount > 0 ? (
+            {localAppliedVoucher && discount > 0 ? (
               <span className="font-medium" style={{ color: "#EE4D2D" }}>
                 -{formatVND(discount)}
               </span>
@@ -488,16 +706,22 @@ export function ReviewPaymentStep({
             )}
           </div>
 
+          {/* Số tiền phải trả */}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Số tiền phải trả</span>
+            <span className="font-medium text-slate-700">{formatVND(payableAmount)}</span>
+          </div>
+
           {/* Đường kẻ dashed phân cách */}
           <div className="border-t border-dashed border-slate-200" />
 
-          {/* Số tiền phải cọc (30%) */}
+          {/* Số tiền phải cọc */}
           <div className="flex justify-between text-sm">
             <div>
-              <span className="text-slate-600">Số tiền phải cọc (30%)</span>
-              <p className="text-xs text-slate-400">Bạn phải cọc trước 30% để giữ slot</p>
+              <span className="text-slate-600">Số tiền phải cọc ({configs.paymentDeposite}%)</span>
+              <p className="text-xs text-slate-400">Bạn phải cọc trước {configs.paymentDeposite}% để giữ slot</p>
             </div>
-            <span className="font-medium text-slate-700">-{formatVND(deposit)}</span>
+            <span className="font-medium text-slate-700">{formatVND(deposit)}</span>
           </div>
 
           {/* Đường kẻ dashed phân cách */}
@@ -628,6 +852,159 @@ export function ReviewPaymentStep({
           {loading ? "Đang xử lý..." : "Xác nhận đặt lịch"}
         </button>
       </div>
+
+      {/* ── Voucher Modal (Shopee style, luxury dark edition) ── */}
+      {isVoucherModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-2xl bg-[#1E1E2E] border border-[#2D2D44] p-5 text-slate-100 shadow-2xl flex flex-col max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#2D2D44]">
+              <h3 className="text-lg font-bold text-slate-50">Chọn Voucher</h3>
+              <button 
+                type="button"
+                onClick={() => setIsVoucherModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Input Row */}
+            <div className="mt-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nhập mã voucher của bạn..."
+                  value={voucherCodeInput}
+                  onChange={(e) => {
+                    setVoucherCodeInput(e.target.value.toUpperCase());
+                    setVoucherError(null);
+                  }}
+                  className="flex-1 bg-[#252538] border border-[#3A3A55] rounded-xl px-4 py-2.5 text-sm font-mono tracking-wider focus:outline-none focus:border-amber-500 placeholder-slate-500 text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleApplyVoucherCode()}
+                  disabled={voucherValidationLoading || !voucherCodeInput.trim()}
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {voucherValidationLoading ? "Đang check..." : "Áp dụng"}
+                </button>
+              </div>
+
+              {voucherError && (
+                <p className="mt-2 text-xs text-red-500 font-semibold flex items-center gap-1">
+                  <span>⚠</span> {voucherError}
+                </p>
+              )}
+            </div>
+
+            {/* Vouchers List */}
+            <div className="mt-5 flex-1 overflow-y-auto pr-1 space-y-3 scrollbar-thin">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Voucher cho bạn {loyalty?.tier?.name ? `(Hạng ${loyalty.tier.name})` : ""}
+              </p>
+
+              {vouchersLoading ? (
+                <div className="space-y-3 py-4">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-24 animate-pulse rounded-xl bg-[#252538]/50" />
+                  ))}
+                </div>
+              ) : myVouchers.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 text-sm">
+                  Bạn không có voucher nào chưa sử dụng.
+                </div>
+              ) : (
+                myVouchers.map((v) => {
+                  const isSelected = selectedVoucherInModal?.id === v.id;
+                  const discountValueText = v.discountAmount 
+                    ? `${v.discountAmount.toLocaleString("vi-VN")}đ`
+                    : "Freeship / Free";
+                  return (
+                    <div 
+                      key={v.id}
+                      onClick={() => setSelectedVoucherInModal(v)}
+                      className="relative flex border border-[#2D2D44] rounded-xl overflow-hidden bg-[#252538]/40 hover:bg-[#252538]/70 transition-colors cursor-pointer select-none"
+                    >
+                      {/* Ticket Cut Left Accent */}
+                      <div className="w-24 shrink-0 flex flex-col items-center justify-center bg-amber-500/10 border-r border-dashed border-[#2D2D44] p-3 relative">
+                        <Ticket className="text-amber-500" size={20} />
+                        <span className="text-[9px] text-amber-500 font-extrabold mt-1.5 text-center truncate w-full uppercase">
+                          {loyalty?.tier?.name ? `Hạng ${loyalty.tier.name}` : "Voucher"}
+                        </span>
+                        
+                        {/* Circular Ticket Cuts */}
+                        <div className="absolute top-0 right-0 w-3 h-1.5 bg-[#1E1E2E] rounded-b-full translate-x-1.5 -translate-y-px" />
+                        <div className="absolute bottom-0 right-0 w-3 h-1.5 bg-[#1E1E2E] rounded-t-full translate-x-1.5 translate-y-px" />
+                      </div>
+
+                      {/* Ticket Details */}
+                      <div className="flex-1 p-3.5 flex flex-col justify-between min-w-0">
+                        <div>
+                          <p className="text-sm font-black text-slate-100 truncate">{v.rewardName}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">Giảm {discountValueText} • Đơn tối thiểu 0đ</p>
+                        </div>
+                        <div className="flex items-center justify-between mt-2.5">
+                          <p className="text-[10px] text-slate-500">
+                            Hạn dùng: {v.expiresAt ? new Date(v.expiresAt).toLocaleDateString("vi-VN") : "Vô thời hạn"}
+                          </p>
+                          <span className="text-[10px] font-mono text-amber-500 font-black px-1.5 py-0.5 bg-amber-500/15 rounded">
+                            {v.code}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Selection Circle */}
+                      <div className="flex items-center px-4 shrink-0 bg-slate-900/20 border-l border-[#2D2D44]/50">
+                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
+                          isSelected ? "border-amber-500 bg-amber-500" : "border-slate-500"
+                        }`}>
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer buttons */}
+            <div className="mt-5 pt-3 border-t border-[#2D2D44] flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleRemoveVoucher();
+                  setIsVoucherModalOpen(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-[#2D2D44] text-xs font-semibold text-slate-400 hover:bg-[#252538] transition"
+              >
+                Bỏ áp dụng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedVoucherInModal) {
+                    setLocalAppliedVoucher({
+                      id: selectedVoucherInModal.id,
+                      voucherId: selectedVoucherInModal.id,
+                      code: selectedVoucherInModal.code,
+                      discountAmount: selectedVoucherInModal.discountAmount ?? 0,
+                      valid: true,
+                      message: "",
+                    });
+                  }
+                  setIsVoucherModalOpen(false);
+                }}
+                disabled={!selectedVoucherInModal}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

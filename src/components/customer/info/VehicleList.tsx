@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowLeft, Car, ImageIcon, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, Car, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { deleteVehicle, getVehicle } from "@/lib/api/vehicle";
 import type { Vehicle } from "@/types/vehicle";
@@ -184,7 +184,7 @@ export function VehicleList({
         </div>
       ) : null}
 
-      {isDetailOpen && selectedVehicle ? (
+      {isDetailOpen && selectedVehicle && formMode.type === "closed" ? (
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -197,7 +197,7 @@ export function VehicleList({
               {detailLoading ? (
                 <p className="mt-3 text-sm text-slate-500">Đang tải thông tin xe...</p>
               ) : (
-                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                <div className="mt-5 grid gap-4 sm:grid-cols-4">
                   <div className="rounded-lg bg-slate-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hãng xe</p>
                     <p className="mt-2 font-bold text-slate-950">{selectedVehicle.brand}</p>
@@ -209,6 +209,13 @@ export function VehicleList({
                   <div className="rounded-lg bg-slate-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Màu xe</p>
                     <p className="mt-2 font-bold text-slate-950">{selectedVehicle.color}</p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Loại xe</p>
+                    <p className="mt-2 font-bold text-slate-950">
+                      {selectedVehicle.vehicleType === "SEDAN" ? "Sedan" : 
+                       selectedVehicle.vehicleType === "SUV" ? "SUV" : selectedVehicle.vehicleType}
+                    </p>
                   </div>
                 </div>
               )}
@@ -234,17 +241,72 @@ export function VehicleList({
             </div>
           </div>
 
-          {selectedVehicle.licensePlateImageUrl ? (
-            <a
-              href={selectedVehicle.licensePlateImageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              <ImageIcon size={15} aria-hidden />
-              Xem ảnh biển số
-            </a>
-          ) : null}
+          {/* Ảnh xác minh xe */}
+          {selectedVehicle.vehicleImages && selectedVehicle.vehicleImages.length > 0 ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Ảnh xác minh xe ({selectedVehicle.vehicleImages.length} ảnh)
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {selectedVehicle.vehicleImages.map((imgUrl, index) => (
+                  <div key={`${imgUrl}-${index}`} className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imgUrl}
+                      alt={`Ảnh xác minh ${index + 1} của xe ${selectedVehicle.licensePlate}`}
+                      className="h-48 w-full object-cover transition duration-200 group-hover:scale-105"
+                    />
+                    <a
+                      href={imgUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition duration-200 group-hover:bg-black/30 group-hover:opacity-100"
+                      aria-label={`Xem ảnh đầy đủ ${index + 1}`}
+                    >
+                      <span className="flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-800 shadow">
+                        <ExternalLink size={13} aria-hidden />
+                        Xem đầy đủ
+                      </span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : selectedVehicle.licensePlateImageUrl ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Ảnh xác minh xe
+              </p>
+              <div className="relative group w-full max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                <img
+                  src={selectedVehicle.licensePlateImageUrl}
+                  alt={`Ảnh biển số xe ${selectedVehicle.licensePlate}`}
+                  className="h-48 w-full object-cover transition duration-200 group-hover:scale-105"
+                />
+                <a
+                  href={selectedVehicle.licensePlateImageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition duration-200 group-hover:bg-black/30 group-hover:opacity-100"
+                  aria-label="Xem ảnh biển số đầy đủ"
+                >
+                  <span className="flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-800 shadow">
+                    <ExternalLink size={13} aria-hidden />
+                    Xem đầy đủ
+                  </span>
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Ảnh xác minh xe
+              </p>
+              <div className="flex h-32 w-full max-w-sm items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50">
+                <p className="text-xs text-slate-400">Chưa có ảnh xác minh</p>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 

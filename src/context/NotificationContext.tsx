@@ -15,6 +15,7 @@ import {
   updateNotificationStatus,
   HUB_URL,
   type NotificationItem,
+  type NotificationType,
 } from "@/lib/api/notification";
 
 interface NotificationContextProps {
@@ -39,12 +40,243 @@ function readToken(): string {
   return normalizeStoredToken(window.localStorage.getItem("token") ?? "");
 }
 
+function formatPromotionMessage(message: string, promotionsList: any[]): string {
+  if (!message) return "";
+  const promoRegex = /^New promotion available:\s*(.+?)\.\s*Valid until\s*(\d{2}\/\d{2}\/\d{4})/i;
+  const match = message.match(promoRegex);
+  if (!match) return message;
+
+  const promoName = match[1].trim();
+  const endDateStr = match[2];
+
+  const promo = promotionsList.find(
+    (p) => p.name?.toLowerCase().trim() === promoName.toLowerCase()
+  );
+
+  let discountText = "";
+  let startDateFormatted = "";
+  let endDateFormatted = endDateStr;
+
+  if (promo) {
+    if (promo.discountType === "Percentage") {
+      discountText = `${promo.discountValue}%`;
+    } else {
+      discountText = `${promo.discountValue.toLocaleString("vi-VN")}đ`;
+    }
+
+    if (promo.startDate) {
+      try {
+        const startD = new Date(promo.startDate);
+        const today = new Date();
+        startD.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+
+        if (startD.getTime() === today.getTime()) {
+          startDateFormatted = "hôm nay";
+        } else {
+          const dd = String(startD.getDate()).padStart(2, "0");
+          const mm = String(startD.getMonth() + 1).padStart(2, "0");
+          const yyyy = startD.getFullYear();
+          startDateFormatted = `${dd}/${mm}/${yyyy}`;
+        }
+      } catch {
+        startDateFormatted = "hôm nay";
+      }
+    }
+
+    if (promo.endDate) {
+      try {
+        const endD = new Date(promo.endDate);
+        const dd = String(endD.getDate()).padStart(2, "0");
+        const mm = String(endD.getMonth() + 1).padStart(2, "0");
+        const yyyy = endD.getFullYear();
+        endDateFormatted = `${dd}/${mm}/${yyyy}`;
+      } catch {
+        // use default
+      }
+    }
+  }
+
+  if (!discountText) {
+    return `chương trình khuyến mãi ${promoName} từ hôm nay đến hết ngày ${endDateStr}`;
+  }
+
+  return `chương trình khuyến mãi ${promoName} giảm ${discountText} từ ${startDateFormatted || "hôm nay"} đến hết ngày ${endDateFormatted}`;
+}
+
+function translateBookingNotification(title: string, message: string): { title: string, message: string } {
+  let translatedTitle = title;
+  let translatedMessage = message;
+
+  const titleLower = title.toLowerCase().trim();
+  if (titleLower === "booking confirmed" || titleLower === "booking created") {
+    translatedTitle = "Đặt lịch thành công";
+  } else if (titleLower === "booking reminder" || titleLower === "reminder") {
+    translatedTitle = "Nhắc nhở lịch hẹn";
+  } else if (titleLower === "booking cancelled") {
+    translatedTitle = "Lịch hẹn đã hủy";
+  } else if (titleLower === "booking completed") {
+    translatedTitle = "Dịch vụ hoàn thành";
+  } else if (titleLower === "booking updated") {
+    translatedTitle = "Cập nhật lịch hẹn";
+  }
+
+  const confirmRegex1 = /Your booking at\s+(.+?)\s+has been confirmed for\s+(\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})/i;
+  const confirmRegex2 = /New booking created for\s+(\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})\s+at\s+(.+?)\./i;
+  const reminderRegex1 = /Friendly reminder:\s*You have a booking at\s+(.+?)\s+scheduled for\s+(\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})/i;
+  const cancelRegex1 = /Your booking at\s+(.+?)\s+for\s+(\d{2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})\s+has been cancelled/i;
+  const completeRegex1 = /Your wash service at\s+(.+?)\s+has been completed\.\s*Thank you!/i;
+
+  if (confirmRegex1.test(message)) {
+    const match = message.match(confirmRegex1);
+    if (match) {
+      const [, branch, time, date] = match;
+      translatedMessage = `Lịch đặt của bạn tại ${branch} đã được xác nhận vào lúc ${time} ngày ${date}.`;
+    }
+  } else if (confirmRegex2.test(message)) {
+    const match = message.match(confirmRegex2);
+    if (match) {
+      const [, time, date, branch] = match;
+      translatedMessage = `Lịch đặt mới được tạo vào lúc ${time} ngày ${date} tại ${branch}.`;
+    }
+  } else if (reminderRegex1.test(message)) {
+    const match = message.match(reminderRegex1);
+    if (match) {
+      const [, branch, time, date] = match;
+      translatedMessage = `Nhắc nhở: Bạn có lịch hẹn rửa xe tại ${branch} vào lúc ${time} ngày ${date}.`;
+    }
+  } else if (cancelRegex1.test(message)) {
+    const match = message.match(cancelRegex1);
+    if (match) {
+      const [, branch, time, date] = match;
+      translatedMessage = `Lịch đặt của bạn tại ${branch} vào lúc ${time} ngày ${date} đã bị hủy.`;
+    }
+  } else if (completeRegex1.test(message)) {
+    const match = message.match(completeRegex1);
+    if (match) {
+      const [, branch] = match;
+      translatedMessage = `Dịch vụ rửa xe của bạn tại ${branch} đã hoàn thành. Cảm ơn quý khách!`;
+    }
+  } else {
+    translatedMessage = message
+      .replace(/Your booking at/gi, "Lịch đặt của bạn tại")
+      .replace(/has been confirmed for/gi, "đã được xác nhận vào lúc")
+      .replace(/scheduled for/gi, "được đặt lịch lúc")
+      .replace(/has been completed/gi, "đã hoàn thành")
+      .replace(/has been cancelled/gi, "đã bị hủy")
+      .replace(/Friendly reminder:/gi, "Nhắc nhở thân thiện:")
+      .replace(/You have a booking at/gi, "Bạn có lịch đặt tại")
+      .replace(/New booking created for/gi, "Lịch đặt mới được tạo vào")
+      .replace(/at /gi, "tại ")
+      .replace(/Thank you!/gi, "Cảm ơn quý khách!");
+  }
+
+  return { title: translatedTitle, message: translatedMessage };
+}
+
+function unwrapList(body: any): any[] {
+  if (!body) return [];
+  if (Array.isArray(body)) return body;
+
+  const directList = body.items ?? body.Items ?? body.results ?? body.Results;
+  if (Array.isArray(directList)) return directList;
+
+  const dataPayload = body.data ?? body.Data;
+  if (Array.isArray(dataPayload)) return dataPayload;
+
+  if (dataPayload && typeof dataPayload === "object") {
+    const nestedList = dataPayload.items ?? dataPayload.Items ?? dataPayload.results ?? dataPayload.Results;
+    if (Array.isArray(nestedList)) return nestedList;
+  }
+
+  return [];
+}
+
+async function fetchPromotions(token: string): Promise<any[]> {
+  try {
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://autowashpro-deploy-latest.onrender.com";
+    const params = new URLSearchParams({ pageSize: "100", pageIndex: "1" });
+    
+    let res = await fetch(`${apiBaseUrl}/api/v1/promotions/available?${params.toString()}`, {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    if (!res.ok) {
+      res = await fetch(`${apiBaseUrl}/Promotion/promotions?${params.toString()}`, {
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    }
+    
+    if (!res.ok) {
+      res = await fetch(`${apiBaseUrl}/api/v1/promotions?${params.toString()}`, {
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    }
+
+    if (!res.ok) {
+      res = await fetch(`${apiBaseUrl}/Promotion/admin/promotions?${params.toString()}`, {
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    }
+    
+    if (!res.ok) return [];
+
+    const text = await res.text();
+    let body: any = null;
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
+    }
+
+    const rawList = unwrapList(body);
+    return rawList.map((p: any) => ({
+      id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
+      name: String(p.name ?? p.Name ?? "Khuyến mãi"),
+      description: String(p.description ?? p.Description ?? ""),
+      discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
+      discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
+      startDate: String(p.startDate ?? p.StartDate ?? ""),
+      endDate: String(p.endDate ?? p.EndDate ?? ""),
+      isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? false),
+      isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+    }));
+  } catch (err) {
+    console.warn("DEBUG [fetchPromotions] Error loading promotions for notifications:", err);
+  }
+  return [];
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState("");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [toasts, setToasts] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promotions, setPromotions] = useState<any[]>([]);
+  const promotionsRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    promotionsRef.current = promotions;
+  }, [promotions]);
 
   const connectionRef = useRef<HubConnection | null>(null);
 
@@ -57,9 +289,39 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
+      const promoData = await fetchPromotions(authToken);
+      setPromotions(promoData);
+
       const data = await getNotifications(authToken);
+      
+      const formatted = data.map((n) => {
+        let msg = n.message;
+        let title = n.title;
+
+        if (n.type === "SystemAlert" || !n.type) {
+          msg = formatPromotionMessage(n.message, promoData);
+        }
+
+        if (
+          n.type === "BookingCreated" ||
+          n.type === "BookingReminder" ||
+          n.type === "BookingCancelled" ||
+          n.type === "BookingCompleted"
+        ) {
+          const trans = translateBookingNotification(n.title, n.message);
+          title = trans.title;
+          msg = trans.message;
+        }
+
+        return {
+          ...n,
+          title,
+          message: msg,
+        };
+      });
+
       // Sắp xếp thông báo mới nhất lên đầu
-      setNotifications(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setNotifications(formatted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải thông báo.");
     } finally {
@@ -116,6 +378,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       } else {
         setNotifications([]);
         setToasts([]);
+        setPromotions([]);
       }
     }
 
@@ -148,22 +411,77 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     connectionRef.current = connection;
 
     // Lắng nghe sự kiện nhận thông báo mới từ Server
-    connection.on("ReceiveNotification", (notification: NotificationItem) => {
+    connection.on("ReceiveNotification", async (notification: any) => {
+      // Chuẩn hóa cấu trúc notification từ SignalR
+      const msg = String(notification?.message ?? notification?.Message ?? notification?.content ?? notification?.Content ?? "");
+      const title = String(notification?.title ?? notification?.Title ?? "");
+      const type = String(notification?.type ?? notification?.Type ?? "SystemAlert") as NotificationType;
+
+      const promoRegex = /^New promotion available:\s*(.+?)\.\s*Valid until\s*(\d{2}\/\d{2}\/\d{4})/i;
+      const isPromo = type === "SystemAlert" && (
+        promoRegex.test(msg) ||
+        msg.toLowerCase().includes("khuyến mãi") ||
+        msg.toLowerCase().includes("chương trình") ||
+        title.toLowerCase().includes("khuyến mãi") ||
+        title.toLowerCase().includes("chương trình")
+      );
+
+      let currentPromos = promotionsRef.current;
+      if (isPromo) {
+        try {
+          currentPromos = await fetchPromotions(token);
+          setPromotions(currentPromos);
+        } catch (err) {
+          console.warn("Failed to refresh promotions on new notification:", err);
+        }
+      }
+
+      let finalMsg = msg;
+      let finalTitle = title;
+
+      if (type === "SystemAlert") {
+        finalMsg = formatPromotionMessage(msg, currentPromos);
+      }
+
+      if (
+        type === "BookingCreated" ||
+        type === "BookingReminder" ||
+        type === "BookingCancelled" ||
+        type === "BookingCompleted"
+      ) {
+        const trans = translateBookingNotification(title, msg);
+        finalTitle = trans.title;
+        finalMsg = trans.message;
+      }
+
+      const normalized: NotificationItem = {
+        id: String(notification?.id ?? notification?.Id ?? ""),
+        title: finalTitle,
+        message: finalMsg,
+        type: type,
+        isRead: Boolean(notification?.isRead ?? notification?.IsRead ?? false),
+        createdAt: String(notification?.createdAt ?? notification?.CreatedAt ?? new Date().toISOString()),
+      };
+
+      const formatted: NotificationItem = {
+        ...normalized,
+      };
+
       // 1. Thêm vào danh sách thông báo trên giao diện
       setNotifications((prev) => {
         // Kiểm tra xem thông báo đã tồn tại chưa để tránh trùng lặp
-        if (prev.some((n) => n.id === notification.id)) return prev;
-        return [notification, ...prev];
+        if (prev.some((n) => n.id === formatted.id)) return prev;
+        return [formatted, ...prev];
       });
 
-      // 2. Thêm vào danh sách Toast nổi để trượt lên bên trái màn hình
+      // 2. Thêm vào danh sách Toast nổi để trượt lên gọc phải màn hình
       setToasts((prev) => {
-        if (prev.some((t) => t.id === notification.id)) return prev;
-        return [...prev, notification];
+        if (prev.some((t) => t.id === formatted.id)) return prev;
+        return [...prev, formatted];
       });
 
       // 3. Nếu là thông báo thăng hạng thành viên, trigger cập nhật lại thông tin cá nhân
-      if (notification.type === "TierUpgraded") {
+      if (formatted.type === "TierUpgraded") {
         window.dispatchEvent(new Event("autowash-rank-upgrade"));
       }
     });

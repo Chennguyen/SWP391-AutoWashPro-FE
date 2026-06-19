@@ -47,6 +47,10 @@ export type AdminUser = {
   isVerified: boolean;
   createdAt?: string;
   faceImages?: string[];
+  totalPoints?: number;
+  totalWashes?: number;
+  tierName?: string;
+  tierLevel?: number;
 };
 
 export type AdminBooking = {
@@ -479,6 +483,17 @@ function normalizeUser(raw: unknown): AdminUser {
       : `${normalizedBase}/${trimmedUrl}`;
   });
 
+  const tierData = asRecord(
+    profileData.tierData ??
+      profileData.TierData ??
+      record.tierData ??
+      record.TierData
+  );
+  const totalPoints = readNumber(record, ["totalPoints", "TotalPoints"]) || readNumber(profileData, ["totalPoints", "TotalPoints"]);
+  const totalWashes = readNumber(record, ["totalWashes", "TotalWashes"]) || readNumber(profileData, ["totalWashes", "TotalWashes"]);
+  const tierName = readOptionalString(tierData, ["name", "Name"]);
+  const tierLevel = tierData.level !== undefined && tierData.level !== null ? Number(tierData.level) : undefined;
+
   return {
     id: readString(record, ["id", "Id", "userId", "UserId"]),
     email: readString(record, ["email", "Email"]),
@@ -491,6 +506,10 @@ function normalizeUser(raw: unknown): AdminUser {
     isVerified: readBoolean(record, ["isVerified", "IsVerified", "isVerify", "IsVerify"], false),
     createdAt: readOptionalString(record, ["createdAt", "CreatedAt"]),
     faceImages,
+    totalPoints,
+    totalWashes,
+    tierName,
+    tierLevel,
   };
 }
 

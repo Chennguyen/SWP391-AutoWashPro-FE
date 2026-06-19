@@ -127,7 +127,7 @@ export function VehicleStep({
                       {vehicle.licensePlate}
                     </p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {vehicle.brand} {vehicle.model} - {vehicle.color}
+                      {vehicle.brand} {vehicle.model} - {vehicle.color} ({vehicle.vehicleType === "SEDAN" ? "Sedan" : vehicle.vehicleType === "SUV" ? "SUV" : vehicle.vehicleType})
                     </p>
                   </div>
                   {isSelected ? (

@@ -7,7 +7,7 @@ const STEPS: Step[] = [
   { number: 1, label: "Chi nhánh" },
   { number: 2, label: "Chọn xe" },
   { number: 3, label: "Chọn slot" },
-  { number: 4, label: "Voucher" },
+  { number: 4, label: "Bảng giá" },
   { number: 5, label: "Xác nhận" },
   { number: 6, label: "Hoàn tất" },
 ];

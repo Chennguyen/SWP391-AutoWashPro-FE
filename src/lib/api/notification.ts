@@ -64,17 +64,29 @@ export async function getNotifications(
   });
 
   const body = await handleApiResponse<any>(res);
-  // Hỗ trợ bóc tách mảng linh hoạt cho cả dữ liệu phân trang và dữ liệu thô
   const d = body?.data ?? body?.Data ?? body;
-  if (d && typeof d === "object") {
-    if (Array.isArray(d.items)) return d.items;
-    if (Array.isArray(d.Items)) return d.Items;
-    if (Array.isArray(d.data)) return d.data;
-    if (Array.isArray(d.Data)) return d.Data;
+  let rawList: any[] = [];
+  if (d && typeof d === "object" && !Array.isArray(d)) {
+    if (Array.isArray(d.items)) rawList = d.items;
+    else if (Array.isArray(d.Items)) rawList = d.Items;
+    else if (Array.isArray(d.data)) rawList = d.data;
+    else if (Array.isArray(d.Data)) rawList = d.Data;
+  } else if (Array.isArray(d)) {
+    rawList = d;
+  } else if (Array.isArray(body)) {
+    rawList = body;
+  } else {
+    return [];
   }
-  if (Array.isArray(d)) return d;
-  if (Array.isArray(body)) return body;
-  return [];
+
+  return rawList.map((r: any) => ({
+    id: String(r?.id ?? r?.Id ?? ""),
+    title: String(r?.title ?? r?.Title ?? ""),
+    message: String(r?.message ?? r?.Message ?? r?.content ?? r?.Content ?? ""),
+    type: String(r?.type ?? r?.Type ?? "SystemAlert") as NotificationType,
+    isRead: Boolean(r?.isRead ?? r?.IsRead ?? false),
+    createdAt: String(r?.createdAt ?? r?.CreatedAt ?? ""),
+  }));
 }
 
 /**

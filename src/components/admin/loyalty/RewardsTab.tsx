@@ -7,9 +7,11 @@ import {
   getAdminRewards,
   updateAdminReward,
   deleteAdminReward,
+  getAdminTiers,
   type AdminReward,
   type AdminRewardTypeEnum,
   type CreateRewardPayload,
+  type AdminTier,
   REWARD_TYPE_MAP,
   REWARD_TYPE_REVERSE,
 } from "@/lib/api/loyalty-admin";
@@ -49,15 +51,42 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
   const isEdit = !!initial;
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [pointsRequired, setPointsRequired] = useState(initial?.pointsRequired ?? 500);
+  const [pointsRequiredStr, setPointsRequiredStr] = useState(initial ? String(initial.pointsRequired) : "500");
   const [rewardTypeEnum, setRewardTypeEnum] = useState<AdminRewardTypeEnum>(
     initial?.rewardTypeEnum ?? 0,
   );
-  const [quantityAvailable, setQuantityAvailable] = useState(initial?.quantityAvailable ?? 100);
-  const [validDays, setValidDays] = useState(initial?.validDays ?? 30);
+  const [quantityAvailableStr, setQuantityAvailableStr] = useState(
+    initial?.quantityAvailable !== undefined && initial?.quantityAvailable !== null
+      ? String(initial.quantityAvailable)
+      : "100"
+  );
+  const [validDaysStr, setValidDaysStr] = useState(
+    initial?.validDays !== undefined && initial?.validDays !== null
+      ? String(initial.validDays)
+      : "30"
+  );
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [tiers, setTiers] = useState<AdminTier[]>([]);
+  const [selectedTierIds, setSelectedTierIds] = useState<string[]>(initial?.tierIds ?? []);
+  const [loadingTiers, setLoadingTiers] = useState(false);
+
+  useEffect(() => {
+    async function loadTiers() {
+      setLoadingTiers(true);
+      try {
+        const data = await getAdminTiers(token);
+        setTiers(data.sort((a, b) => a.level - b.level));
+      } catch (err) {
+        console.error("Failed to load Tiers:", err);
+      } finally {
+        setLoadingTiers(false);
+      }
+    }
+    loadTiers();
+  }, [token]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,6 +94,14 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
       onClose();
       return;
     }
+    if (selectedTierIds.length === 0) {
+      setError("Vui lòng chọn ít nhất một hạng thành viên được phép đổi.");
+      return;
+    }
+    const pointsRequired = Number(pointsRequiredStr || 0);
+    const quantityAvailable = Number(quantityAvailableStr || 0);
+    const validDays = Number(validDaysStr || 0);
+
     setSaving(true);
     setError(null);
     try {
@@ -73,9 +110,10 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
           name,
           description,
           pointsRequired,
-          quantityAvailable: quantityAvailable ?? undefined,
-          validDays: validDays ?? undefined,
+          quantityAvailable: quantityAvailable,
+          validDays: validDays,
           isActive,
+          tierIds: selectedTierIds,
         });
       } else {
         const payload: CreateRewardPayload = {
@@ -83,9 +121,10 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
           description,
           pointsRequired,
           rewardType: rewardTypeEnum,   // integer enum
-          quantityAvailable: quantityAvailable ?? 0,
-          validDays: validDays ?? 30,
+          quantityAvailable: quantityAvailable,
+          validDays: validDays,
           isActive,
+          tierIds: selectedTierIds,
         };
         await createAdminReward(token, payload);
       }
@@ -138,22 +177,32 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Điểm cần</label>
               <input
-                type="number"
-                min={1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 disabled={readOnly}
-                value={pointsRequired}
-                onChange={(e) => setPointsRequired(Number(e.target.value))}
+                value={pointsRequiredStr}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setPointsRequiredStr(cleanVal);
+                }}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Số lượng tồn kho</label>
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 disabled={readOnly}
-                value={quantityAvailable ?? 0}
-                onChange={(e) => setQuantityAvailable(Number(e.target.value))}
+                value={quantityAvailableStr}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setQuantityAvailableStr(cleanVal);
+                }}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
             </div>
@@ -180,13 +229,60 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
               Hiệu lực sau khi đổi (ngày)
             </label>
             <input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               disabled={readOnly}
-              value={validDays ?? 30}
-              onChange={(e) => setValidDays(Number(e.target.value))}
+              value={validDaysStr}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                setValidDaysStr(cleanVal);
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
+          </div>
+
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 space-y-2">
+            <label className="block text-sm font-semibold text-slate-800">
+              Hạng thành viên được đổi
+            </label>
+            {loadingTiers ? (
+              <p className="text-xs text-slate-400 animate-pulse">Đang tải danh sách hạng...</p>
+            ) : tiers.length === 0 ? (
+              <p className="text-xs text-slate-400">Không có hạng thành viên nào.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {tiers.map((t) => {
+                  const isChecked = selectedTierIds.includes(t.id);
+                  return (
+                    <label
+                      key={t.id}
+                      className={`flex items-center gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-all duration-200 ${
+                        isChecked
+                          ? "border-blue-500 bg-blue-50/40 text-blue-900 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={readOnly}
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTierIds([...selectedTierIds, t.id]);
+                          } else {
+                            setSelectedTierIds(selectedTierIds.filter((id) => id !== t.id));
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
+                      />
+                      <span className="text-sm font-medium text-xs md:text-sm">{t.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {(isEdit || readOnly) && (

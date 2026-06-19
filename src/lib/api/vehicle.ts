@@ -24,10 +24,14 @@ type VehicleRecord = {
   Model?: string;
   color?: string;
   Color?: string;
-  vehicleType?: VehicleType;
-  VehicleType?: VehicleType;
+  vehicleType?: string;
+  VehicleType?: string;
+  vehicelType?: string;
+  VehicelType?: string;
   licensePlateImageUrl?: string;
   LicensePlateImageUrl?: string;
+  vehicleImages?: any;
+  VehicleImages?: any;
 };
 
 type VehicleListResponse =
@@ -95,6 +99,31 @@ function normalizeVehicle(raw: VehicleRecord): Vehicle {
     raw.licensePlate ?? raw.LicensePlate ?? raw.plateNumber ?? raw.PlateNumber,
   );
 
+  // Normalize vehicle type
+  const rawType = raw.vehicleType ?? raw.VehicleType ?? raw.vehicelType ?? raw.VehicelType ?? "OTHER";
+  let normalizedType: VehicleType = "OTHER";
+  if (typeof rawType === "string") {
+    const upper = rawType.toUpperCase();
+    if (upper === "SEDAN") normalizedType = "SEDAN";
+    else if (upper === "SUV") normalizedType = "SUV";
+    else if (upper === "HATCHBACK") normalizedType = "HATCHBACK";
+    else if (upper === "PICKUP") normalizedType = "PICKUP";
+    else if (upper === "MOTORBIKE") normalizedType = "MOTORBIKE";
+  }
+
+  // Normalize vehicle images
+  const rawImages = raw.vehicleImages ?? raw.VehicleImages;
+  let vehicleImages: string[] = [];
+  if (Array.isArray(rawImages)) {
+    vehicleImages = rawImages.map((img: any) => {
+      if (typeof img === "string") return img;
+      return img?.imageUrl ?? img?.ImageUrl ?? img?.imagePath ?? img?.ImagePath ?? img?.url ?? img?.Url ?? img?.path ?? img?.Path ?? "";
+    }).filter(Boolean);
+  }
+
+  // Fallback for licensePlateImageUrl
+  const licensePlateImageUrl = raw.licensePlateImageUrl ?? raw.LicensePlateImageUrl ?? (vehicleImages.length > 0 ? vehicleImages[0] : undefined);
+
   return {
     id: id || licensePlate,
     plateNumber: licensePlate,
@@ -102,8 +131,9 @@ function normalizeVehicle(raw: VehicleRecord): Vehicle {
     brand: stringValue(raw.brand ?? raw.Brand),
     model: stringValue(raw.model ?? raw.Model),
     color: stringValue(raw.color ?? raw.Color),
-    vehicleType: raw.vehicleType ?? raw.VehicleType ?? "OTHER",
-    licensePlateImageUrl: raw.licensePlateImageUrl ?? raw.LicensePlateImageUrl,
+    vehicleType: normalizedType,
+    licensePlateImageUrl,
+    vehicleImages: vehicleImages.length > 0 ? vehicleImages : (licensePlateImageUrl ? [licensePlateImageUrl] : []),
   };
 }
 
@@ -206,7 +236,17 @@ export async function addVehicle(
   form.append("Brand", payload.brand);
   form.append("Model", payload.model);
   form.append("Color", payload.color);
-  form.append("LicensePlateImageUrl", payload.licensePlateImageFile);
+
+  // Map uppercase VehicleType to backend enum ("Sedan", "SUV")
+  const apiVehicleType = payload.vehicleType === "SEDAN" ? "Sedan" : "SUV";
+  form.append("VehicleType", apiVehicleType);
+
+  // Append multiple images to Form Data using backend key "VehicleImages"
+  if (Array.isArray(payload.vehicleImages)) {
+    payload.vehicleImages.forEach((file) => {
+      form.append("VehicleImages", file);
+    });
+  }
 
   const res = await fetch(vehiclesEndpoint(), {
     method: "POST",
@@ -225,7 +265,7 @@ export async function addVehicle(
  * 
  * @param token Token xác thực.
  * @param id ID của xe đích cần cập nhật.
- * @param payload Các trường thông tin cần cập nhật (hãng xe, dòng xe, màu xe).
+ * @param payload Các trường thông tin cần cập nhật (hãng xe, dòng xe, màu xe, loại xe).
  * @returns Một promise giải quyết thành đối tượng xe Vehicle đã được cập nhật.
  */
 export async function updateVehicle(
@@ -233,6 +273,9 @@ export async function updateVehicle(
   id: string,
   payload: UpdateVehiclePayload,
 ): Promise<Vehicle> {
+  // Map uppercase VehicleType to backend enum ("Sedan", "SUV")
+  const apiVehicleType = payload.vehicleType === "SEDAN" ? "Sedan" : "SUV";
+
   const res = await fetch(vehicleEndpoint(id), {
     method: "PATCH",
     cache: "no-store",
@@ -244,6 +287,7 @@ export async function updateVehicle(
       brand: payload.brand,
       model: payload.model,
       color: payload.color,
+      vehicleType: apiVehicleType,
     }),
   });
   const body = await handleApiResponse<VehicleRecord | { data?: VehicleRecord }>(res);

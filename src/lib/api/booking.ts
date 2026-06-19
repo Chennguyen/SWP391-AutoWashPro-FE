@@ -142,30 +142,22 @@ type BookingListResponse =
  * @param body Phản hồi của API chứa thông tin slot.
  * @returns Mảng các bản ghi slot thô.
  */
-function unwrapList(body: SlotListResponse): SlotRecord[] {
-  if (Array.isArray(body)) {
-    return body;
+function unwrapList(body: any): any[] {
+  if (!body) return [];
+  if (Array.isArray(body)) return body;
+
+  const directList = body.items ?? body.Items ?? body.results ?? body.Results;
+  if (Array.isArray(directList)) return directList;
+
+  const dataPayload = body.data ?? body.Data;
+  if (Array.isArray(dataPayload)) return dataPayload;
+
+  if (dataPayload && typeof dataPayload === "object") {
+    const nestedList = dataPayload.items ?? dataPayload.Items ?? dataPayload.results ?? dataPayload.Results;
+    if (Array.isArray(nestedList)) return nestedList;
   }
 
-  const data = body.data;
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (data && !Array.isArray(data)) {
-    return data.items ?? data.results ?? [];
-  }
-
-  const upperData = body.Data;
-  if (Array.isArray(upperData)) {
-    return upperData;
-  }
-
-  if (upperData && !Array.isArray(upperData)) {
-    return upperData.items ?? upperData.results ?? [];
-  }
-
-  return body.items ?? body.results ?? [];
+  return [];
 }
 
 /**

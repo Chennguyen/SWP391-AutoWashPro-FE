@@ -234,6 +234,7 @@ function normalizeLoyaltyInfo(body: unknown): LoyaltyInfo {
   const profileData = rec(data.profileData ?? data.ProfileData);
   const tierRaw =
     data.tier ?? data.Tier ?? data.tierData ?? data.TierData ??
+    data.currentTier ?? data.CurrentTier ??
     profileData.tierData ?? profileData.TierData ?? null;
 
   return {
@@ -321,15 +322,20 @@ function normalizePointTransaction(raw: unknown): PointTransaction {
  * @returns Mảng các phần tử được giải nén.
  */
 function unwrapList(body: unknown): unknown[] {
-  const r = rec(body);
+  if (!body) return [];
   if (Array.isArray(body)) return body;
-  if (Array.isArray(r.data)) return r.data as unknown[];
-  if (Array.isArray(r.Data)) return r.Data as unknown[];
-  if (Array.isArray(r.items)) return r.items as unknown[];
-  if (Array.isArray(r.results)) return r.results as unknown[];
-  const inner = rec(r.data ?? r.Data);
-  if (Array.isArray(inner.items)) return inner.items as unknown[];
-  if (Array.isArray(inner.results)) return inner.results as unknown[];
+  
+  const r = rec(body);
+  const directList = r.items ?? r.Items ?? r.results ?? r.Results;
+  if (Array.isArray(directList)) return directList as unknown[];
+
+  const dataPayload = r.data ?? r.Data;
+  if (Array.isArray(dataPayload)) return dataPayload as unknown[];
+
+  const inner = rec(dataPayload);
+  const nestedList = inner.items ?? inner.Items ?? inner.results ?? inner.Results;
+  if (Array.isArray(nestedList)) return nestedList as unknown[];
+
   return [];
 }
 
@@ -342,7 +348,7 @@ function unwrapList(body: unknown): unknown[] {
  * @returns Một promise giải quyết thành LoyaltyInfo.
  */
 export async function getLoyaltyInfo(token: string): Promise<LoyaltyInfo> {
-  const res = await fetch(loyaltyEndpoint("/me"), {
+  const res = await fetch(`${apiBase()}/api/v1/me`, {
     cache: "no-store",
     headers: authHeaders(token),
   });

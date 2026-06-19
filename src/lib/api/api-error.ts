@@ -104,8 +104,8 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = pickErrorMessage(body, res.status);
 
-    if (message.toLowerCase().includes("unexpected error")) {
-      message = `Có lỗi hệ thống xảy ra (Status: ${res.status}). Vui lòng thử lại sau.`;
+    if (res.status === 500 || message.toLowerCase().includes("unexpected error")) {
+      message = "Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.";
     }
 
     throw new ApiError(message, res.status);

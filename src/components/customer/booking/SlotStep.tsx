@@ -111,15 +111,12 @@ function isActiveBooking(booking: CustomerBooking): boolean {
   const isCancelled =
     status.includes("cancel") ||
     status.includes("huy") ||
-    status.includes("da huy");
-  const isCompleted =
-    status.includes("complete") ||
-    status.includes("completed") ||
-    status.includes("done") ||
-    status.includes("hoan thanh") ||
-    status.includes("xong");
+    status.includes("da huy") ||
+    status.includes("reject") ||
+    status.includes("fail") ||
+    status.includes("tu choi");
 
-  if (isCancelled || isCompleted) return false;
+  if (isCancelled) return false;
 
   return Boolean(booking.id || booking.startTime);
 }
