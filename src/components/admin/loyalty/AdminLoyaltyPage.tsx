@@ -1,20 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Clock, Gift, Megaphone, Settings } from "lucide-react";
+import { Award, Clock, Gift, Megaphone, Settings, DollarSign } from "lucide-react";
 import { useAdminToken } from "@/components/admin/shared/useAdminToken";
 import { AdminPageHeader, AdminShell } from "@/components/admin/shared/AdminUi";
 import { LoyaltySettingsTab } from "./LoyaltySettingsTab";
+import { PricingSettingsTab } from "./PricingSettingsTab";
 import { SlotSettingsTab } from "./SlotSettingsTab";
 import { TiersTab } from "./TiersTab";
 import { RewardsTab } from "./RewardsTab";
 import { PromotionsTab } from "./PromotionsTab";
 import { cn } from "@/lib/utils";
 
-type LoyaltyTab = "settings" | "slots" | "tiers" | "rewards" | "promotions";
+type LoyaltyTab = "settings" | "pricing" | "slots" | "tiers" | "rewards" | "promotions";
 
 const TABS: { id: LoyaltyTab; label: string; icon: React.ElementType }[] = [
   { id: "settings", label: "Cài đặt điểm", icon: Settings },
+  { id: "pricing", label: "Cài đặt Giá", icon: DollarSign },
   { id: "slots", label: "Cài đặt Slot", icon: Clock },
   { id: "tiers", label: "Quản lý Tiers", icon: Award },
   { id: "rewards", label: "Phần thưởng", icon: Gift },
@@ -66,6 +68,7 @@ export function AdminLoyaltyPage() {
           </div>
         )}
         {activeTab === "settings" && token ? <LoyaltySettingsTab token={token} /> : null}
+        {activeTab === "pricing" && token ? <PricingSettingsTab token={token} /> : null}
         {activeTab === "slots" && token ? <SlotSettingsTab token={token} /> : null}
         {activeTab === "tiers" && token ? <TiersTab token={token} /> : null}
         {activeTab === "rewards" && token ? <RewardsTab token={token} /> : null}

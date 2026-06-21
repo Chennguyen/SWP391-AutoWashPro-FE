@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowLeft, Car, ExternalLink, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Car, ExternalLink, Pencil, Plus, Trash2, X, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api/api-error";
 import { deleteVehicle, getVehicle } from "@/lib/api/vehicle";
 import type { Vehicle } from "@/types/vehicle";
@@ -173,9 +174,20 @@ export function VehicleList({
       ) : null}
 
       {error ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        (() => {
+          const isUnverified = error.includes("Only active and verified customer accounts") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
+          return (
+            <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
+              <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />
+              <div>
+                <p className="font-semibold">{isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}</p>
+                <p className="mt-1 text-xs md:text-sm">
+                  {isUnverified ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút." : error}
+                </p>
+              </div>
+            </div>
+          );
+        })()
       ) : null}
 
       {actionError ? (

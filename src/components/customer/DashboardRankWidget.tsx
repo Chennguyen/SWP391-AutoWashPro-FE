@@ -85,7 +85,9 @@ export function DashboardRankWidget() {
     };
   }, [loadRank]);
 
-  if (!token || status === "Pending" || status === "Rejected") {
+  const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+
+  if (!token || status === "Pending" || status === "Rejected" || isUnverified) {
     return null;
   }
 

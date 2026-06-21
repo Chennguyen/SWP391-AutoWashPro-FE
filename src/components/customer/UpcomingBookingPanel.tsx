@@ -556,7 +556,9 @@ export function UpcomingBookingPanel() {
     await loadBookings();
   }
 
-  if (status === "Pending" || status === "Rejected") {
+  const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+
+  if (status === "Pending" || status === "Rejected" || isUnverified) {
     return null;
   }
 

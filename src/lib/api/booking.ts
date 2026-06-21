@@ -599,3 +599,5 @@ export async function cancelBooking(
   if (res.status === 204) return;
   await handleApiResponse<unknown>(res);
 }
+
+

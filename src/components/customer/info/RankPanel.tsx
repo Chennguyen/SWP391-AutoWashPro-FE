@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Star } from "lucide-react";
+import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Star, Info } from "lucide-react";
 import { ApiError } from "@/lib/api/api-error";
 import { getLoyaltyInfo, getAllTiers, type LoyaltyInfo, type LoyaltyTier } from "@/lib/api/loyalty";
 import { getNextRankTier, getRankProgress, RANK_TIERS, resolveRankTier } from "@/lib/rank";
@@ -103,9 +103,20 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
       </div>
 
       {error ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        (() => {
+          const isUnverified = error.includes("Only active and verified customer accounts") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
+          return (
+            <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
+              <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />
+              <div>
+                <p className="font-semibold">{isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}</p>
+                <p className="mt-1 text-xs md:text-sm">
+                  {isUnverified ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút." : error}
+                </p>
+              </div>
+            </div>
+          );
+        })()
       ) : null}
 
       {loading && !info ? (

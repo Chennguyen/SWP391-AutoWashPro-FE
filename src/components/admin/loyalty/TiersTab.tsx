@@ -48,8 +48,8 @@ interface TierFormProps {
 function TierFormModal({ initial, title, saving, error, readOnly = false, onSubmit, onClose }: TierFormProps) {
   const [name, setName] = useState(initial.name);
   const [level, setLevel] = useState(initial.level);
-  const [requiredWashes, setRequiredWashes] = useState(initial.requiredWashes);
-  const [priorityBookingDays, setPriorityBookingDays] = useState(initial.priorityBookingDays);
+  const [requiredWashesStr, setRequiredWashesStr] = useState(String(initial.requiredWashes));
+  const [priorityBookingDaysStr, setPriorityBookingDaysStr] = useState(String(initial.priorityBookingDays));
   const [description, setDescription] = useState(initial.description);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -58,7 +58,13 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
       onClose();
       return;
     }
-    onSubmit({ name, level, requiredWashes, priorityBookingDays, description });
+    onSubmit({
+      name,
+      level,
+      requiredWashes: Number(requiredWashesStr) || 0,
+      priorityBookingDays: Number(priorityBookingDaysStr) || 0,
+      description,
+    });
   }
 
   return (
@@ -105,12 +111,17 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Số lần rửa yêu cầu</label>
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 required
                 disabled={readOnly}
-                value={requiredWashes}
-                onChange={(e) => setRequiredWashes(Number(e.target.value))}
+                value={requiredWashesStr}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setRequiredWashesStr(cleanVal);
+                }}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
               <p className="mt-0.5 text-xs text-slate-400">Lần rửa tích lũy để đạt hạng</p>
@@ -122,11 +133,16 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
               Đặt lịch trước tối đa (ngày)
             </label>
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               disabled={readOnly}
-              value={priorityBookingDays}
-              onChange={(e) => setPriorityBookingDays(Number(e.target.value))}
+              value={priorityBookingDaysStr}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                setPriorityBookingDaysStr(cleanVal);
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
             <p className="mt-0.5 text-xs text-slate-400">0 = không giới hạn. Ví dụ: 7 = chỉ đặt trước tối đa 7 ngày</p>

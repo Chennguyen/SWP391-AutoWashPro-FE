@@ -108,7 +108,21 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
       message = "Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.";
     }
 
+    if (message.includes("Only active and verified customer accounts")) {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("is_unverified", "true");
+        window.dispatchEvent(new Event("autowash-auth"));
+      }
+    }
+
     throw new ApiError(message, res.status);
+  }
+
+  if (typeof window !== "undefined" && res.url && res.url.includes("/api/v1/me") && !res.url.includes("/my-status")) {
+    if (window.localStorage.getItem("is_unverified") === "true") {
+      window.localStorage.removeItem("is_unverified");
+      window.dispatchEvent(new Event("autowash-auth"));
+    }
   }
 
   return body as T;

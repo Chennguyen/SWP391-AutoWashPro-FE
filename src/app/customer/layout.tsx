@@ -3,6 +3,7 @@ import { DashboardSidebar } from "@/components/customer/DashboardSidebar";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { NotificationToaster } from "@/components/shared/NotificationToaster";
 import { RankUpgradeCelebration } from "@/components/customer/RankUpgradeCelebration";
+import { UnverifiedBanner } from "@/components/customer/UnverifiedBanner";
 
 /**
  * Bố cục (Layout) CustomerLayout
@@ -17,6 +18,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
         <Suspense fallback={<div className="h-14 bg-[#050505] border-b border-white/10" />}>
           <DashboardSidebar />
         </Suspense>
+        <UnverifiedBanner />
 
         {/* Main content wrapper */}
         <div className="flex-1 min-w-0">

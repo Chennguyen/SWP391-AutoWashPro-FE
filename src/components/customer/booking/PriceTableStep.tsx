@@ -33,13 +33,6 @@ export function PriceTableStep({ token, vehicle, onNext, onBack }: PriceTableSte
     let active = true;
     async function loadConfigs() {
       try {
-        const role = typeof window !== "undefined" ? window.localStorage.getItem("role") : "";
-        if (role !== "Admin") {
-          if (active) {
-            setLoading(false);
-          }
-          return;
-        }
         const settings = await getLoyaltySettings(token);
         if (active) {
           setConfigs({

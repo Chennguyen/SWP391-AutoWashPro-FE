@@ -12,6 +12,7 @@ import {
   type CustomerProfile,
 } from "@/lib/api/customer";
 import { AlertTriangle, Info, Image as ImageIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProfilePanelProps {
   token: string;
@@ -364,17 +365,28 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       ) : null}
 
       {loadError ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {loadError}
-        </div>
+        (() => {
+          const isUnverified = loadError.includes("Only active and verified customer accounts") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
+          return (
+            <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
+              <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />
+              <div>
+                <p className="font-semibold">{isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}</p>
+                <p className="mt-1 text-xs md:text-sm">
+                  {isUnverified ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút." : loadError}
+                </p>
+              </div>
+            </div>
+          );
+        })()
       ) : null}
 
       {profile ? (
         <div className="space-y-6">
           {/* Status banner */}
           {verificationStatus === "Pending" && (
-             <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-5 py-4 text-blue-800">
-               <Info size={20} className="mt-0.5 shrink-0 text-blue-600" />
+             <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
+               <Info size={20} className="mt-0.5 shrink-0 text-amber-600" />
                <div>
                  <p className="font-semibold">Hồ sơ FaceID đang chờ duyệt</p>
                  <p className="mt-1 text-sm">Vui lòng chờ quản trị viên phê duyệt hồ sơ của bạn để mở khóa các tính năng đặt lịch, nạp ví.</p>

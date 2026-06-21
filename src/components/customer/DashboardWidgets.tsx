@@ -156,8 +156,8 @@ export function DashboardHeader() {
   return (
     <header className="mb-8">
       {verificationStatus === "Pending" ? (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          <Info size={20} className="mt-0.5 shrink-0 text-blue-600" aria-hidden />
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <Info size={20} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
           <div>
             <p className="font-semibold">Hồ sơ FaceID của bạn đang chờ phê duyệt</p>
             <p className="mt-1">

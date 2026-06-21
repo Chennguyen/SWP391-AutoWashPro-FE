@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Plus, RefreshCw, WalletCards } from "lucide-react";
+import { Plus, RefreshCw, WalletCards, Lock } from "lucide-react";
 import { topUpWallet, type Wallet } from "@/lib/api/wallet";
 import { ApiError } from "@/lib/api/api-error";
 
@@ -71,6 +71,8 @@ export function WalletPanel({
     }
   }
 
+  const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+
   return (
     <section aria-label="Thông tin ví" className="space-y-4">
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -86,8 +88,21 @@ export function WalletPanel({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white">
+      <div className="relative overflow-hidden rounded-lg">
+        {isUnverified && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/75 backdrop-blur-[2px] p-6 text-center border border-slate-200 rounded-lg">
+            <div className="rounded-full bg-slate-100 p-3 text-slate-500 shadow-sm border border-slate-200/50 mb-3 animate-pulse">
+              <Lock size={24} className="text-amber-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800">Ví tạm thời khóa do tài khoản chưa được xác thực</p>
+            <p className="mt-1 text-xs text-slate-500 max-w-xs leading-relaxed">
+              Tính năng ví sẽ tự động mở khóa sau khi quản trị viên phê duyệt tài khoản của bạn.
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-white/70">Số dư hiện tại</span>
             <WalletCards size={22} className="text-blue-300" aria-hidden />
@@ -152,6 +167,7 @@ export function WalletPanel({
           </button>
         </form>
       </div>
-    </section>
+    </div>
+  </section>
   );
 }

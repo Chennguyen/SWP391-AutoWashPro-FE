@@ -109,6 +109,11 @@ export function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Đóng dropdown khi click bên ngoài
   useEffect(() => {
@@ -158,7 +163,7 @@ export function NotificationBell() {
         aria-label="Thông báo"
       >
         <Bell size={20} />
-        {unreadCount > 0 && (
+        {mounted && unreadCount > 0 && (
           <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5">
             <span className="notif-red-dot-ping absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"></span>
             <span className="notif-red-dot relative inline-flex h-2.5 w-2.5 rounded-full"></span>

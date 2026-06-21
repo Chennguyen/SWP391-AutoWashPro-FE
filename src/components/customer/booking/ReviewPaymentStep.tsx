@@ -117,10 +117,6 @@ export function ReviewPaymentStep({
     let active = true;
     async function loadConfigs() {
       try {
-        const role = typeof window !== "undefined" ? window.localStorage.getItem("role") : "";
-        if (role !== "Admin") {
-          return;
-        }
         const settings = await getLoyaltySettings(token);
         if (active) {
           setConfigs({

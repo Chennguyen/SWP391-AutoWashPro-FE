@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
@@ -280,8 +281,44 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const connectionRef = useRef<HubConnection | null>(null);
 
-  // Tính số thông báo chưa đọc
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // Kiểm tra trạng thái tài khoản chưa xác thực để tiêm thông báo ảo
+  const [isUnverified, setIsUnverified] = useState(false);
+
+  useEffect(() => {
+    function checkStatus() {
+      if (typeof window !== "undefined") {
+        setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+      }
+    }
+    checkStatus();
+    window.addEventListener("autowash-auth", checkStatus);
+    window.addEventListener("storage", checkStatus);
+    return () => {
+      window.removeEventListener("autowash-auth", checkStatus);
+      window.removeEventListener("storage", checkStatus);
+    };
+  }, []);
+
+  const displayNotifications = useMemo(() => {
+    if (!isUnverified) return notifications;
+
+    if (notifications.some((n) => n.id === "virtual-pending-verification")) {
+      return notifications;
+    }
+
+    const virtualNotif: NotificationItem = {
+      id: "virtual-pending-verification",
+      title: "Hệ thống xác thực",
+      message: "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút.",
+      type: "SystemAlert",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    return [virtualNotif, ...notifications];
+  }, [notifications, isUnverified]);
+
+  const displayUnreadCount = displayNotifications.filter((n) => !n.isRead).length;
 
   // Lấy danh sách lịch sử thông báo ban đầu từ REST API
   const loadNotifications = useCallback(async (authToken: string) => {
@@ -298,7 +335,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         let msg = n.message;
         let title = n.title;
 
-        if (n.type === "SystemAlert" || !n.type) {
+        if (n.type === "SystemAlert" || !n.type || n.message.toLowerCase().startsWith("new promotion available") || String(n.type).toLowerCase().includes("promo")) {
           msg = formatPromotionMessage(n.message, promoData);
         }
 
@@ -418,12 +455,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const type = String(notification?.type ?? notification?.Type ?? "SystemAlert") as NotificationType;
 
       const promoRegex = /^New promotion available:\s*(.+?)\.\s*Valid until\s*(\d{2}\/\d{2}\/\d{4})/i;
-      const isPromo = type === "SystemAlert" && (
-        promoRegex.test(msg) ||
-        msg.toLowerCase().includes("khuyến mãi") ||
-        msg.toLowerCase().includes("chương trình") ||
-        title.toLowerCase().includes("khuyến mãi") ||
-        title.toLowerCase().includes("chương trình")
+      const isPromo = promoRegex.test(msg) || (
+        (type === "SystemAlert" || String(type).toLowerCase().includes("promo")) && (
+          msg.toLowerCase().includes("khuyến mãi") ||
+          msg.toLowerCase().includes("chương trình") ||
+          title.toLowerCase().includes("khuyến mãi") ||
+          title.toLowerCase().includes("chương trình")
+        )
       );
 
       let currentPromos = promotionsRef.current;
@@ -439,7 +477,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       let finalMsg = msg;
       let finalTitle = title;
 
-      if (type === "SystemAlert") {
+      if (type === "SystemAlert" || msg.toLowerCase().startsWith("new promotion available") || String(type).toLowerCase().includes("promo")) {
         finalMsg = formatPromotionMessage(msg, currentPromos);
       }
 
@@ -508,8 +546,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   return (
     <NotificationContext.Provider
       value={{
-        notifications,
-        unreadCount,
+        notifications: displayNotifications,
+        unreadCount: displayUnreadCount,
         toasts,
         loading,
         error,
