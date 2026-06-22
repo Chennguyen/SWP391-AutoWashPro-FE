@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { getVehicles } from "@/lib/api/vehicle";
+import { getLoyaltySettings, type LoyaltyPointsConfig } from "@/lib/api/loyalty-admin";
+import type { Vehicle } from "@/types/vehicle";
 import {
   CalendarDays,
   Car,
@@ -13,12 +16,16 @@ import {
   Banknote,
   Wrench,
   ChevronRight,
+  AlertCircle,
+  Plus,
+  WalletCards,
 } from "lucide-react";
 import Link from "next/link";
 import { ApiError } from "@/lib/api/api-error";
 import { cancelBooking, checkInBooking, getBookings } from "@/lib/api/booking";
 import { getMyVerificationStatus } from "@/lib/api/customer";
 import type { CustomerBooking } from "@/types/booking";
+import { getWallet, topUpWallet, type Wallet } from "@/lib/api/wallet";
 import {
   subscribeToToken,
   getTokenSnapshot,
@@ -108,20 +115,92 @@ function CancelModal({
 
 // ─── Check-In Confirm Modal ──────────────────────────────────────────────────────
 
+// ─── Check-In Confirm Modal ──────────────────────────────────────────────────────
+
 function CheckInConfirmModal({
   booking,
   onConfirm,
   onClose,
   loading,
+  token,
 }: {
   booking: CustomerBooking;
   onConfirm: () => void;
   onClose: () => void;
   loading: boolean;
+  token: string;
 }) {
-  const servicePrice = booking.totalPrice ?? 100000;
-  const depositAmount = Math.round(servicePrice * 0.3);
-  const remainingAmount = servicePrice - depositAmount;
+  const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100000;
+  const depositAmount = Math.round(finalPrice * 0.3);
+  const remainingAmount = finalPrice - depositAmount;
+
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+  const [topUpAmount, setTopUpAmount] = useState<number>(0);
+  const [topUpLoading, setTopUpLoading] = useState(false);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
+  const [topUpSuccess, setTopUpSuccess] = useState<string | null>(null);
+
+  const walletBalance = wallet?.balance ?? 0;
+  const insufficientBalance = !walletLoading && walletBalance < remainingAmount;
+  const missingAmount = Math.max(0, remainingAmount - walletBalance);
+
+  const fetchWallet = useCallback(async () => {
+    setWalletLoading(true);
+    try {
+      const w = await getWallet(token);
+      setWallet(w);
+    } catch (err) {
+      console.error("Failed to load wallet in CheckInConfirmModal:", err);
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void fetchWallet();
+  }, [fetchWallet]);
+
+  // Set default top-up amount to missing amount when wallet balance loads and is insufficient
+  useEffect(() => {
+    if (!walletLoading && insufficientBalance && topUpAmount === 0) {
+      setTopUpAmount(missingAmount);
+    }
+  }, [walletLoading, insufficientBalance, missingAmount, topUpAmount]);
+
+  async function handleQuickTopUp(e: React.FormEvent) {
+    e.preventDefault();
+    if (topUpAmount <= 0) return;
+    setTopUpLoading(true);
+    setTopUpError(null);
+    setTopUpSuccess(null);
+    try {
+      const nextWallet = await topUpWallet(token, topUpAmount);
+      setWallet(nextWallet);
+      setTopUpSuccess("Nạp tiền thành công!");
+      setTopUpAmount(0);
+      // Gửi sự kiện cập nhật ví ra toàn hệ thống
+      window.dispatchEvent(new CustomEvent("autowash-wallet-updated", { detail: nextWallet }));
+    } catch (err) {
+      setTopUpError(err instanceof Error ? err.message : "Nạp tiền thất bại, vui lòng thử lại.");
+    } finally {
+      setTopUpLoading(false);
+    }
+  }
+
+  const quickTopUpOptions = useMemo(() => {
+    const list = [];
+    if (missingAmount > 0) {
+      list.push(missingAmount);
+    }
+    // Thêm các mệnh giá phổ biến lớn hơn missingAmount
+    [50000, 100000, 200000, 500000].forEach((val) => {
+      if (val > missingAmount) {
+        list.push(val);
+      }
+    });
+    return Array.from(new Set(list)).slice(0, 4);
+  }, [missingAmount]);
 
   return (
     <div
@@ -130,32 +209,130 @@ function CheckInConfirmModal({
       aria-modal="true"
       aria-label="Xác nhận Check-in"
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl transition-all max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-bold text-slate-900">Xác nhận Check-in</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Vui lòng thanh toán phần còn lại tại quầy để bắt đầu dịch vụ.
+          Hệ thống sẽ thực hiện thanh toán phần còn lại từ ví của bạn.
         </p>
 
-        <div className="mt-5 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        {/* Thanh toán chi tiết */}
+        <div className="mt-4 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex justify-between text-sm text-slate-600">
             <span>Tổng tiền dịch vụ:</span>
-            <span className="font-semibold text-slate-900">{servicePrice.toLocaleString("vi-VN")}₫</span>
+            <span className="font-semibold text-slate-900">{finalPrice.toLocaleString("vi-VN")}₫</span>
           </div>
           <div className="flex justify-between text-sm text-emerald-600">
             <span>Đã đặt cọc (30%):</span>
             <span className="font-semibold">-{depositAmount.toLocaleString("vi-VN")}₫</span>
           </div>
-          <div className="flex justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900">
+          <div className="flex justify-between border-t border-slate-200 pt-2.5 text-base font-bold text-slate-900">
             <span>Cần thanh toán thêm:</span>
             <span className="text-blue-600">{remainingAmount.toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        {/* Ví khách hàng */}
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2 text-slate-600">
+            <WalletCards size={16} className="text-slate-400" />
+            <span>Số dư ví của bạn:</span>
+          </div>
+          <span className="font-bold text-slate-950">
+            {walletLoading ? (
+              <span className="text-slate-400 animate-pulse">Đang tải...</span>
+            ) : (
+              `${walletBalance.toLocaleString("vi-VN")}₫`
+            )}
+          </span>
+        </div>
+
+        {/* Cảnh báo không đủ tiền */}
+        {insufficientBalance && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+            <div className="space-y-1">
+              <p className="font-semibold">Số dư ví không đủ để check-in</p>
+              <p>Bạn cần nạp thêm tối thiểu <span className="font-bold">{missingAmount.toLocaleString("vi-VN")}₫</span> để thanh toán phần còn lại.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Khung nạp tiền nhanh */}
+        {insufficientBalance && (
+          <form onSubmit={handleQuickTopUp} className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+              <Plus size={12} />
+              Nạp tiền nhanh vào ví
+            </div>
+            
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  value={topUpAmount || ""}
+                  onChange={(e) => {
+                    setTopUpSuccess(null);
+                    setTopUpAmount(Number(e.target.value));
+                  }}
+                  disabled={topUpLoading}
+                  placeholder="Nhập số tiền nạp"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+                />
+                <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">₫</span>
+              </div>
+              <button
+                type="submit"
+                disabled={topUpLoading || topUpAmount < 1000}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 shrink-0"
+              >
+                {topUpLoading ? "Đang nạp..." : "Nạp ngay"}
+              </button>
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {quickTopUpOptions.map((amount) => (
+                <button
+                  key={amount}
+                  type="button"
+                  onClick={() => {
+                    setTopUpSuccess(null);
+                    setTopUpAmount(amount);
+                  }}
+                  disabled={topUpLoading}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed ${
+                    topUpAmount === amount
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {amount === missingAmount ? "Nạp đủ thiếu: " : ""}
+                  {amount.toLocaleString("vi-VN")}₫
+                </button>
+              ))}
+            </div>
+
+            {topUpError && (
+              <div role="alert" className="mt-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {topUpError}
+              </div>
+            )}
+
+            {topUpSuccess && (
+              <div role="status" className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                {topUpSuccess}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* Nút hành động */}
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={onClose}
-            disabled={loading}
+            disabled={loading || topUpLoading}
             className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
           >
             Đóng
@@ -163,8 +340,12 @@ function CheckInConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={loading}
-            className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading || walletLoading || insufficientBalance || topUpLoading}
+            className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              insufficientBalance
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-slate-950 hover:bg-slate-800"
+            }`}
           >
             {loading ? "Đang xử lý..." : "Xác nhận Check-in"}
           </button>
@@ -192,6 +373,32 @@ function BookingDetailPanel({
   const [cancelling, setCancelling] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [configs, setConfigs] = useState<LoyaltyPointsConfig | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    async function loadAuxData() {
+      try {
+        const [vehiclesList, settings] = await Promise.all([
+          getVehicles(token, 1, 100).catch(() => []),
+          getLoyaltySettings(token).catch(() => null),
+        ]);
+        if (active) {
+          setVehicles(vehiclesList);
+          setConfigs(settings);
+        }
+      } catch (err) {
+        console.warn("Failed to load auxiliary data in BookingDetailPanel:", err);
+      }
+    }
+    void loadAuxData();
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   const minutesToBooking = minutesUntilBooking(booking);
   const canCancelByTime = minutesToBooking === null || minutesToBooking > CANCEL_CUTOFF_MINUTES;
@@ -320,16 +527,49 @@ function BookingDetailPanel({
         </div>
       </div>
 
-      {/* ── Bảng Chi tiết Thanh toán (flat list — giống lúc đặt lịch) ── */}
       {(() => {
-        /* Ưu tiên sử dụng FinalPrice từ backend nếu có, nếu không thì fallback về totalPrice hoặc 100.000₫ */
         const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100_000;
-        const basePrice = booking.basePrice ?? 100_000;
-        // Tổng giảm giá (promotion + voucher gộp chung — do backend trả về 1 trường)
-        const discountAmount = booking.discountAmount ?? 0;
-        // Suy luận phụ phí xe: nếu finalPrice > basePrice - discount thì có phụ phí
-        // surcharge = (finalPrice + discountAmount) - basePrice (số dương nếu có phụ phí)
-        const surcharge = Math.max(0, finalPrice + discountAmount - basePrice);
+        const basePrice = booking.basePrice ?? configs?.basePrice ?? 100_000;
+        const suvSurcharge = configs?.suvBasePrice ?? 30_000;
+        const sedanSurcharge = configs?.sedanBasePrice ?? 0;
+
+        const bookingVehicle = vehicles.find((v) => {
+          const vPlate = v.licensePlate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+          const bPlate = booking.vehicleLicensePlate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+          return vPlate === bPlate;
+        });
+        const vehicleType = bookingVehicle?.vehicleType;
+
+        let isSUV = false;
+        let isSedan = false;
+
+        if (vehicleType) {
+          isSUV = vehicleType === "SUV";
+          isSedan = vehicleType === "SEDAN";
+        } else {
+          const lowerPlate = booking.vehicleLicensePlate.toLowerCase();
+          if (lowerPlate.includes("suv")) {
+            isSUV = true;
+          } else if (lowerPlate.includes("sedan")) {
+            isSedan = true;
+          } else {
+            const diff = Math.max(0, (booking.totalPrice ?? finalPrice) - basePrice);
+            if (Math.abs(diff - suvSurcharge) < Math.abs(diff - sedanSurcharge)) {
+              isSUV = true;
+            } else {
+              isSedan = true;
+            }
+          }
+        }
+
+        const surcharge = isSUV ? suvSurcharge : isSedan ? sedanSurcharge : 0;
+        const originalPrice = basePrice + surcharge;
+
+        // Tính toán giảm giá promotion và voucher
+        const totalDiscount = Math.max(0, originalPrice - finalPrice);
+        const voucherDiscount = booking.discountAmount ?? 0;
+        const promotionDiscount = Math.max(0, totalDiscount - voucherDiscount);
+
         const depositAmount = Math.round(finalPrice * 0.3);
         const remainingAmount = finalPrice - depositAmount;
 
@@ -344,31 +584,48 @@ function BookingDetailPanel({
               {/* Giá dịch vụ gốc */}
               <div className="flex justify-between text-sm">
                 <span className="text-slate-600">Giá dịch vụ gốc</span>
-                <span className="font-medium text-slate-700">{basePrice.toLocaleString("vi-VN")} ₫</span>
+                <span className="font-medium text-slate-700">
+                  {basePrice.toLocaleString("vi-VN")} ₫
+                </span>
               </div>
 
-              {/* Phụ phí dòng xe (không in đậm, màu thường) */}
-              {surcharge > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Phụ phí dòng xe</span>
-                  <span className="font-normal text-slate-700">
-                    +{surcharge.toLocaleString("vi-VN")}₫
-                  </span>
-                </div>
-              )}
+              {/* Phụ phí dòng xe (sedan/SUV) */}
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-600">
+                  Phụ phí dòng xe ({isSUV ? "SUV" : isSedan ? "Sedan" : "Khác"})
+                </span>
+                <span className="font-normal text-slate-700">
+                  +{surcharge.toLocaleString("vi-VN")}₫
+                </span>
+              </div>
 
-              {/* Tổng cộng giảm giá (cộng gộp promotion + voucher) */}
+              {/* Ưu đãi giảm giá */}
               <div className="flex justify-between text-sm">
                 <div>
-                  <span className="text-slate-600">Tổng cộng giảm giá</span>
-                  <p className="text-xs text-slate-400 font-normal">(Đã cộng khuyến mãi và voucher)</p>
+                  <span className="text-slate-600">Ưu đãi giảm giá</span>
+                  <p className="text-xs text-slate-400 font-normal">(Khuyến mãi từ hệ thống)</p>
                 </div>
-                {discountAmount > 0 ? (
+                {promotionDiscount > 0 ? (
                   <span className="font-medium" style={{ color: "#EE4D2D" }}>
-                    -{discountAmount.toLocaleString("vi-VN")}₫
+                    -{promotionDiscount.toLocaleString("vi-VN")}₫
                   </span>
                 ) : (
-                  <span className="font-medium text-slate-700">0₫</span>
+                  <span className="font-medium text-slate-700">0đ</span>
+                )}
+              </div>
+
+              {/* Voucher */}
+              <div className="flex justify-between text-sm">
+                <div>
+                  <span className="text-slate-600">Voucher</span>
+                  <p className="text-xs text-slate-400 font-normal">(Mã giảm giá đã áp dụng)</p>
+                </div>
+                {voucherDiscount > 0 ? (
+                  <span className="font-medium" style={{ color: "#EE4D2D" }}>
+                    -{voucherDiscount.toLocaleString("vi-VN")}₫
+                  </span>
+                ) : (
+                  <span className="font-medium text-slate-700">0đ</span>
                 )}
               </div>
 
@@ -445,6 +702,7 @@ function BookingDetailPanel({
           onConfirm={handleCheckIn}
           onClose={() => { setShowCheckInModal(false); setCancelError(null); }}
           loading={checkingIn}
+          token={token}
         />
       )}
 

@@ -412,6 +412,34 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
 }
 
 /**
+ * Trích xuất danh sách ID Hạng thành viên (Tiers/Ranks) từ phản hồi thô của Backend.
+ * Hỗ trợ các định dạng: mảng phẳng string UUID, mảng đối tượng liên kết trung gian (RewardTiers/PromotionTiers), hoặc mảng thực thể Rank/Tier đầy đủ.
+ */
+function extractTierIds(r: Rec): string[] {
+  const rawList = r.tierIds ?? r.TierIds ?? r.rewardTiers ?? r.RewardTiers ?? r.promotionTiers ?? r.PromotionTiers ?? r.tiers ?? r.Tiers;
+  if (Array.isArray(rawList)) {
+    return rawList
+      .map((item) => {
+        if (!item) return "";
+        if (typeof item === "string") return item;
+        if (typeof item === "object") {
+          const itemRec = item as Record<string, unknown>;
+          return String(
+            itemRec.tierId ??
+              itemRec.TierId ??
+              itemRec.id ??
+              itemRec.Id ??
+              ""
+          );
+        }
+        return "";
+      })
+      .filter((id) => id !== "");
+  }
+  return [];
+}
+
+/**
  * Định dạng bản ghi phần thưởng thô thành cấu trúc AdminReward, giải quyết ánh xạ kiểu enum.
  * 
  * @param raw Thuộc tính phần thưởng thô.
@@ -441,7 +469,7 @@ function normalizeReward(raw: unknown): AdminReward {
     quantityAvailable: optNum(r, ["quantityAvailable", "QuantityAvailable", "stockQuantity", "StockQuantity", "stock_quantity"]),
     validDays: optNum(r, ["validDays", "ValidDays", "validDaysAfterRedeem", "ValidDaysAfterRedeem", "valid_days_after_redeem"]),
     isActive: bool(r, ["isActive", "IsActive"], str(r, ["status", "Status"]) === "active"),
-    tierIds: Array.isArray(r.tierIds ?? r.TierIds) ? (r.tierIds ?? r.TierIds) as string[] : [],
+    tierIds: extractTierIds(r),
   };
 }
 
@@ -463,7 +491,7 @@ function normalizePromotion(raw: unknown): AdminPromotion {
     endDate: str(r, ["endDate", "EndDate", "end_date"]),
     isGlobal: bool(r, ["isGlobal", "IsGlobal", "is_global"]),
     isActive: bool(r, ["isActive", "IsActive"], true),
-    tierIds: Array.isArray(r.tierIds ?? r.TierIds) ? (r.tierIds ?? r.TierIds) as string[] : [],
+    tierIds: extractTierIds(r),
   };
 }
 

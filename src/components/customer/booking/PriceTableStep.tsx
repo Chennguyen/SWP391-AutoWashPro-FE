@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DollarSign, ShieldCheck, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { getLoyaltySettings } from "@/lib/api/loyalty-admin";
 import type { Vehicle } from "@/types/vehicle";
 
@@ -68,8 +68,6 @@ export function PriceTableStep({ token, vehicle, onNext, onBack }: PriceTableSte
 
   const vehicleTypeLabel = isSUV ? "SUV" : isSedan ? "Sedan" : "Khác";
   const totalPrice = configs.basePrice + surcharge;
-  const depositRate = configs.paymentDeposite / 100;
-  const depositAmount = Math.round(totalPrice * depositRate);
 
   return (
     <div className="space-y-6">
@@ -116,24 +114,6 @@ export function PriceTableStep({ token, vehicle, onNext, onBack }: PriceTableSte
               <div className="border-t border-slate-100 my-2 pt-3 flex items-center justify-between">
                 <span className="font-bold text-slate-900">Tổng cộng giá dịch vụ</span>
                 <span className="text-lg font-black text-blue-600">{formatVND(totalPrice)}</span>
-              </div>
-            </div>
-
-            {/* Khối thông tin cọc */}
-            <div className="bg-blue-50/50 px-5 py-4 border-t border-slate-100 space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-blue-800 font-semibold">
-                  <DollarSign size={16} />
-                  <span>Yêu cầu đặt cọc ({configs.paymentDeposite}%)</span>
-                </div>
-                <span className="font-black text-blue-700">{formatVND(depositAmount)}</span>
-              </div>
-              
-              <div className="flex items-start gap-2 text-xs text-blue-600/95 leading-relaxed">
-                <ShieldCheck size={14} className="shrink-0 mt-0.5" />
-                <p>
-                  Đặt cọc giúp giữ chỗ chắc chắn cho khung giờ bạn chọn. Số tiền này sẽ được trừ trực tiếp vào hóa đơn cuối cùng khi hoàn tất rửa xe.
-                </p>
               </div>
             </div>
           </div>

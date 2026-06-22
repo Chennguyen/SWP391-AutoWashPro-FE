@@ -34,7 +34,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
         isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
       }`}
     >
-      {isActive ? "Active" : "Inactive"}
+      {isActive ? "Hoạt động" : "Ngưng hoạt động"}
     </span>
   );
 }
@@ -449,7 +449,7 @@ export function RewardsTab({ token }: Props) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">{rewardTypeLabel(r)}</td>
-                  <td className="px-4 py-3 font-semibold text-amber-600">
+                  <td className="px-4 py-3 font-semibold text-slate-900">
                     {r.pointsRequired.toLocaleString("vi-VN")} điểm
                   </td>
                   <td className="px-4 py-3 text-slate-600">{r.quantityAvailable ?? "∞"}</td>
