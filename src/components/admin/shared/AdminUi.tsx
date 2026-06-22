@@ -2,6 +2,12 @@ import { RefreshCw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
+/**
+ * Thành phần (Component) AdminPageHeader
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminPageHeader({
   title,
   description,
@@ -22,6 +28,12 @@ export function AdminPageHeader({
   );
 }
 
+/**
+ * Thành phần (Component) AdminLoading
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminLoading() {
   return (
     <div className="flex min-h-64 items-center justify-center rounded-lg border border-slate-200 bg-white">
@@ -30,6 +42,12 @@ export function AdminLoading() {
   );
 }
 
+/**
+ * Thành phần (Component) AdminError
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminError({
   message,
   onRetry,
@@ -53,6 +71,12 @@ export function AdminError({
   );
 }
 
+/**
+ * Thành phần (Component) MetricCard
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function MetricCard({
   label,
   value,
@@ -75,6 +99,12 @@ export function MetricCard({
   );
 }
 
+/**
+ * Thành phần (Component) AdminShell
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminShell({ children }: { children: ReactNode }) {
   return <main className="mx-auto w-full max-w-7xl p-4 md:p-6 lg:p-8">{children}</main>;
 }

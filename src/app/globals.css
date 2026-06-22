@@ -441,3 +441,204 @@ main.bg-background-outer {
   border: 1px solid rgba(188, 163, 116, 0.36) !important;
   color: #D8C49F !important;
 }
+
+/* ==========================================================================
+   Clean & Beautiful Eye-Friendly Dark Notification Dropdown & Toaster Resets
+   (Bypasses standard high contrast overrides using luxury dark color palette)
+   ========================================================================== */
+
+/* Red Dot on the Bell Icon */
+.bg-background-outer .notif-red-dot {
+  background-color: #ef4444 !important;
+  border: none !important;
+  box-shadow: 0 0 0 2px #050505 !important;
+}
+
+.bg-background-outer .notif-red-dot-ping {
+  background-color: #ef4444 !important;
+  border: none !important;
+}
+
+/* Unread blue dot in lists */
+.bg-background-outer .notif-unread-dot {
+  background-color: #3b82f6 !important;
+  border: none !important;
+}
+
+/* Dropdown Panel Container */
+.bg-background-outer .notif-dropdown-panel {
+  background-color: var(--background-main) !important;
+  border: 1px solid var(--border-box) !important;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 8px 15px -6px rgba(0, 0, 0, 0.4) !important;
+  color: var(--text-body) !important;
+}
+
+.bg-background-outer .notif-dropdown-title {
+  color: var(--text-light) !important;
+  font-weight: 700 !important;
+}
+
+.bg-background-outer .notif-mark-all-read {
+  color: var(--gold-primary) !important;
+  background: transparent !important;
+  border: none !important;
+  font-weight: 600 !important;
+}
+
+.bg-background-outer .notif-mark-all-read:hover {
+  color: var(--gold-light) !important;
+  text-decoration: underline !important;
+}
+
+.bg-background-outer .notif-list-container {
+  border-color: var(--border-box) !important;
+}
+
+.bg-background-outer .notif-list-container > * + * {
+  border-top-width: 1px !important;
+  border-color: var(--border-box) !important;
+}
+
+/* Dropdown list items */
+.bg-background-outer .notif-item-button {
+  background-color: var(--background-main) !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem 0.875rem !important;
+  color: var(--text-body) !important;
+  transition: background-color 150ms ease !important;
+}
+
+.bg-background-outer .notif-item-button:hover {
+  background-color: var(--background-secondary) !important;
+}
+
+.bg-background-outer .notif-item-button.unread {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+.bg-background-outer .notif-item-button.unread:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.bg-background-outer .notif-item-button .notif-item-title {
+  color: var(--text-light) !important;
+  font-weight: 700 !important;
+}
+
+.bg-background-outer .notif-item-button .notif-item-message {
+  color: var(--text-body) !important;
+  font-weight: 400 !important;
+}
+
+.bg-background-outer .notif-item-button .notif-item-time {
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+}
+
+/* Toast Cards Container & Popup */
+.bg-background-outer .notif-toast-container {
+  position: fixed !important;
+  bottom: 1rem !important;
+  right: 1rem !important;
+  left: auto !important;
+  z-index: 100 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+  max-width: 24rem !important;
+  width: calc(100% - 2rem) !important;
+}
+
+.bg-background-outer .notif-toast-card {
+  background-color: var(--background-main) !important;
+  border: 1px solid var(--border-box) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+  color: var(--text-body) !important;
+  border-radius: 0.75rem !important;
+  padding: 1rem !important;
+  display: flex !important;
+  align-items: start !important;
+  gap: 0.75rem !important;
+}
+
+.bg-background-outer .notif-toast-card .notif-toast-title {
+  color: var(--text-light) !important;
+  font-weight: 750 !important;
+}
+
+.bg-background-outer .notif-toast-card .notif-toast-message {
+  color: var(--text-body) !important;
+  font-weight: 400 !important;
+}
+
+.bg-background-outer .notif-toast-card .notif-toast-close {
+  color: var(--text-secondary) !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.bg-background-outer .notif-toast-card .notif-toast-close:hover {
+  background-color: var(--background-secondary) !important;
+  color: var(--text-light) !important;
+}
+
+/* Icon containers override */
+.bg-background-outer .notif-icon-wrapper {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-box) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-blue-500 {
+  color: #60a5fa !important;
+  background-color: rgba(96, 165, 250, 0.1) !important;
+  border-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-amber-500 {
+  color: #fbbf24 !important;
+  background-color: rgba(251, 191, 36, 0.1) !important;
+  border-color: rgba(251, 191, 36, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-red-500 {
+  color: #f87171 !important;
+  background-color: rgba(248, 113, 113, 0.1) !important;
+  border-color: rgba(248, 113, 113, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-emerald-500 {
+  color: #34d399 !important;
+  background-color: rgba(52, 211, 153, 0.1) !important;
+  border-color: rgba(52, 211, 153, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-purple-500 {
+  color: #c084fc !important;
+  background-color: rgba(192, 132, 252, 0.1) !important;
+  border-color: rgba(192, 132, 252, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-teal-500 {
+  color: #2dd4bf !important;
+  background-color: rgba(45, 212, 191, 0.1) !important;
+  border-color: rgba(45, 212, 191, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-rose-500 {
+  color: #fb7185 !important;
+  background-color: rgba(251, 113, 133, 0.1) !important;
+  border-color: rgba(251, 113, 133, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-sky-500 {
+  color: #38bdf8 !important;
+  background-color: rgba(56, 189, 248, 0.1) !important;
+  border-color: rgba(56, 189, 248, 0.2) !important;
+}
+
+.bg-background-outer .notif-icon-wrapper.text-orange-500 {
+  color: #fb923c !important;
+  background-color: rgba(251, 146, 60, 0.1) !important;
+  border-color: rgba(251, 146, 60, 0.2) !important;
+}

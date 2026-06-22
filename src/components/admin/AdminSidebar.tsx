@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 
 const NAV_ITEMS = [
   { label: "Tổng quan", icon: LayoutDashboard, href: "/admin" },
@@ -33,6 +34,12 @@ function clearAuthSession() {
   window.dispatchEvent(new Event("autowash-auth"));
 }
 
+/**
+ * Thành phần (Component) AdminSidebar
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -79,25 +86,31 @@ export function AdminSidebar() {
         <Link href="/admin" className="text-sm font-black tracking-[0.22em]">
           AUTOWASH <span className="text-blue-500">PRO</span>
         </Link>
-        <button
-          type="button"
-          onClick={() => setMobileOpen(true)}
-          className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"
-          aria-label="Mở menu quản trị"
-        >
-          <Menu size={20} aria-hidden />
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"
+            aria-label="Mở menu quản trị"
+          >
+            <Menu size={20} aria-hidden />
+          </button>
+        </div>
       </header>
 
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-white/10 bg-[#050505] p-4 text-white lg:flex lg:flex-col">
-        <Link href="/admin" className="px-2 py-3">
-          <p className="text-sm font-black tracking-[0.24em]">
-            AUTOWASH <span className="text-blue-500">PRO</span>
-          </p>
-          <p className="mt-1 text-xs font-semibold text-slate-400">
-            Quản trị hệ thống
-          </p>
-        </Link>
+        <div className="flex items-center justify-between px-2 py-3">
+          <Link href="/admin">
+            <p className="text-sm font-black tracking-[0.24em]">
+              AUTOWASH <span className="text-blue-500">PRO</span>
+            </p>
+            <p className="mt-1 text-xs font-semibold text-slate-400">
+              Quản trị hệ thống
+            </p>
+          </Link>
+          <NotificationBell />
+        </div>
         <div className="mt-8">{nav}</div>
         <button
           type="button"

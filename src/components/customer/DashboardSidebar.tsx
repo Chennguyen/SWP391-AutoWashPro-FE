@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarPlus,
@@ -10,15 +10,18 @@ import {
   Menu,
   X,
   LogOut,
+  Clock,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/shared/NotificationBell";
 
 const NAV_ITEMS = [
   { label: "Trang chủ",         icon: LayoutDashboard, href: "/customer" },
   { label: "Thông tin cá nhân", icon: Info,             href: "/customer/info" },
   { label: "Đặt lịch",          icon: CalendarPlus,    href: "/customer/booking" },
-  { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history" },
+  { label: "Lịch đang hoạt động", icon: Clock,          href: "/customer/history?tab=active" },
+  { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history?tab=history" },
 ];
 
 /**
@@ -26,16 +29,24 @@ const NAV_ITEMS = [
  * subscribers listening on the "autowash-auth" custom event.
  */
 function clearAuthSession() {
-  ["token", "role", "userId", "email"].forEach((k) =>
+  ["token", "role", "userId", "email", "firstName", "lastName"].forEach((k) =>
     window.localStorage.removeItem(k)
   );
   window.dispatchEvent(new Event("autowash-auth"));
 }
 
+/**
+ * Thành phần (Component) DashboardSidebar
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("tab") || "active";
 
   function handleLogout() {
     clearAuthSession();
@@ -56,23 +67,30 @@ export function DashboardSidebar() {
             className="text-sm font-bold tracking-[0.2em] uppercase shrink-0"
             style={{ color: "#ffffff" }}
           >
-            AUTOWASH <span style={{ color: "#2563EB" }}>PRO</span>
+            AUTOWASH <span style={{ color: "#CDB390" }}>PRO</span>
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1" aria-label="Điều hướng chính">
             {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-              const active =
-                href === "/customer"
-                  ? pathname === "/customer"
-                  : pathname === href || pathname.startsWith(href + "/");
+              let active = false;
+              if (href.includes("?")) {
+                const [path, query] = href.split("?");
+                const tabValue = new URLSearchParams(query).get("tab");
+                active = pathname === path && currentTab === tabValue;
+              } else {
+                active =
+                  href === "/customer"
+                    ? pathname === "/customer"
+                    : pathname === href || pathname.startsWith(href + "/");
+              }
               return (
                 <Link
                   key={href}
                   href={href}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-                    active ? "bg-[#2563EB]" : "hover:bg-white/10"
+                    active ? "bg-[#CDB390]" : "hover:bg-white/10"
                   )}
                   style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
                   aria-current={active ? "page" : undefined}
@@ -90,6 +108,7 @@ export function DashboardSidebar() {
 
           {/* Right: logout + hamburger */}
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <button
               type="button"
               onClick={handleLogout}
@@ -130,7 +149,7 @@ export function DashboardSidebar() {
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
           <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase text-white">
-            AUTOWASH <span style={{ color: "#2563EB" }}>PRO</span>
+            AUTOWASH <span style={{ color: "#CDB390" }}>PRO</span>
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
@@ -143,10 +162,17 @@ export function DashboardSidebar() {
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Điều hướng chính">
           {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
-            const active =
-              href === "/customer"
-                ? pathname === "/customer"
-                : pathname === href || pathname.startsWith(href + "/");
+            let active = false;
+            if (href.includes("?")) {
+              const [path, query] = href.split("?");
+              const tabValue = new URLSearchParams(query).get("tab");
+              active = pathname === path && currentTab === tabValue;
+            } else {
+              active =
+                href === "/customer"
+                  ? pathname === "/customer"
+                  : pathname === href || pathname.startsWith(href + "/");
+            }
             return (
               <Link
                 key={href}
@@ -154,7 +180,7 @@ export function DashboardSidebar() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                  active ? "bg-[#2563EB]" : "hover:bg-white/10"
+                  active ? "bg-[#CDB390]" : "hover:bg-white/10"
                 )}
                 style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
                 aria-current={active ? "page" : undefined}

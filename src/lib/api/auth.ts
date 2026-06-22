@@ -20,9 +20,12 @@ export interface RegisterResult {
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 /**
- * POST /api/v1/auth/register
- * Content-Type: multipart/form-data
- * FaceImages: at least 3 face image files required
+ * Đăng ký người dùng mới.
+ * Gửi một yêu cầu POST dưới dạng multipart/form-data chứa thông tin cá nhân và các ảnh sinh trắc khuôn mặt.
+ * 
+ * @param payload Dữ liệu đầu vào đăng ký bao gồm họ tên, email, số điện thoại, số CCCD, mật khẩu và ảnh sinh trắc.
+ * @returns Một promise giải quyết phản hồi đăng ký.
+ * @throws ApiError nếu email đã được đăng ký hoặc dữ liệu xác thực không hợp lệ.
  */
 export async function registerUser(
   payload: RegisterPayload
@@ -35,23 +38,23 @@ export async function registerUser(
   form.append("Password", payload.password);
   form.append("Cccd", payload.cccd.trim());
 
-  // Append each face image separately under the same field name
+  // Thêm từng ảnh khuôn mặt riêng biệt dưới cùng một tên trường
   payload.faceImages.forEach((file) => {
     form.append("FaceImages", file);
   });
 
   const res = await fetch(`${apiBase()}/api/v1/auth/register`, {
     method: "POST",
-    // Do NOT set Content-Type manually — browser sets it with boundary automatically
+    // KHÔNG đặt Content-Type thủ công — trình duyệt sẽ tự động thiết lập nó với boundary
     body: form,
   });
 
-  // Handle validation errors from the Problem Details format (RFC 9110)
+  // Xử lý các lỗi xác thực từ định dạng Problem Details (RFC 9110)
   if (res.status === 400) {
     let message = "Dữ liệu không hợp lệ.";
     try {
       const body = await res.json();
-      // body.errors is a Record<string, string[]>
+      // body.errors là một Record<string, string[]>
       if (body?.errors) {
         const allErrors = Object.values(body.errors as Record<string, string[]>)
           .flat()
@@ -65,7 +68,7 @@ export async function registerUser(
         message = body;
       }
     } catch {
-      // keep default message
+      // giữ thông điệp mặc định
     }
 
     const { ApiError } = await import("./api-error");
@@ -105,8 +108,13 @@ type LoginErrorBody = Partial<LoginResult> & {
 };
 
 /**
- * POST /api/v1/auth/login
- * Content-Type: multipart/form-data
+ * Xác thực người dùng (Đăng nhập).
+ * Gửi một yêu cầu POST dưới dạng multipart/form-data chứa thông tin đăng nhập.
+ * 
+ * @param email Địa chỉ email của người dùng.
+ * @param password Chuỗi mật khẩu của người dùng.
+ * @returns Một promise giải quyết phản hồi đăng nhập, bao gồm token và trạng thái xác thực.
+ * @throws ApiError nếu thông tin đăng nhập sai hoặc tài khoản bị khóa.
  */
 export async function loginUser(email: string, password: string): Promise<LoginResult> {
   const form = new FormData();
@@ -118,7 +126,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
     body: form,
   });
 
-  // Try to parse response body regardless of status code
+  // Thử phân tích cú pháp nội dung phản hồi bất kể mã trạng thái là gì
   let body: LoginResult;
   try {
     body = await res.json();
@@ -132,7 +140,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
 
     let message = `Lỗi ${res.status}`;
     
-    // Parse backend problem details errors object if it exists
+    // Phân tích cú pháp đối tượng lỗi chi tiết của backend nếu có
     const errorBody = body as LoginErrorBody;
     if (errorBody?.errors && typeof errorBody.errors === "object") {
        const allErrors = Object.values(errorBody.errors as Record<string, string[]>)

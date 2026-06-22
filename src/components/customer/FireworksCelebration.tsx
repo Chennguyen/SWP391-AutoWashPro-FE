@@ -30,6 +30,12 @@ function createBurst(x: number, y: number): Particle[] {
   });
 }
 
+/**
+ * Thành phần (Component) FireworksCelebration
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function FireworksCelebration() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 

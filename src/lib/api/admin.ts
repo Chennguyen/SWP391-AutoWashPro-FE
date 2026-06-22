@@ -18,7 +18,7 @@ export type PageResult<T> = {
   totalCount: number;
 };
 
-export type AccountStatus = "Active" | "Locked" | "Inactive";
+export type AccountStatus = "Pending" | "Active" | "Rejected" | "Locked" | "Inactive";
 export type BookingStatus =
   | "Available"
   | "Pending"
@@ -47,6 +47,10 @@ export type AdminUser = {
   isVerified: boolean;
   createdAt?: string;
   faceImages?: string[];
+  totalPoints?: number;
+  totalWashes?: number;
+  tierName?: string;
+  tierLevel?: number;
 };
 
 export type AdminBooking = {
@@ -97,14 +101,32 @@ export type LoyaltyReport = {
   [key: string]: unknown;
 };
 
+/**
+ * Phân giải URL cho các endpoint quản lý của quản trị viên (Admin).
+ * 
+ * @param path Hậu tố đường dẫn.
+ * @returns Chuỗi URL API đầy đủ.
+ */
 function adminEndpoint(path: string) {
   return `${apiBase()}/api/v1/admin${path}`;
 }
 
+/**
+ * Tạo cấu hình header chứa token xác thực.
+ * 
+ * @param token Token xác thực.
+ * @returns Dictionary chứa header Authorization.
+ */
 function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
 
+/**
+ * Tạo cấu hình header JSON với token xác thực đi kèm.
+ * 
+ * @param token Token xác thực.
+ * @returns Cấu hình header yêu cầu đầy đủ.
+ */
 function jsonHeaders(token: string): HeadersInit {
   return {
     Authorization: `Bearer ${token}`,
@@ -153,6 +175,12 @@ const NESTED_IMAGE_VALUE_KEYS = [
   "Values",
 ];
 
+/**
+ * Hàm trợ giúp để phân tích một chuỗi dạng JSON, trả về kết quả đã phân tích hoặc chuỗi thô nếu thất bại.
+ * 
+ * @param value Chuỗi giá trị cần phân tích.
+ * @returns Đối tượng/mảng đã phân tích hoặc chuỗi gốc.
+ */
 function parseJsonLike(value: string): unknown {
   const trimmed = value.trim();
   if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) return value;
@@ -164,6 +192,13 @@ function parseJsonLike(value: string): unknown {
   }
 }
 
+/**
+ * Ép kiểu các đầu vào không xác định thành định dạng đối tượng record thông thường.
+ * Phân tích cú pháp chuỗi JSON nếu phát hiện thấy cấu trúc JSON.
+ * 
+ * @param value Đối tượng hoặc chuỗi JSON cần chuyển đổi.
+ * @returns Đối tượng dạng record dictionary.
+ */
 function asRecord(value: unknown): UnknownRecord {
   const parsedValue = typeof value === "string" ? parseJsonLike(value) : value;
   return parsedValue && typeof parsedValue === "object" && !Array.isArray(parsedValue)
@@ -171,6 +206,12 @@ function asRecord(value: unknown): UnknownRecord {
     : {};
 }
 
+/**
+ * Trích xuất đệ quy các mảng chuỗi URL hình ảnh từ các trường dạng JSON hoặc các đối tượng lồng nhau.
+ * 
+ * @param value Giá trị có thể chứa liên kết hình ảnh.
+ * @returns Mảng chứa các URL chuỗi độc nhất.
+ */
 function readImageValues(value: unknown): string[] {
   const parsedValue = typeof value === "string" ? parseJsonLike(value) : value;
 
@@ -196,6 +237,14 @@ function readImageValues(value: unknown): string[] {
   return NESTED_IMAGE_VALUE_KEYS.flatMap((key) => readImageValues(record[key]));
 }
 
+/**
+ * Lấy giá trị chuỗi từ một đối tượng dictionary bằng cách tìm kiếm trên nhiều tên khóa có thể có.
+ * 
+ * @param record Đối tượng nguồn.
+ * @param keys Các tên khóa có thể có.
+ * @param fallback Chuỗi dự phòng nếu không tìm thấy.
+ * @returns Giá trị chuỗi đã được giải quyết hoặc chuỗi dự phòng.
+ */
 function readString(record: UnknownRecord, keys: string[], fallback = ""): string {
   for (const key of keys) {
     const value = record[key];
@@ -207,11 +256,27 @@ function readString(record: UnknownRecord, keys: string[], fallback = ""): strin
   return fallback;
 }
 
+/**
+ * Lấy một giá trị chuỗi tùy chọn từ đối tượng dictionary.
+ * 
+ * @param record Đối tượng nguồn.
+ * @param keys Các tên khóa có thể có.
+ * @returns Chuỗi đã giải quyết hoặc undefined nếu trống.
+ */
 function readOptionalString(record: UnknownRecord, keys: string[]): string | undefined {
   const value = readString(record, keys);
   return value || undefined;
 }
 
+/**
+ * Ép kiểu các giá trị trong đối tượng thành giá trị boolean.
+ * Hỗ trợ các trạng thái từ khóa dạng chuỗi ("true", "active", "inactive").
+ * 
+ * @param record Đối tượng nguồn.
+ * @param keys Các khóa có thể có.
+ * @param fallback Giá trị boolean mặc định dự phòng.
+ * @returns Giá trị boolean.
+ */
 function readBoolean(record: UnknownRecord, keys: string[], fallback = false): boolean {
   for (const key of keys) {
     const value = record[key];
@@ -226,6 +291,13 @@ function readBoolean(record: UnknownRecord, keys: string[], fallback = false): b
   return fallback;
 }
 
+/**
+ * Trích xuất các trường mảng chuỗi (ví dụ: danh sách URL ảnh) từ các khóa trong đối tượng.
+ * 
+ * @param record Đối tượng nguồn.
+ * @param keys Các khóa có thể chứa mảng.
+ * @returns Mảng các chuỗi.
+ */
 function readStringArray(record: UnknownRecord, keys: string[]): string[] {
   for (const key of keys) {
     const values = readImageValues(record[key]);
@@ -234,6 +306,14 @@ function readStringArray(record: UnknownRecord, keys: string[]): string[] {
   return [];
 }
 
+/**
+ * Lấy giá trị số từ đối tượng dictionary bằng cách tìm kiếm trên nhiều khóa có thể.
+ * 
+ * @param record Đối tượng nguồn.
+ * @param keys Các khóa có thể.
+ * @param fallback Số dự phòng mặc định.
+ * @returns Số hữu hạn đã được giải quyết.
+ */
 function readNumber(record: UnknownRecord, keys: string[], fallback = 0): number {
   for (const key of keys) {
     const value = Number(record[key]);
@@ -243,12 +323,26 @@ function readNumber(record: UnknownRecord, keys: string[], fallback = 0): number
   return fallback;
 }
 
+/**
+ * Giải nén payload dữ liệu từ phong bì phản hồi chuẩn.
+ * 
+ * @template T Kiểu bản ghi bên trong.
+ * @param body Cấu trúc bản ghi được bọc.
+ * @returns Kiểu bên trong đã được mở gói.
+ */
 function unwrapRecord<T>(body: ApiRecord<T>): T {
   if (body && typeof body === "object" && "data" in body && body.data) return body.data;
   if (body && typeof body === "object" && "Data" in body && body.Data) return body.Data;
   return body as T;
 }
 
+/**
+ * Chuẩn hóa các tập hợp phân trang từ các biến thể phong bì phản hồi REST khác nhau.
+ * 
+ * @template T Kiểu phần tử.
+ * @param body Phản hồi API chứa các tập hợp danh sách.
+ * @returns PageResult chứa các phần tử đã được chuẩn hóa.
+ */
 function unwrapPage<T>(body: ApiList<T>): PageResult<T> {
   if (Array.isArray(body)) return { items: body, totalCount: body.length };
 
@@ -267,6 +361,12 @@ function unwrapPage<T>(body: ApiList<T>): PageResult<T> {
   return { items, totalCount: body.totalCount ?? body.total ?? items.length };
 }
 
+/**
+ * Định dạng bản ghi chi nhánh thô thành AdminBranch chuẩn hóa.
+ * 
+ * @param raw Chi tiết chi nhánh thô.
+ * @returns Cấu trúc AdminBranch.
+ */
 function normalizeBranch(raw: unknown): AdminBranch {
   const record = asRecord(raw);
   return {
@@ -277,6 +377,13 @@ function normalizeBranch(raw: unknown): AdminBranch {
   };
 }
 
+/**
+ * Chuẩn hóa chi tiết người dùng và các URL hình ảnh sinh trắc học khuôn mặt.
+ * Xử lý các cấu trúc phân cấp lồng nhau và phân giải đường dẫn URL tương đối về tuyệt đối.
+ * 
+ * @param raw Bản ghi chi tiết người dùng thô.
+ * @returns Cấu trúc AdminUser đã định dạng.
+ */
 function normalizeUser(raw: unknown): AdminUser {
   const record = asRecord(raw);
   const profileData = asRecord(record.profileData ?? record.ProfileData);
@@ -359,7 +466,7 @@ function normalizeUser(raw: unknown): AdminUser {
     ),
   );
 
-  // Convert relative paths to absolute URLs using backend base
+  // Chuyển đổi các đường dẫn tương đối thành URL tuyệt đối bằng cách sử dụng base URL backend
   const base =
     typeof process !== "undefined"
       ? (process.env.NEXT_PUBLIC_API_BASE_URL ?? "")
@@ -376,6 +483,17 @@ function normalizeUser(raw: unknown): AdminUser {
       : `${normalizedBase}/${trimmedUrl}`;
   });
 
+  const tierData = asRecord(
+    profileData.tierData ??
+      profileData.TierData ??
+      record.tierData ??
+      record.TierData
+  );
+  const totalPoints = readNumber(record, ["totalPoints", "TotalPoints"]) || readNumber(profileData, ["totalPoints", "TotalPoints"]);
+  const totalWashes = readNumber(record, ["totalWashes", "TotalWashes"]) || readNumber(profileData, ["totalWashes", "TotalWashes"]);
+  const tierName = readOptionalString(tierData, ["name", "Name"]);
+  const tierLevel = tierData.level !== undefined && tierData.level !== null ? Number(tierData.level) : undefined;
+
   return {
     id: readString(record, ["id", "Id", "userId", "UserId"]),
     email: readString(record, ["email", "Email"]),
@@ -388,9 +506,19 @@ function normalizeUser(raw: unknown): AdminUser {
     isVerified: readBoolean(record, ["isVerified", "IsVerified", "isVerify", "IsVerify"], false),
     createdAt: readOptionalString(record, ["createdAt", "CreatedAt"]),
     faceImages,
+    totalPoints,
+    totalWashes,
+    tierName,
+    tierLevel,
   };
 }
 
+/**
+ * Chuẩn hóa các bản ghi đặt lịch phức tạp với các mối quan hệ lồng nhau thành AdminBooking.
+ * 
+ * @param raw Chi tiết lịch đặt thô.
+ * @returns Đối tượng AdminBooking đã chuẩn hóa.
+ */
 function normalizeBooking(raw: unknown): AdminBooking {
   const record = asRecord(raw);
   const branch = asRecord(record.branch);
@@ -428,6 +556,12 @@ function normalizeBooking(raw: unknown): AdminBooking {
   };
 }
 
+/**
+ * Chuẩn hóa các bản ghi khung giờ thô cho lịch biểu trực quan của quản trị viên.
+ * 
+ * @param raw Thuộc tính khung giờ đặt lịch thô.
+ * @returns Đối tượng AdminBookingSlot đã chuẩn hóa.
+ */
 function normalizeSlot(raw: unknown): AdminBookingSlot {
   const record = asRecord(raw);
   const status = readOptionalString(record, ["status", "Status"]);
@@ -444,6 +578,12 @@ function normalizeSlot(raw: unknown): AdminBookingSlot {
   };
 }
 
+/**
+ * Chuẩn hóa dữ liệu số liệu thống kê bảng điều khiển (Dashboard).
+ * 
+ * @param raw Payload thống kê thô của dashboard.
+ * @returns Đối tượng DashboardStats.
+ */
 function normalizeDashboard(raw: unknown): DashboardStats {
   const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
   return {
@@ -472,6 +612,12 @@ function normalizeDashboard(raw: unknown): DashboardStats {
   };
 }
 
+/**
+ * Chuẩn hóa tổng số và mảng dữ liệu báo cáo doanh thu tài chính.
+ * 
+ * @param raw Phản hồi API doanh thu thô.
+ * @returns Cấu trúc RevenueReport đã chuẩn hóa.
+ */
 function normalizeRevenue(raw: unknown): RevenueReport {
   const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
   const details = record.details ?? record.Details ?? record.items ?? record.Items ?? [];
@@ -483,6 +629,12 @@ function normalizeRevenue(raw: unknown): RevenueReport {
   };
 }
 
+/**
+ * Chuẩn hóa báo cáo tích điểm thành viên chi tiết các hoạt động trong hệ thống.
+ * 
+ * @param raw Chi tiết số liệu tích điểm thành viên thô.
+ * @returns Đối tượng LoyaltyReport đã được định dạng.
+ */
 function normalizeLoyalty(raw: unknown): LoyaltyReport {
   const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
   const details = record.details ?? record.Details ?? record.items ?? record.Items ?? [];
@@ -493,6 +645,15 @@ function normalizeLoyalty(raw: unknown): LoyaltyReport {
   };
 }
 
+// ─── API Functions ────────────────────────────────────────────────────────────
+
+/**
+ * Lấy tất cả các chi nhánh phục vụ quản lý, có thể lọc theo trạng thái hoạt động.
+ * 
+ * @param token Token xác thực của quản trị viên (Admin).
+ * @param params Các bộ lọc (trạng thái chi nhánh, từ khóa tìm kiếm tên).
+ * @returns Tập hợp mảng AdminBranch.
+ */
 export async function getBranches(
   token: string,
   params: { isActive?: boolean; keyword?: string } = {},
@@ -509,6 +670,13 @@ export async function getBranches(
   return unwrapPage(body).items.map(normalizeBranch);
 }
 
+/**
+ * Tạo một văn phòng chi nhánh kinh doanh mới.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param data Thông tin tên và địa chỉ của chi nhánh.
+ * @returns Hứa giải quyết khi chi nhánh được tạo thành công.
+ */
 export async function createBranch(
   token: string,
   data: { Name: string; Address: string },
@@ -522,6 +690,14 @@ export async function createBranch(
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Cập nhật chi tiết thông tin hoặc trạng thái của một chi nhánh hiện có.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID chi nhánh cần cập nhật.
+ * @param data Các thông tin thay đổi (tên, địa chỉ, trạng thái hoạt động).
+ * @returns Hứa giải quyết khi cập nhật hoàn tất.
+ */
 export async function updateBranch(
   token: string,
   id: string,
@@ -536,6 +712,13 @@ export async function updateBranch(
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Xóa một văn phòng chi nhánh khỏi hệ thống.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID chi nhánh đích cần xóa.
+ * @returns Hứa giải quyết khi quá trình xóa hoàn tất.
+ */
 export async function deleteBranch(token: string, id: string): Promise<void> {
   const res = await fetch(adminEndpoint(`/branches/${encodeURIComponent(id)}`), {
     method: "DELETE",
@@ -545,6 +728,13 @@ export async function deleteBranch(token: string, id: string): Promise<void> {
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Lấy tất cả các hồ sơ khách hàng đã đăng ký trong hệ thống với phân trang.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Các giới hạn truy vấn (từ khóa tìm kiếm, giới hạn trang).
+ * @returns Kết quả phân trang PageResult của AdminUser.
+ */
 export async function getUsers(
   token: string,
   params: { searchTerm?: string; pageIndex?: number; pageSize?: number } = {},
@@ -563,6 +753,13 @@ export async function getUsers(
   return { ...page, items: page.items.map(normalizeUser) };
 }
 
+/**
+ * Lấy danh sách những người dùng mới đăng ký đang chờ phê duyệt sinh trắc học khuôn mặt Face ID.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Các bộ lọc tìm kiếm và phân trang.
+ * @returns Kết quả PageResult của các hồ sơ đang chờ xác minh.
+ */
 export async function getPendingUsers(
   token: string,
   params: { searchTerm?: string; pageIndex?: number; pageSize?: number } = {},
@@ -581,6 +778,13 @@ export async function getPendingUsers(
   return { ...page, items: page.items.map(normalizeUser) };
 }
 
+/**
+ * Lấy chi tiết thông tin của một người dùng bao gồm cả các hình ảnh Face ID đã tải lên.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID của người dùng cần truy vấn.
+ * @returns Chi tiết dữ liệu AdminUser.
+ */
 export async function getUser(token: string, id: string): Promise<AdminUser> {
   const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}`), {
     cache: "no-store",
@@ -589,8 +793,15 @@ export async function getUser(token: string, id: string): Promise<AdminUser> {
   return normalizeUser(unwrapRecord(await handleApiResponse<ApiRecord<unknown>>(res)));
 }
 
+/**
+ * Phê duyệt và xác thực cấu hình sinh trắc học Face ID cho một hồ sơ người dùng.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID người dùng cần xác minh.
+ * @returns Hứa giải quyết khi cập nhật xác minh thành công.
+ */
 export async function verifyUser(token: string, id: string): Promise<void> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/verify`), {
+  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/approval`), {
     method: "PATCH",
     cache: "no-store",
     headers: authHeaders(token),
@@ -598,6 +809,37 @@ export async function verifyUser(token: string, id: string): Promise<void> {
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Từ chối hồ sơ Face ID của người dùng.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID người dùng.
+ * @param rejectReason Lý do từ chối.
+ * @returns Hứa giải quyết khi cập nhật thành công.
+ */
+export async function rejectUser(
+  token: string,
+  id: string,
+  rejectReason: string,
+): Promise<void> {
+  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/reject`), {
+    method: "PATCH",
+    cache: "no-store",
+    headers: jsonHeaders(token),
+    body: JSON.stringify({ rejectReason: rejectReason }),
+  });
+  await handleApiResponse<unknown>(res);
+}
+
+
+/**
+ * Cập nhật cờ trạng thái tài khoản của người dùng (Active, Locked, Inactive).
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID người dùng cần cập nhật.
+ * @param status Trạng thái AccountStatus đích.
+ * @returns Hứa giải quyết khi cập nhật thành công.
+ */
 export async function updateUserStatus(
   token: string,
   id: string,
@@ -612,6 +854,13 @@ export async function updateUserStatus(
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Truy vấn trạng thái hiện tại của một người dùng cụ thể.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID người dùng cần truy vấn.
+ * @returns Chuỗi đại diện cho trạng thái hiện tại của người dùng.
+ */
 export async function getUserStatus(token: string, id: string): Promise<string> {
   const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/status`), {
     cache: "no-store",
@@ -621,6 +870,14 @@ export async function getUserStatus(token: string, id: string): Promise<string> 
   return readString(body, ["status", "Status"]);
 }
 
+/**
+ * Lấy tất cả lịch đặt lịch trên toàn bộ các chi nhánh dành cho quản trị viên.
+ * Hỗ trợ lọc theo ngày, chi nhánh cụ thể và trạng thái lịch đặt.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Các ràng buộc truy vấn (BranchId, Date, Status, PageIndex, PageSize).
+ * @returns Kết quả phân trang PageResult của AdminBooking.
+ */
 export async function getAdminBookings(
   token: string,
   params: {
@@ -647,6 +904,13 @@ export async function getAdminBookings(
   return { ...page, items: page.items.map(normalizeBooking) };
 }
 
+/**
+ * Lấy nhật ký trạng thái các khung giờ đặt lịch phục vụ cho việc theo dõi lịch biểu.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Các ràng buộc truy vấn (BranchId, Date, Phân trang).
+ * @returns Kết quả phân trang PageResult của AdminBookingSlot.
+ */
 export async function getBookingSlots(
   token: string,
   params: { BranchId: string; Date: string; PageIndex?: number; PageSize?: number },
@@ -666,6 +930,14 @@ export async function getBookingSlots(
   return { ...page, items: page.items.map(normalizeSlot) };
 }
 
+/**
+ * Hoàn thành một lịch đặt sau khi dịch vụ rửa xe đã được thực hiện xong, ghi nhận các lưu ý đóng của Admin.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID của lịch đặt đích.
+ * @param note Ghi chú/báo cáo về dịch vụ đã thực hiện hoàn thành.
+ * @returns Hứa giải quyết khi trạng thái được hoàn tất trong database.
+ */
 export async function completeBooking(token: string, id: string, note: string): Promise<void> {
   const res = await fetch(adminEndpoint(`/bookings/${encodeURIComponent(id)}/complete`), {
     method: "POST",
@@ -676,10 +948,15 @@ export async function completeBooking(token: string, id: string, note: string): 
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Thực hiện check-in cho một lịch đặt chỗ từ giao diện quản trị viên.
+ * Nhắm mục tiêu chính xác đến endpoint đặt lịch của khách hàng thay vì namespace quản trị để tránh lỗi 404.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID của lịch đặt.
+ * @returns Hứa giải quyết khi check-in hoàn tất.
+ */
 export async function checkInAdminBooking(token: string, id: string): Promise<void> {
-  // BE endpoint nằm ở BookingController, KHÔNG phải AdminController.
-  // Đúng path: POST /api/v1/bookings/{id}/check-in
-  // Sai path cũ: POST /api/v1/admin/bookings/{id}/check-in → 404
   const res = await fetch(`${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {
     method: "POST",
     cache: "no-store",
@@ -688,6 +965,14 @@ export async function checkInAdminBooking(token: string, id: string): Promise<vo
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Hủy một lịch đặt chỗ bằng đặc quyền của Admin.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param id ID lịch đặt cần hủy.
+ * @param reason Lý do hủy lịch phục vụ kiểm toán hệ thống.
+ * @returns Hứa giải quyết khi việc hủy lịch hoàn tất.
+ */
 export async function cancelAdminBooking(
   token: string,
   id: string,
@@ -702,6 +987,13 @@ export async function cancelAdminBooking(
   await handleApiResponse<unknown>(res);
 }
 
+/**
+ * Lấy các chỉ số hoạt động chung của hệ thống cho các bảng biểu tóm tắt của Admin.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Phạm vi ngày truy vấn (FromDate, ToDate, BranchId tùy chọn).
+ * @returns Tóm tắt các chỉ số DashboardStats.
+ */
 export async function getDashboardStats(
   token: string,
   params: { FromDate: string; ToDate: string; BranchId?: string },
@@ -719,6 +1011,13 @@ export async function getDashboardStats(
   return normalizeDashboard(await handleApiResponse<unknown>(res));
 }
 
+/**
+ * Lấy các thống kê báo cáo doanh thu theo chi nhánh và thời gian được chọn.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Phạm vi ngày truy vấn (FromDate, ToDate, BranchId tùy chọn).
+ * @returns Dữ liệu chi tiết RevenueReport.
+ */
 export async function getRevenueReport(
   token: string,
   params: { FromDate: string; ToDate: string; BranchId?: string },
@@ -736,6 +1035,13 @@ export async function getRevenueReport(
   return normalizeRevenue(await handleApiResponse<unknown>(res));
 }
 
+/**
+ * Lấy tổng số lượng giao dịch điểm và các báo cáo hoạt động điểm thành viên.
+ * 
+ * @param token Token xác thực của Admin.
+ * @param params Phạm vi ngày.
+ * @returns Tập dữ liệu LoyaltyReport.
+ */
 export async function getLoyaltyReport(
   token: string,
   params: { FromDate: string; ToDate: string },

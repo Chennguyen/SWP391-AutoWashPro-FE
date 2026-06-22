@@ -1,22 +1,47 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, RefreshCw, Search, XCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, Search, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getPendingUsers,
   getUser,
   getUsers,
   updateUserStatus,
   verifyUser,
+  rejectUser,
   type AdminUser,
 } from "@/lib/api/admin";
-import { adjustCustomerPoints, type AdjustPointsAction } from "@/lib/api/loyalty-admin";
+
 import { AdminError, AdminPageHeader, AdminShell } from "@/components/admin/shared/AdminUi";
 import { useAdminToken } from "@/components/admin/shared/useAdminToken";
 import { cn } from "@/lib/utils";
 
 type UserTab = "all" | "pending";
 
+function formatStatus(status?: string): string {
+  if (!status) return "-";
+  switch (status) {
+    case "Pending":
+      return "Chờ xác minh";
+    case "Active":
+      return "Hoạt động";
+    case "Rejected":
+      return "Bị từ chối";
+    case "Locked":
+      return "Bị khóa";
+    case "Inactive":
+      return "Không hoạt động";
+    default:
+      return status;
+  }
+}
+
+/**
+ * Thành phần (Component) AdminUsersPage
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AdminUsersPage() {
   const token = useAdminToken();
   const [tab, setTab] = useState<UserTab>("all");
@@ -26,29 +51,49 @@ export function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [adjustTarget, setAdjustTarget] = useState<AdminUser | null>(null);
+  const [pageIndex, setPageIndex] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const loadUsers = useCallback(async () => {
+  // Xử lý fallback khi backend không trả về totalCount chính xác (hoặc fallback = pageSize)
+  const isFullPage = users.length === 5;
+  const calculatedTotalPages = Math.max(1, Math.ceil(totalCount / 5));
+  const displayTotalPages = Math.max(pageIndex + (isFullPage ? 1 : 0), calculatedTotalPages);
+
+  function getPageNumbers(): number[] {
+    const delta = 2;
+    const start = Math.max(1, pageIndex - delta);
+    const end = Math.min(displayTotalPages, pageIndex + delta);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  }
+
+  const loadUsers = useCallback(async (page = pageIndex) => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
       const result =
         tab === "pending"
-          ? await getPendingUsers(token, { searchTerm, pageIndex: 1, pageSize: 10 })
-          : await getUsers(token, { searchTerm, pageIndex: 1, pageSize: 10 });
+          ? await getPendingUsers(token, { searchTerm, pageIndex: page, pageSize: 5 })
+          : await getUsers(token, { searchTerm, pageIndex: page, pageSize: 5 });
       setUsers(result.items);
+      setTotalCount(result.totalCount);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Không thể tải người dùng.");
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, tab, token]);
+  }, [searchTerm, tab, token, pageIndex]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadUsers(), 0);
+    setPageIndex(1);
+  }, [tab, searchTerm]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadUsers(pageIndex), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadUsers]);
+  }, [loadUsers, pageIndex]);
 
   async function handleView(user: AdminUser) {
     setActionLoading(user.id);
@@ -66,9 +111,28 @@ export function AdminUsersPage() {
     setActionLoading(user.id);
     try {
       await verifyUser(token, user.id);
-      await loadUsers();
+      await loadUsers(pageIndex);
     } catch (verifyError) {
       window.alert(verifyError instanceof Error ? verifyError.message : "Không thể xác minh người dùng.");
+    } finally {
+      setActionLoading("");
+    }
+  }
+
+  async function handleReject(user: AdminUser) {
+    const reason = window.prompt("Nhập lý do từ chối hồ sơ FaceID của người dùng này:");
+    if (reason === null) return; // User cancelled
+    if (!reason.trim()) {
+      window.alert("Bạn phải nhập lý do từ chối.");
+      return;
+    }
+
+    setActionLoading(user.id);
+    try {
+      await rejectUser(token, user.id, reason.trim());
+      await loadUsers(pageIndex);
+    } catch (rejectError) {
+      window.alert(rejectError instanceof Error ? rejectError.message : "Không thể từ chối người dùng.");
     } finally {
       setActionLoading("");
     }
@@ -79,7 +143,7 @@ export function AdminUsersPage() {
     setActionLoading(user.id);
     try {
       await updateUserStatus(token, user.id, nextStatus);
-      await loadUsers();
+      await loadUsers(pageIndex);
     } catch (statusError) {
       window.alert(statusError instanceof Error ? statusError.message : "Không thể cập nhật trạng thái.");
     } finally {
@@ -87,23 +151,7 @@ export function AdminUsersPage() {
     }
   }
 
-  async function handleAdjustPoints(
-    user: AdminUser,
-    action: AdjustPointsAction,
-    points: number,
-    reason: string,
-  ) {
-    setActionLoading(user.id);
-    try {
-      await adjustCustomerPoints(token, user.id, { action, points, reason });
-      window.alert(`${action === "ADD" ? "Cộng" : "Trừ"} ${points} điểm cho ${user.fullName} thành công.`);
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Không thể điều chỉnh điểm.");
-    } finally {
-      setActionLoading("");
-      setAdjustTarget(null);
-    }
-  }
+
 
   return (
     <AdminShell>
@@ -121,7 +169,10 @@ export function AdminUsersPage() {
             <button
               key={id}
               type="button"
-              onClick={() => setTab(id as UserTab)}
+              onClick={() => {
+                setTab(id as UserTab);
+                setPageIndex(1);
+              }}
               className={cn(
                 "rounded-lg px-4 py-2 text-sm font-semibold transition",
                 tab === id ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
@@ -134,7 +185,8 @@ export function AdminUsersPage() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void loadUsers();
+            setPageIndex(1);
+            void loadUsers(1);
           }}
           className="relative md:w-80"
         >
@@ -148,7 +200,7 @@ export function AdminUsersPage() {
         </form>
       </div>
 
-      {error ? <AdminError message={error} onRetry={loadUsers} /> : null}
+      {error ? <AdminError message={error} onRetry={() => void loadUsers(pageIndex)} /> : null}
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
@@ -180,12 +232,25 @@ export function AdminUsersPage() {
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50">
-                    <td
+                     <td
                       className="cursor-pointer px-4 py-3"
                       onClick={() => void handleView(user)}
                       title="Xem chi tiết"
                     >
-                      <p className="font-semibold text-slate-950 hover:text-blue-600">{user.fullName}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-slate-950 hover:text-blue-600">{user.fullName}</p>
+                        {user.tierName && (
+                          <span className={cn(
+                            "inline-flex items-center rounded-full px-1.5 py-0.2 text-[10px] font-semibold border leading-tight",
+                            user.tierName === "Platinum" || user.tierName.toLowerCase().includes("bạch kim") ? "bg-purple-50 text-purple-700 border-purple-200" :
+                            user.tierName === "Gold" || user.tierName.toLowerCase().includes("vàng") ? "bg-amber-50 text-amber-700 border-amber-200" :
+                            user.tierName === "Silver" || user.tierName.toLowerCase().includes("bạc") ? "bg-slate-50 text-slate-700 border-slate-200" :
+                            "bg-blue-50 text-blue-700 border-blue-200"
+                          )}>
+                            {user.tierName}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500">{user.email}</p>
                     </td>
                     <td className="px-4 py-3 text-slate-600">{user.phone || "-"}</td>
@@ -196,21 +261,21 @@ export function AdminUsersPage() {
                         {user.isVerified ? "Đã xác minh" : "Chờ xác minh"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{user.status || "-"}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatStatus(user.status)}</td>
                     <td className="px-4 py-3 text-right">
                       {!user.isVerified ? (
-                        <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
-                          Duyệt
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
+                            Duyệt
+                          </button>
+                          <button type="button" onClick={() => void handleReject(user)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100" title="Từ chối">
+                            Từ chối
+                          </button>
+                        </div>
                       ) : (
-                        <>
-                          <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
-                            {user.status === "Locked" ? "Mở khóa" : "Khóa"}
-                          </button>
-                          <button type="button" onClick={() => setAdjustTarget(user)} className="ml-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100" title="Điều chỉnh điểm">
-                            Điểm
-                          </button>
-                        </>
+                        <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
+                          {user.status === "Locked" ? "Mở khóa" : "Khóa"}
+                        </button>
                       )}
                       {actionLoading === user.id ? <RefreshCw className="ml-1 inline animate-spin text-blue-600" size={14} aria-hidden /> : null}
                     </td>
@@ -220,6 +285,56 @@ export function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {(pageIndex > 1 || users.length > 0) && (
+          <nav
+            className="mt-6 mb-4 flex items-center justify-center gap-1"
+            aria-label="Phân trang người dùng"
+          >
+            {/* Prev */}
+            <button
+              type="button"
+              onClick={() => setPageIndex(pageIndex - 1)}
+              disabled={pageIndex === 1 || loading}
+              aria-label="Trang trước"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Page numbers */}
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setPageIndex(page)}
+                disabled={loading}
+                aria-label={`Trang ${page}`}
+                aria-current={page === pageIndex ? "page" : undefined}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium transition",
+                  page === pageIndex
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                {page}
+              </button>
+            ))}
+
+            {/* Next */}
+            <button
+              type="button"
+              onClick={() => setPageIndex(pageIndex + 1)}
+              disabled={(pageIndex >= displayTotalPages && !isFullPage) || loading}
+              aria-label="Trang sau"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </nav>
+        )}
       </div>
 
       {selectedUser ? (
@@ -250,7 +365,7 @@ export function AdminUsersPage() {
               </div>
               <div>
                 <dt className="font-semibold text-slate-500">Trạng thái</dt>
-                <dd className="text-slate-950">{selectedUser.status || "-"}</dd>
+                <dd className="text-slate-950">{formatStatus(selectedUser.status)}</dd>
               </div>
               <div>
                 <dt className="font-semibold text-slate-500">Xác minh Face ID</dt>
@@ -266,6 +381,22 @@ export function AdminUsersPage() {
                   )}
                 </dd>
               </div>
+              {selectedUser.role === "Customer" && (
+                <>
+                  <div>
+                    <dt className="font-semibold text-slate-500">Hạng thành viên</dt>
+                    <dd className="text-slate-950">
+                      {selectedUser.tierName || "Member"} {selectedUser.tierLevel ? `(Lv.${selectedUser.tierLevel})` : ""}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-500">Tích lũy / Số lần rửa</dt>
+                    <dd className="text-slate-950">
+                      {selectedUser.totalPoints ?? 0} pts / {selectedUser.totalWashes ?? 0} lần
+                    </dd>
+                  </div>
+                </>
+              )}
             </dl>
 
             {/* Lưới ảnh khuôn mặt */}
@@ -301,6 +432,8 @@ export function AdminUsersPage() {
 
             {/* Chân modal */}
             <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+
+              
               <button
                 type="button"
                 onClick={() => setSelectedUser(null)}
@@ -311,113 +444,49 @@ export function AdminUsersPage() {
 
               {/* Nút xác minh nhanh nếu chưa duyệt */}
               {!selectedUser.isVerified && (
-                <button
-                  id="user-detail-verify-btn"
-                  type="button"
-                  onClick={async () => {
-                    await handleVerify(selectedUser);
-                    setSelectedUser(null);
-                  }}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-[0.98]"
-                >
-                  ✓ Xác minh tài khoản này
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const reason = window.prompt("Nhập lý do từ chối hồ sơ FaceID:");
+                      if (reason === null) return;
+                      if (!reason.trim()) {
+                        window.alert("Vui lòng nhập lý do.");
+                        return;
+                      }
+                      setActionLoading(selectedUser.id);
+                      try {
+                        await rejectUser(token, selectedUser.id, reason.trim());
+                        await loadUsers(pageIndex);
+                        setSelectedUser(null);
+                      } catch (rejectError) {
+                        window.alert(rejectError instanceof Error ? rejectError.message : "Không thể từ chối người dùng.");
+                      } finally {
+                        setActionLoading("");
+                      }
+                    }}
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                  >
+                    Từ chối
+                  </button>
+                  <button
+                    id="user-detail-verify-btn"
+                    type="button"
+                    onClick={async () => {
+                      await handleVerify(selectedUser);
+                      setSelectedUser(null);
+                    }}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 active:scale-[0.98]"
+                  >
+                    ✓ Xác minh
+                  </button>
+                </>
               )}
             </div>
           </div>
         </div>
       ) : null}
 
-
-      {adjustTarget ? (
-        <AdjustPointsDialog
-          user={adjustTarget}
-          onClose={() => setAdjustTarget(null)}
-          onConfirm={handleAdjustPoints}
-        />
-      ) : null}
     </AdminShell>
-  );
-}
-
-function AdjustPointsDialog({
-  user,
-  onClose,
-  onConfirm,
-}: {
-  user: AdminUser;
-  onClose: () => void;
-  onConfirm: (user: AdminUser, action: AdjustPointsAction, points: number, reason: string) => Promise<void>;
-}) {
-  const [action, setAction] = useState<AdjustPointsAction>("ADD");
-  const [points, setPoints] = useState(100);
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!reason.trim()) { window.alert("Vui lòng nhập lý do."); return; }
-    setSaving(true);
-    await onConfirm(user, action, points, reason.trim());
-    setSaving(false);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-950">Điều chỉnh điểm: {user.fullName}</h3>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100">
-            <XCircle size={18} />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex gap-2">
-            {(["ADD", "SUBTRACT"] as AdjustPointsAction[]).map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAction(a)}
-                className={`flex-1 rounded-lg border py-2 text-sm font-bold transition ${
-                  action === a
-                    ? a === "ADD"
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-red-500 bg-red-50 text-red-700"
-                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {a === "ADD" ? "+ Cộng điểm" : "− Trừ điểm"}
-              </button>
-            ))}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Số điểm</label>
-            <input
-              type="number"
-              min={1}
-              value={points}
-              onChange={(e) => setPoints(Number(e.target.value))}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Lý do</label>
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Tặng điểm sự kiện..."
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : null}
-              Xác nhận
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
   );
 }

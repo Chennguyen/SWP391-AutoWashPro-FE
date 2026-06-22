@@ -58,6 +58,19 @@ type FormFields = {
 
 type FormErrors = Partial<FormFields & { faceImages: string; global: string }>;
 
+function getFieldNameVietnamese(field: keyof FormFields): string {
+  switch (field) {
+    case "firstName": return "tên";
+    case "lastName": return "họ";
+    case "email": return "email";
+    case "phone": return "số điện thoại";
+    case "cccd": return "số CCCD";
+    case "password": return "mật khẩu";
+    case "confirmPassword": return "xác nhận mật khẩu";
+    default: return "trường này";
+  }
+}
+
 /* ───── Main Component ───── */
 export function SignupForm() {
   const router = useRouter();
@@ -89,9 +102,18 @@ export function SignupForm() {
 
   function handleChange(field: keyof FormFields) {
     return (e: ChangeEvent<HTMLInputElement>) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }));
-      // Clear field error on change
-      if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+      const val = e.target.value;
+      setForm((prev) => ({ ...prev, [field]: val }));
+      
+      // Xử lý realtime viền đỏ (khi người dùng xóa trắng dữ liệu sau khi đã submit có lỗi)
+      if (errors[field]) {
+        const hasValue = field === "password" || field === "confirmPassword" ? val !== "" : val.trim() !== "";
+        if (hasValue) {
+          setErrors((prev) => ({ ...prev, [field]: undefined }));
+        } else {
+          setErrors((prev) => ({ ...prev, [field]: `Vui lòng nhập ${getFieldNameVietnamese(field)}.` }));
+        }
+      }
     };
   }
 
@@ -182,10 +204,13 @@ export function SignupForm() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          // Duplicate email — highlight email field
+          // Trùng email — highlight ô email
           setErrors({ email: err.message });
+        } else if (err.status >= 500) {
+          // Che giấu lỗi 5xx khỏi người dùng cuối trên production
+          setErrors({ global: "Đang xảy ra lỗi vui lòng quay lại sau" });
         } else {
-          // Other server errors (400 validation, 500, etc.)
+          // Các lỗi server khác (400 validation, v.v.)
           setErrors({ global: err.message });
         }
       } else {
@@ -242,7 +267,7 @@ export function SignupForm() {
               id="success-modal-confirm-btn"
               type="button"
               onClick={() => router.push("/auth/login?registered=1")}
-              className="mt-5 w-full rounded-xl bg-[#2563EB] py-3 text-sm font-semibold text-white transition-all hover:bg-[#1D4ED8] active:scale-[0.98]"
+              className="mt-5 w-full rounded-xl bg-[#CDB390] py-3 text-sm font-semibold text-white transition-all hover:bg-[#BCA27F] active:scale-[0.98]"
             >
               Tôi đã hiểu
             </button>
@@ -262,6 +287,7 @@ export function SignupForm() {
             value={form.lastName}
             onChange={handleChange("lastName")}
             error={errors.lastName}
+            showRequiredAsterisk={!form.lastName.trim()}
           />
           <AuthInput
             id="signup-first-name"
@@ -272,6 +298,7 @@ export function SignupForm() {
             value={form.firstName}
             onChange={handleChange("firstName")}
             error={errors.firstName}
+            showRequiredAsterisk={!form.firstName.trim()}
           />
         </div>
 
@@ -285,6 +312,7 @@ export function SignupForm() {
           value={form.email}
           onChange={handleChange("email")}
           error={errors.email}
+          showRequiredAsterisk={!form.email.trim()}
         />
 
         {/* ── Số điện thoại ── */}
@@ -297,6 +325,7 @@ export function SignupForm() {
           value={form.phone}
           onChange={handleChange("phone")}
           error={errors.phone}
+          showRequiredAsterisk={!form.phone.trim()}
         />
 
         {/* ── CCCD ── */}
@@ -309,6 +338,7 @@ export function SignupForm() {
           value={form.cccd}
           onChange={handleChange("cccd")}
           error={errors.cccd}
+          showRequiredAsterisk={!form.cccd.trim()}
         />
 
         {/* ── Mật khẩu ── */}
@@ -322,6 +352,7 @@ export function SignupForm() {
             value={form.password}
             onChange={handleChange("password")}
             error={errors.password}
+            showRequiredAsterisk={!form.password}
           />
           <PasswordStrength password={form.password} />
         </div>
@@ -336,6 +367,7 @@ export function SignupForm() {
           value={form.confirmPassword}
           onChange={handleChange("confirmPassword")}
           error={errors.confirmPassword}
+          showRequiredAsterisk={!form.confirmPassword}
         />
 
         {/* ── Face Images Upload ── */}
@@ -343,6 +375,7 @@ export function SignupForm() {
           <div>
             <p className="text-sm font-semibold text-slate-900 mb-0.5">
               Ảnh khuôn mặt ({faceImages.length}/3)
+              {faceImages.length < 3 && <span className="text-red-500 ml-1 font-semibold">*</span>}
             </p>
             <p className="text-xs text-slate-500 mb-3">
               Cần đúng 3 ảnh chân dung rõ mặt, góc chụp khác nhau. Dùng để xác thực danh tính khi đến rửa xe.
@@ -442,7 +475,7 @@ export function SignupForm() {
           id="signup-submit-btn"
           type="submit"
           disabled={loading}
-          className="mt-2 w-full rounded-xl bg-[#2563EB] px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition-all duration-200 hover:bg-[#1D4ED8] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+          className="mt-2 w-full rounded-xl bg-[#CDB390] px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition-all duration-200 hover:bg-[#BCA27F] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#CDB390]/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">

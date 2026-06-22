@@ -3,6 +3,12 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { SignupForm } from "@/components/auth/SignupForm";
 
+/**
+ * Trang (Page) SignUpPage
+ * 
+ * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
+ * Đường dẫn tương đối: src/app/app/auth/signup/page.tsx
+ */
 export default function SignUpPage() {
   return (
     <AuthLayout>

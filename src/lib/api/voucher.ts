@@ -1,5 +1,5 @@
 // ─── Voucher API ──────────────────────────────────────────────────────────────
-// Strategy: user-triggered validation — no-store, called client-side on demand.
+// Chiến lược: kiểm tra do người dùng kích hoạt — không lưu cache (no-store), gọi trực tiếp từ phía client khi cần.
 
 import type { VoucherValidation } from '@/types/booking';
 import { apiBase, handleApiResponse } from './api-error';
@@ -23,6 +23,13 @@ type VoucherRecord = {
   Data?: VoucherRecord;
 };
 
+/**
+ * Chuẩn hóa phản hồi kiểm tra voucher thô từ backend thành cấu trúc VoucherValidation.
+ * Trích xuất các trường lồng nhau và đảm bảo các giá trị dự phòng mặc định.
+ * 
+ * @param body Bản ghi phản hồi thô.
+ * @returns Giao diện VoucherValidation đã chuẩn hóa.
+ */
 function normalizeVoucher(body: VoucherRecord): VoucherValidation {
   const raw = body.data ?? body.Data ?? body;
   return {
@@ -36,11 +43,14 @@ function normalizeVoucher(body: VoucherRecord): VoucherValidation {
 }
 
 /**
- * Validate a voucher code for the current user.
- * Called client-side when user clicks "Áp dụng".
- *
- * BE endpoint: POST /Voucher/vouchers/validate?userId={userId}
- * Body: { code, totalAmount }
+ * Xác thực mã voucher đối với tổng hóa đơn thanh toán cụ thể của khách hàng.
+ * Được gọi phía client khi khách hàng nhấp vào "Áp dụng" trong quá trình thanh toán/đặt lịch.
+ * 
+ * @param token Token xác thực.
+ * @param userId ID của khách hàng.
+ * @param code Mã khuyến mại cần xác thực.
+ * @param totalAmount Tổng giá trị giỏ hàng trước khi giảm giá.
+ * @returns Một promise giải quyết thành chi tiết kết quả VoucherValidation.
  */
 export async function validateVoucher(
   token: string,

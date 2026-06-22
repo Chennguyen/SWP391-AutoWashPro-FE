@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Plus, RefreshCw, WalletCards } from "lucide-react";
+import { Plus, RefreshCw, WalletCards, Lock } from "lucide-react";
 import { topUpWallet, type Wallet } from "@/lib/api/wallet";
 import { ApiError } from "@/lib/api/api-error";
 
@@ -24,6 +24,12 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/**
+ * Thành phần (Component) WalletPanel
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function WalletPanel({
   token,
   wallet,
@@ -65,6 +71,8 @@ export function WalletPanel({
     }
   }
 
+  const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+
   return (
     <section aria-label="Thông tin ví" className="space-y-4">
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -72,16 +80,6 @@ export function WalletPanel({
           <h2 className="text-xl font-bold text-slate-950">Thông tin ví</h2>
           <p className="mt-1 text-sm text-slate-500">Xem số dư và nạp tiền vào ví AutoWash Pro.</p>
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Tải lại thông tin ví"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-          <span className="sr-only">Tải lại thông tin ví</span>
-        </button>
       </div>
 
       {error ? (
@@ -90,8 +88,21 @@ export function WalletPanel({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white">
+      <div className="relative overflow-hidden rounded-lg">
+        {isUnverified && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/75 backdrop-blur-[2px] p-6 text-center border border-slate-200 rounded-lg">
+            <div className="rounded-full bg-slate-100 p-3 text-slate-500 shadow-sm border border-slate-200/50 mb-3 animate-pulse">
+              <Lock size={24} className="text-amber-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-800">Ví tạm thời khóa do tài khoản chưa được xác thực</p>
+            <p className="mt-1 text-xs text-slate-500 max-w-xs leading-relaxed">
+              Tính năng ví sẽ tự động mở khóa sau khi quản trị viên phê duyệt tài khoản của bạn.
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-white/70">Số dư hiện tại</span>
             <WalletCards size={22} className="text-blue-300" aria-hidden />
@@ -156,6 +167,7 @@ export function WalletPanel({
           </button>
         </form>
       </div>
-    </section>
+    </div>
+  </section>
   );
 }

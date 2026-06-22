@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowLeft, Car, ImageIcon, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, Car, ExternalLink, Pencil, Plus, Trash2, X, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api/api-error";
 import { deleteVehicle, getVehicle } from "@/lib/api/vehicle";
 import type { Vehicle } from "@/types/vehicle";
@@ -21,6 +22,12 @@ type FormMode =
   | { type: "create" }
   | { type: "edit"; vehicle: Vehicle };
 
+/**
+ * Thành phần (Component) VehicleList
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function VehicleList({
   token,
   vehicles,
@@ -137,30 +144,18 @@ export function VehicleList({
               Danh sách xe
             </button>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={onRefresh}
-                disabled={loading}
-                title="Tải lại danh sách xe"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
-                <span className="sr-only">Tải lại danh sách xe</span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setFormMode((current) =>
-                    current.type === "create" ? { type: "closed" } : { type: "create" },
-                  )
-                }
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                {formMode.type === "create" ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
-                {formMode.type === "create" ? "Đóng" : "Thêm xe"}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() =>
+                setFormMode((current) =>
+                  current.type === "create" ? { type: "closed" } : { type: "create" },
+                )
+              }
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              {formMode.type === "create" ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
+              {formMode.type === "create" ? "Đóng" : "Thêm xe"}
+            </button>
           )}
         </div>
       </div>
@@ -179,9 +174,20 @@ export function VehicleList({
       ) : null}
 
       {error ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        (() => {
+          const isUnverified = error.includes("Only active and verified customer accounts") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
+          return (
+            <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
+              <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />
+              <div>
+                <p className="font-semibold">{isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}</p>
+                <p className="mt-1 text-xs md:text-sm">
+                  {isUnverified ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút." : error}
+                </p>
+              </div>
+            </div>
+          );
+        })()
       ) : null}
 
       {actionError ? (
@@ -190,7 +196,7 @@ export function VehicleList({
         </div>
       ) : null}
 
-      {isDetailOpen && selectedVehicle ? (
+      {isDetailOpen && selectedVehicle && formMode.type === "closed" ? (
         <div className="rounded-lg border border-slate-200 bg-white p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -203,7 +209,7 @@ export function VehicleList({
               {detailLoading ? (
                 <p className="mt-3 text-sm text-slate-500">Đang tải thông tin xe...</p>
               ) : (
-                <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                <div className="mt-5 grid gap-4 sm:grid-cols-4">
                   <div className="rounded-lg bg-slate-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hãng xe</p>
                     <p className="mt-2 font-bold text-slate-950">{selectedVehicle.brand}</p>
@@ -216,6 +222,13 @@ export function VehicleList({
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Màu xe</p>
                     <p className="mt-2 font-bold text-slate-950">{selectedVehicle.color}</p>
                   </div>
+                  <div className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Loại xe</p>
+                    <p className="mt-2 font-bold text-slate-950">
+                      {selectedVehicle.vehicleType === "SEDAN" ? "Sedan" : 
+                       selectedVehicle.vehicleType === "SUV" ? "SUV" : selectedVehicle.vehicleType}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -223,36 +236,89 @@ export function VehicleList({
               <button
                 type="button"
                 onClick={() => setFormMode({ type: "edit", vehicle: selectedVehicle })}
-                title="Sửa xe"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950"
               >
-                <Pencil size={17} aria-hidden />
-                <span className="sr-only">Sửa xe</span>
+                <Pencil size={14} aria-hidden />
+                Sửa
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(selectedVehicle)}
                 disabled={deletingId === selectedVehicle.id}
-                title="Xóa xe"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-500 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Trash2 size={17} aria-hidden />
-                <span className="sr-only">Xóa xe</span>
+                <Trash2 size={14} aria-hidden />
+                Xóa
               </button>
             </div>
           </div>
 
-          {selectedVehicle.licensePlateImageUrl ? (
-            <a
-              href={selectedVehicle.licensePlateImageUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              <ImageIcon size={15} aria-hidden />
-              Xem ảnh biển số
-            </a>
-          ) : null}
+          {/* Ảnh xác minh xe */}
+          {selectedVehicle.vehicleImages && selectedVehicle.vehicleImages.length > 0 ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Ảnh xác minh xe ({selectedVehicle.vehicleImages.length} ảnh)
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {selectedVehicle.vehicleImages.map((imgUrl, index) => (
+                  <div key={`${imgUrl}-${index}`} className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imgUrl}
+                      alt={`Ảnh xác minh ${index + 1} của xe ${selectedVehicle.licensePlate}`}
+                      className="h-48 w-full object-cover transition duration-200 group-hover:scale-105"
+                    />
+                    <a
+                      href={imgUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition duration-200 group-hover:bg-black/30 group-hover:opacity-100"
+                      aria-label={`Xem ảnh đầy đủ ${index + 1}`}
+                    >
+                      <span className="flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-800 shadow">
+                        <ExternalLink size={13} aria-hidden />
+                        Xem đầy đủ
+                      </span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : selectedVehicle.licensePlateImageUrl ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Ảnh xác minh xe
+              </p>
+              <div className="relative group w-full max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
+                <img
+                  src={selectedVehicle.licensePlateImageUrl}
+                  alt={`Ảnh biển số xe ${selectedVehicle.licensePlate}`}
+                  className="h-48 w-full object-cover transition duration-200 group-hover:scale-105"
+                />
+                <a
+                  href={selectedVehicle.licensePlateImageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition duration-200 group-hover:bg-black/30 group-hover:opacity-100"
+                  aria-label="Xem ảnh biển số đầy đủ"
+                >
+                  <span className="flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-800 shadow">
+                    <ExternalLink size={13} aria-hidden />
+                    Xem đầy đủ
+                  </span>
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Ảnh xác minh xe
+              </p>
+              <div className="flex h-32 w-full max-w-sm items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50">
+                <p className="text-xs text-slate-400">Chưa có ảnh xác minh</p>
+              </div>
+            </div>
+          )}
         </div>
       ) : null}
 

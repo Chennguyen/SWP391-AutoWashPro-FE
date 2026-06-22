@@ -4,15 +4,20 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ApiError } from "@/lib/api/api-error";
 import { getBranches } from "@/lib/api/public-read";
+import { getLoyaltyInfo } from "@/lib/api/loyalty";
+import { resolveRankTier } from "@/lib/rank";
 import type { BookingResult, Branch, WizardState } from "@/types/booking";
 import type { Vehicle } from "@/types/vehicle";
 import { BranchStep } from "./BranchStep";
+import { BookingCustomerSummary } from "./BookingCustomerSummary";
+import { BookingProcessSummary } from "./BookingProcessSummary";
 import { BookingSuccessStep } from "./BookingSuccessStep";
 import { ReviewPaymentStep } from "./ReviewPaymentStep";
 import { SlotStep } from "./SlotStep";
 import { StepIndicator } from "./StepIndicator";
 import { VehicleStep } from "./VehicleStep";
 import { VoucherStep } from "./VoucherStep";
+import { PriceTableStep } from "./PriceTableStep";
 
 const INITIAL_STATE: WizardState = {
   selectedBranch: null,
@@ -60,6 +65,12 @@ function getServerTokenSnapshot(): string | null {
   return null;
 }
 
+/**
+ * Thành phần (Component) BookingWizard
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function BookingWizard() {
   const tokenSnapshot = useSyncExternalStore(
     subscribeToToken,
@@ -76,6 +87,7 @@ export function BookingWizard() {
   const [slotNotice, setSlotNotice] = useState<string | null>(null);
   const [forcedDisabledSlots, setForcedDisabledSlots] = useState<string[]>([]);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [priorityBookingDays, setPriorityBookingDays] = useState<number>(0);
 
   function patch(partial: Partial<WizardState>) {
     setState((prev) => ({ ...prev, ...partial }));
@@ -130,6 +142,32 @@ export function BookingWizard() {
     }
   }, [handleUnauthorized, token]);
 
+  const loadLoyaltyTier = useCallback(async () => {
+    if (!token) return;
+    try {
+      const info = await getLoyaltyInfo(token);
+      console.log("DEBUG [loadLoyaltyTier] raw response normalized:", info);
+      
+      let days =
+        info.tier?.priorityBookingDays ??
+        info.tier?.benefits?.priorityBookingDays ??
+        0;
+      console.log("DEBUG [loadLoyaltyTier] days from backend tier:", days);
+      
+      if (days === 0) {
+        const clientRank = resolveRankTier(info);
+        days = clientRank.priorityBookingDays ?? 3;
+        console.log("DEBUG [loadLoyaltyTier] fallback to client-side rank days:", days);
+      }
+      
+      setPriorityBookingDays(days);
+    } catch (err) {
+      console.error("DEBUG [loadLoyaltyTier] error fetching loyalty:", err);
+      // Mặc định 3 ngày nếu API lỗi
+      setPriorityBookingDays(3);
+    }
+  }, [token]);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void loadBranches();
@@ -137,6 +175,14 @@ export function BookingWizard() {
 
     return () => window.clearTimeout(timeoutId);
   }, [loadBranches]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadLoyaltyTier();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadLoyaltyTier]);
 
   const { currentStep } = state;
 
@@ -163,8 +209,8 @@ export function BookingWizard() {
     );
   }
 
-  return (
-    <div className="space-y-8">
+  const wizardContent = (
+    <div className="space-y-6">
       <StepIndicator currentStep={currentStep} />
 
       <div className="min-h-[460px]">
@@ -175,7 +221,6 @@ export function BookingWizard() {
             error={branchesError}
             usingMock={false}
             selected={state.selectedBranch}
-            onRefresh={loadBranches}
             onSelect={(branch) => patch({ selectedBranch: branch })}
             onNext={() => goTo(2)}
           />
@@ -197,8 +242,11 @@ export function BookingWizard() {
             token={token}
             branchId={state.selectedBranch.id}
             branchName={state.selectedBranch.name}
+            openTime={state.selectedBranch.openTime}
+            closeTime={state.selectedBranch.closeTime}
             notice={slotNotice}
             forcedDisabledSlots={forcedDisabledSlots}
+            priorityBookingDays={priorityBookingDays}
             selectedDate={state.selectedDate}
             selectedSlot={state.selectedSlot}
             onDateChange={(date) => {
@@ -216,12 +264,9 @@ export function BookingWizard() {
         ) : null}
 
         {currentStep === 4 ? (
-          <VoucherStep
+          <PriceTableStep
             token={token}
-            voucherCode={state.voucherCode}
-            appliedVoucher={state.appliedVoucher}
-            onVoucherChange={(code) => patch({ voucherCode: code })}
-            onVoucherApplied={(voucher) => patch({ appliedVoucher: voucher })}
+            vehicle={state.selectedVehicle}
             onNext={() => goTo(5)}
             onBack={() => goTo(3)}
           />
@@ -252,6 +297,27 @@ export function BookingWizard() {
           <BookingSuccessStep result={state.bookingResult} />
         ) : null}
       </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      {/* Cột trái: Thông tin tài khoản */}
+      <div className="w-full lg:w-56 xl:w-60 lg:shrink-0 lg:sticky lg:top-20">
+        <BookingCustomerSummary />
+      </div>
+
+      {/* Cột giữa: Nội dung đặt lịch chính */}
+      <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        {wizardContent}
+      </div>
+
+      {/* Cột phải: Tóm tắt tiến trình – ẩn khi bước 6 */}
+      {currentStep < 6 && (
+        <div className="w-full lg:w-56 xl:w-60 lg:shrink-0 lg:sticky lg:top-20">
+          <BookingProcessSummary state={state} goTo={goTo} />
+        </div>
+      )}
     </div>
   );
 }

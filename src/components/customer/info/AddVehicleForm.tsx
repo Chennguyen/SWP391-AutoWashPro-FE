@@ -38,6 +38,12 @@ function formFromVehicle(vehicle?: Vehicle): VehicleForm {
   };
 }
 
+/**
+ * Thành phần (Component) AddVehicleForm
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function AddVehicleForm({
   token,
   vehicle,
@@ -52,19 +58,29 @@ export function AddVehicleForm({
     getVehicleModelChoice(getVehicleBrandChoice(vehicle?.brand ?? ""), vehicle?.model ?? ""),
   );
   const [errors, setErrors] = useState<FormErrors>({});
-  const [imagePreview, setImagePreview] = useState(vehicle?.licensePlateImageUrl ?? "");
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  
+  const [vehicleType, setVehicleType] = useState<"SEDAN" | "SUV">(() => {
+    return vehicle?.vehicleType === "SUV" ? "SUV" : "SEDAN";
+  });
+
+  const [imagePreviews, setImagePreviews] = useState<string[]>(() => {
+    if (vehicle?.vehicleImages && vehicle.vehicleImages.length > 0) {
+      return vehicle.vehicleImages;
+    }
+    return vehicle?.licensePlateImageUrl ? [vehicle.licensePlateImageUrl] : [];
+  });
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const previewUrlRef = useRef<string | null>(null);
+  const previewUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
-    const previewRef = previewUrlRef;
+    const previewRefs = previewUrlsRef;
 
     return () => {
-      if (previewRef.current) {
-        URL.revokeObjectURL(previewRef.current);
-      }
+      previewRefs.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
     };
   }, []);
 
@@ -106,8 +122,8 @@ export function AddVehicleForm({
     if (!form.color.trim()) {
       nextErrors.color = "Vui lòng nhập màu xe.";
     }
-    if (!isEditing && !imageFile) {
-      nextErrors.licensePlateImage = "Vui lòng chọn ảnh biển số.";
+    if (!isEditing && imageFiles.length === 0) {
+      nextErrors.licensePlateImage = "Vui lòng chọn từ 1 đến 3 ảnh xác minh.";
     }
 
     setErrors(nextErrors);
@@ -115,49 +131,71 @@ export function AddVehicleForm({
   }
 
   function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) {
+    const files = event.target.files;
+    if (!files || files.length === 0) {
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
+    const newFiles = Array.from(files);
+    const validFiles: File[] = [];
+    const newErrors: string[] = [];
+
+    for (const file of newFiles) {
+      if (!file.type.startsWith("image/")) {
+        newErrors.push(`File "${file.name}" không phải là ảnh.`);
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        newErrors.push(`Ảnh "${file.name}" vượt quá 10 MB.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (newErrors.length > 0) {
       setErrors((current) => ({
         ...current,
-        licensePlateImage: "Vui lòng chọn file hình ảnh.",
+        licensePlateImage: newErrors[0],
       }));
       event.target.value = "";
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    const totalCount = imageFiles.length + validFiles.length;
+    if (totalCount > 3) {
       setErrors((current) => ({
         ...current,
-        licensePlateImage: "Ảnh biển số tối đa 10 MB.",
+        licensePlateImage: "Bạn chỉ được tải lên tối đa 3 ảnh xác minh xe.",
       }));
       event.target.value = "";
       return;
     }
 
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-    }
+    // Create object URLs for previews
+    const newPreviews = validFiles.map((file) => {
+      const url = URL.createObjectURL(file);
+      previewUrlsRef.current.push(url);
+      return url;
+    });
 
-    const objectUrl = URL.createObjectURL(file);
-    previewUrlRef.current = objectUrl;
-    setImagePreview(objectUrl);
-    setImageFile(file);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    setImageFiles((prev) => [...prev, ...validFiles]);
     setErrors((current) => ({ ...current, licensePlateImage: undefined }));
     event.target.value = "";
   }
 
-  function handleRemoveImage() {
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
-    }
+  function handleRemoveImage(index: number) {
+    const isNewFile = index >= (imagePreviews.length - imageFiles.length);
 
-    setImagePreview(isEditing ? (vehicle?.licensePlateImageUrl ?? "") : "");
-    setImageFile(null);
+    if (isNewFile) {
+      const fileIndex = index - (imagePreviews.length - imageFiles.length);
+      const urlToRevoke = imagePreviews[index];
+      URL.revokeObjectURL(urlToRevoke);
+      previewUrlsRef.current = previewUrlsRef.current.filter((u) => u !== urlToRevoke);
+
+      setImageFiles((prev) => prev.filter((_, i) => i !== fileIndex));
+      setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -175,15 +213,17 @@ export function AddVehicleForm({
           brand: form.brand.trim(),
           model: form.model.trim(),
           color: form.color.trim(),
+          vehicleType,
         };
         await updateVehicle(token, vehicle.id, payload);
-      } else if (imageFile) {
+      } else {
         await addVehicle(token, {
           licensePlate: form.licensePlate.trim(),
           brand: form.brand.trim(),
           model: form.model.trim(),
           color: form.color.trim(),
-          licensePlateImageFile: imageFile,
+          vehicleType,
+          vehicleImages: imageFiles,
         });
       }
 
@@ -298,15 +338,32 @@ export function AddVehicleForm({
           ) : null}
         </div>
         {renderInput("color", "Màu xe", "Black")}
+        
+        {/* Dropdown chọn loại xe */}
+        <div>
+          <label htmlFor="vehicle-type-select" className="mb-1 block text-sm font-medium text-slate-700">
+            Loại xe <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="vehicle-type-select"
+            value={vehicleType}
+            onChange={(event) => setVehicleType(event.target.value as "SEDAN" | "SUV")}
+            disabled={saving}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="SEDAN">Sedan</option>
+            <option value="SUV">SUV</option>
+          </select>
+        </div>
       </div>
 
       {!isEditing ? (
         <div>
           <p className="mb-1 text-sm font-medium text-slate-700">
-            Ảnh biển số <span className="text-red-500">*</span>
+            Ảnh xác minh xe (Chọn từ 1 đến 3 ảnh) <span className="text-red-500">*</span>
           </p>
           <label
-            htmlFor="license-plate-image"
+            htmlFor="vehicle-images-input"
             className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-white p-5 text-center transition hover:border-blue-500 hover:bg-blue-50/40"
           >
             <svg
@@ -324,14 +381,15 @@ export function AddVehicleForm({
               />
             </svg>
             <span className="text-sm font-semibold text-slate-700">
-              Nhấn để chọn ảnh biển số
+              Nhấn để chọn ảnh xác minh xe
             </span>
-            <span className="text-xs text-slate-400">PNG, JPG tối đa 10 MB</span>
+            <span className="text-xs text-slate-400">Chọn tối đa 3 ảnh, PNG, JPG tối đa 10 MB mỗi ảnh</span>
           </label>
           <input
-            id="license-plate-image"
+            id="vehicle-images-input"
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={handleImageUpload}
             disabled={saving}
@@ -342,28 +400,40 @@ export function AddVehicleForm({
             </p>
           ) : null}
         </div>
-      ) : null}
-
-      {imagePreview ? (
-        <div className="relative w-full overflow-hidden rounded-lg border border-slate-200 bg-white sm:max-w-sm">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imagePreview}
-            alt="Ảnh biển số đã chọn"
-            className="aspect-video w-full object-cover"
-          />
-          {!isEditing || imageFile ? (
-            <button
-              type="button"
-              onClick={handleRemoveImage}
-              disabled={saving}
-              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/70 text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Xóa ảnh biển số"
-            >
-              <span aria-hidden>×</span>
-            </button>
-          ) : null}
+      ) : (
+        <div>
+          <p className="mb-2 text-sm font-medium text-slate-700">
+            Ảnh xác minh xe (Chỉ đọc)
+          </p>
         </div>
+      )}
+
+      {imagePreviews.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {imagePreviews.map((preview, index) => (
+            <div key={`${preview}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={preview}
+                alt={`Ảnh xác minh ${index + 1}`}
+                className="aspect-video w-full object-cover"
+              />
+              {!isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(index)}
+                  disabled={saving}
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/70 text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-60 text-xs"
+                  aria-label={`Xóa ảnh ${index + 1}`}
+                >
+                  <span aria-hidden>×</span>
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : isEditing ? (
+        <p className="text-xs text-slate-400 italic">Không có ảnh xác minh cho xe này.</p>
       ) : null}
 
       {serverError ? (

@@ -6,6 +6,12 @@ interface BookingSuccessStepProps {
   result: BookingResult;
 }
 
+/**
+ * Thành phần (Component) BookingSuccessStep
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function BookingSuccessStep({ result }: BookingSuccessStepProps) {
   const displayCode = result.confirmationCode ?? result.bookingId;
 

@@ -53,7 +53,10 @@ export interface CustomerBooking {
   endTime?: string;
   status: string;
   serviceName?: string;
-  totalPrice?: number;
+  totalPrice?: number; // Kept for backwards compatibility
+  finalPrice?: number;
+  basePrice?: number;
+  discountAmount?: number;
   cancelReason?: string;
 }
 

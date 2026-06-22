@@ -17,6 +17,7 @@ export interface Vehicle {
   color: string;
   vehicleType: VehicleType;
   licensePlateImageUrl?: string;
+  vehicleImages?: string[];
 }
 
 export interface AddVehiclePayload {
@@ -24,13 +25,15 @@ export interface AddVehiclePayload {
   brand: string;
   model: string;
   color: string;
-  licensePlateImageFile: File;
+  vehicleType: VehicleType;
+  vehicleImages: File[];
 }
 
 export interface UpdateVehiclePayload {
   brand: string;
   model: string;
   color: string;
+  vehicleType: VehicleType;
 }
 
 export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {

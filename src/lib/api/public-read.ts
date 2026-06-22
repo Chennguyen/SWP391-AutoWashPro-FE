@@ -32,6 +32,13 @@ type BranchListResponse =
       results?: BranchRecord[];
     };
 
+/**
+ * Chuẩn hóa một bản ghi chi nhánh thô từ API để phù hợp với schema Branch của UI.
+ * Hỗ trợ các trường dự phòng cho địa điểm (location) và cách viết hoa/thường.
+ * 
+ * @param raw Thuộc tính chi nhánh thô.
+ * @returns Đối tượng chi nhánh Branch đã chuẩn hóa.
+ */
 function normalizeBranch(raw: BranchRecord): Branch {
   const status = raw.status ?? raw.Status;
   const isActive =
@@ -52,6 +59,12 @@ function normalizeBranch(raw: BranchRecord): Branch {
   };
 }
 
+/**
+ * Giải nén các mảng chi nhánh từ các phong bì phản hồi REST khác nhau.
+ * 
+ * @param body Phản hồi API chứa danh sách chi nhánh.
+ * @returns Mảng các chi nhánh đã chuẩn hóa.
+ */
 function normalizeBranches(body: BranchListResponse): Branch[] {
   if (Array.isArray(body)) {
     return body.map(normalizeBranch);
@@ -69,6 +82,14 @@ function normalizeBranches(body: BranchListResponse): Branch[] {
   return (body.items ?? body.results ?? []).map(normalizeBranch);
 }
 
+/**
+ * Lấy tất cả các chi nhánh hoạt động trong hệ thống.
+ * Hỗ trợ truy vấn công khai (không cần token xác thực) và tìm kiếm theo từ khóa.
+ * 
+ * @param keyword Từ khóa tìm kiếm tên chi nhánh tùy chọn.
+ * @param token Token xác thực tùy chọn.
+ * @returns Một promise giải quyết thành danh sách mảng các chi nhánh Branch.
+ */
 export async function getBranches(keyword = "", token = ""): Promise<Branch[]> {
   const params = new URLSearchParams();
 

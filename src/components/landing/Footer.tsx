@@ -1,5 +1,11 @@
 import { Logo } from '../common/Logo';
 
+/**
+ * Thành phần (Component) Footer
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function Footer() {
   return (
     <footer id="ho-tro" className="bg-[#000000] px-8 md:px-16 pt-16 pb-10 border-t border-white/[0.06]">

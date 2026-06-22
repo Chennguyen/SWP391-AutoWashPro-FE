@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Edit2, Plus, RefreshCw, Save, X } from "lucide-react";
+import { Plus, RefreshCw, Save, X } from "lucide-react";
 import {
   createAdminTier,
   getAdminTiers,
   updateAdminTier,
+  deleteAdminTier,
   type AdminTier,
   type CreateTierPayload,
   type UpdateTierPayload,
@@ -39,20 +40,31 @@ interface TierFormProps {
   title: string;
   saving: boolean;
   error: string | null;
+  readOnly?: boolean;
   onSubmit: (fields: TierFormFields) => void;
   onClose: () => void;
 }
 
-function TierFormModal({ initial, title, saving, error, onSubmit, onClose }: TierFormProps) {
+function TierFormModal({ initial, title, saving, error, readOnly = false, onSubmit, onClose }: TierFormProps) {
   const [name, setName] = useState(initial.name);
   const [level, setLevel] = useState(initial.level);
-  const [requiredWashes, setRequiredWashes] = useState(initial.requiredWashes);
-  const [priorityBookingDays, setPriorityBookingDays] = useState(initial.priorityBookingDays);
+  const [requiredWashesStr, setRequiredWashesStr] = useState(String(initial.requiredWashes));
+  const [priorityBookingDaysStr, setPriorityBookingDaysStr] = useState(String(initial.priorityBookingDays));
   const [description, setDescription] = useState(initial.description);
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    onSubmit({ name, level, requiredWashes, priorityBookingDays, description });
+    if (readOnly) {
+      onClose();
+      return;
+    }
+    onSubmit({
+      name,
+      level,
+      requiredWashes: Number(requiredWashesStr) || 0,
+      priorityBookingDays: Number(priorityBookingDaysStr) || 0,
+      description,
+    });
   }
 
   return (
@@ -72,10 +84,11 @@ function TierFormModal({ initial, title, saving, error, onSubmit, onClose }: Tie
             <label className="mb-1 block text-sm font-medium text-slate-700">Tên hạng</label>
             <input
               required
+              disabled={readOnly}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="VD: Silver, Gold, Platinum"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
 
@@ -86,20 +99,30 @@ function TierFormModal({ initial, title, saving, error, onSubmit, onClose }: Tie
                 type="number"
                 min={1}
                 required
+                disabled={true}
                 value={level}
                 onChange={(e) => setLevel(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
+              <p className="mt-0.5 text-xs text-slate-400 font-medium text-slate-500 font-medium">
+                Cấp độ được hệ thống gán tự động để đảm bảo tính liên tục.
+              </p>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Số lần rửa yêu cầu</label>
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 required
-                value={requiredWashes}
-                onChange={(e) => setRequiredWashes(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                disabled={readOnly}
+                value={requiredWashesStr}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setRequiredWashesStr(cleanVal);
+                }}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
               <p className="mt-0.5 text-xs text-slate-400">Lần rửa tích lũy để đạt hạng</p>
             </div>
@@ -110,11 +133,17 @@ function TierFormModal({ initial, title, saving, error, onSubmit, onClose }: Tie
               Đặt lịch trước tối đa (ngày)
             </label>
             <input
-              type="number"
-              min={0}
-              value={priorityBookingDays}
-              onChange={(e) => setPriorityBookingDays(Number(e.target.value))}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              disabled={readOnly}
+              value={priorityBookingDaysStr}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                setPriorityBookingDaysStr(cleanVal);
+              }}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
             <p className="mt-0.5 text-xs text-slate-400">0 = không giới hạn. Ví dụ: 7 = chỉ đặt trước tối đa 7 ngày</p>
           </div>
@@ -123,29 +152,42 @@ function TierFormModal({ initial, title, saving, error, onSubmit, onClose }: Tie
             <label className="mb-1 block text-sm font-medium text-slate-700">Mô tả quyền lợi</label>
             <textarea
               rows={2}
+              disabled={readOnly}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="VD: Hạng Platinum với các đặc quyền ưu tiên cao cấp nhất"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-              Lưu
-            </button>
+            {readOnly ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg border border-slate-200 px-6 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Đóng
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                  Lưu
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>
@@ -158,8 +200,15 @@ function TierFormModal({ initial, title, saving, error, onSubmit, onClose }: Tie
 type ModalMode =
   | { kind: "create" }
   | { kind: "edit"; tier: AdminTier }
+  | { kind: "view"; tier: AdminTier }
   | null;
 
+/**
+ * Thành phần (Component) TiersTab
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function TiersTab({ token }: Props) {
   const [tiers, setTiers] = useState<AdminTier[]>([]);
   const [loading, setLoading] = useState(false);
@@ -197,9 +246,37 @@ export function TiersTab({ token }: Props) {
     setModalError(null);
   }
 
+  function openView(tier: AdminTier) {
+    setModal({ kind: "view", tier });
+    setModalError(null);
+  }
+
   function closeModal() {
     setModal(null);
     setModalError(null);
+  }
+
+  async function handleDelete(tierId: string, name: string) {
+    const targetTier = tiers.find((t) => t.id === tierId);
+    if (targetTier) {
+      const maxLevel = tiers.length > 0 ? Math.max(...tiers.map((t) => t.level)) : 0;
+      if (targetTier.level < maxLevel) {
+        alert(
+          `Không thể xóa hạng "${name}". Để đảm bảo tính liên tục của hệ thống, chỉ có thể xóa hạng thành viên có cấp độ cao nhất hiện tại (Cấp ${maxLevel}).`
+        );
+        return;
+      }
+    }
+    if (!confirm(`Bạn có chắc chắn muốn xóa hạng "${name}"?`)) return;
+    setLoading(true);
+    try {
+      await deleteAdminTier(token, tierId);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể xóa tier.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleCreate(fields: TierFormFields) {
@@ -285,7 +362,11 @@ export function TiersTab({ token }: Props) {
               </tr>
             ) : (
               tiers.map((tier) => (
-                <tr key={tier.id} className="hover:bg-slate-50">
+                <tr
+                  key={tier.id}
+                  className="hover:bg-slate-50 cursor-pointer"
+                  onClick={() => openView(tier)}
+                >
                   <td className="px-4 py-3 font-semibold text-slate-950">{tier.name}</td>
                   <td className="px-4 py-3">
                     <TierLevelBadge level={tier.level} />
@@ -306,15 +387,23 @@ export function TiersTab({ token }: Props) {
                   <td className="px-4 py-3 text-xs text-slate-500 max-w-[200px] truncate">
                     {tier.description ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(tier)}
-                      className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600"
-                      title="Sửa tier"
-                    >
-                      <Edit2 size={15} />
-                    </button>
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(tier)}
+                        className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-100"
+                      >
+                        Sửa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(tier.id, tier.name)}
+                        className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -326,7 +415,13 @@ export function TiersTab({ token }: Props) {
       {modal?.kind === "create" && (
         <TierFormModal
           title="Thêm tier mới"
-          initial={{ name: "", level: 1, requiredWashes: 0, priorityBookingDays: 0, description: "" }}
+          initial={{
+            name: "",
+            level: tiers.length > 0 ? Math.max(...tiers.map((t) => t.level)) + 1 : 1,
+            requiredWashes: 0,
+            priorityBookingDays: 0,
+            description: "",
+          }}
           saving={modalSaving}
           error={modalError}
           onSubmit={handleCreate}
@@ -347,6 +442,24 @@ export function TiersTab({ token }: Props) {
           saving={modalSaving}
           error={modalError}
           onSubmit={handleEdit}
+          onClose={closeModal}
+        />
+      )}
+
+      {modal?.kind === "view" && (
+        <TierFormModal
+          title={`Chi tiết hạng: ${modal.tier.name}`}
+          initial={{
+            name: modal.tier.name,
+            level: modal.tier.level,
+            requiredWashes: modal.tier.requiredWashes,
+            priorityBookingDays: modal.tier.priorityBookingDays,
+            description: modal.tier.description ?? "",
+          }}
+          saving={false}
+          error={null}
+          readOnly={true}
+          onSubmit={() => {}}
           onClose={closeModal}
         />
       )}

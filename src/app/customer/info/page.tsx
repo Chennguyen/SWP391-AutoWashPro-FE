@@ -6,6 +6,12 @@ export const metadata: Metadata = {
   description: "Quản lý xe và ví của khách hàng AutoWash Pro.",
 };
 
+/**
+ * Trang (Page) CustomerInfoPage
+ * 
+ * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
+ * Đường dẫn tương đối: src/app/app/customer/info/page.tsx
+ */
 export default function CustomerInfoPage() {
   return (
     <main className="mx-auto w-full max-w-6xl p-4 md:p-6 lg:p-8">

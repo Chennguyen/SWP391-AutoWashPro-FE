@@ -4,6 +4,12 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";
 
+/**
+ * Trang (Page) LoginPage
+ * 
+ * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
+ * Đường dẫn tương đối: src/app/app/auth/login/page.tsx
+ */
 export default function LoginPage() {
   return (
     <AuthLayout>

@@ -56,10 +56,24 @@ export const VIETNAM_VEHICLE_MODELS: Record<string, string[]> = {
 
 export const VIETNAM_VEHICLE_BRANDS = Object.keys(VIETNAM_VEHICLE_MODELS);
 
+/**
+ * Phân giải xem hãng xe đăng ký có phải là một hãng xe phổ biến có trong bộ dữ liệu của chúng ta hay không.
+ * Dự phòng về "Khác" nếu đó là một hãng xe lạ tự nhập.
+ * 
+ * @param brand Tên hãng xe thô.
+ * @returns Hãng xe phổ biến đã phân giải hoặc giá trị lựa chọn dự phòng.
+ */
 export function getVehicleBrandChoice(brand: string): string {
   return VIETNAM_VEHICLE_BRANDS.includes(brand) ? brand : OTHER_VEHICLE_OPTION;
 }
 
+/**
+ * Phân giải xem dòng xe (model) đăng ký có tồn tại trong danh sách các dòng xe phổ biến thuộc hãng xe tương ứng hay không.
+ * 
+ * @param brandChoice Lựa chọn hãng xe phổ biến đã được phân giải trước đó.
+ * @param model Tên dòng xe thô.
+ * @returns Tên dòng xe khớp chuẩn, chuỗi rỗng hoặc giá trị lựa chọn dự phòng.
+ */
 export function getVehicleModelChoice(brandChoice: string, model: string): string {
   if (!model || brandChoice === OTHER_VEHICLE_OPTION) {
     return model ? OTHER_VEHICLE_OPTION : "";

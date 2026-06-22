@@ -13,6 +13,12 @@ interface Props {
   token: string;
 }
 
+/**
+ * Thành phần (Component) LoyaltySettingsTab
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
 export function LoyaltySettingsTab({ token }: Props) {
   const [settings, setSettings] = useState<LoyaltyPointsConfig | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,7 +27,7 @@ export function LoyaltySettingsTab({ token }: Props) {
   const [success, setSuccess] = useState(false);
 
   // Form state
-  const [vndPerPoint, setVndPerPoint] = useState(10000);
+  const [vndPerPointStr, setVndPerPointStr] = useState("10000");
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -30,7 +36,7 @@ export function LoyaltySettingsTab({ token }: Props) {
     try {
       const data = await getLoyaltySettings(token);
       setSettings(data);
-      setVndPerPoint(data.vndPerPoint);
+      setVndPerPointStr(String(data.vndPerPoint));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải cài đặt.");
     } finally {
@@ -49,7 +55,7 @@ export function LoyaltySettingsTab({ token }: Props) {
     setError(null);
     setSuccess(false);
     try {
-      await updateLoyaltySettings(token, { vndPerPoint });
+      await updateLoyaltySettings(token, { vndPerPoint: Number(vndPerPointStr) || 10000 });
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể lưu cài đặt.");
@@ -76,15 +82,19 @@ export function LoyaltySettingsTab({ token }: Props) {
             </label>
             <input
               id="vnd-per-point"
-              type="number"
-              min={1000}
-              step={1000}
-              value={vndPerPoint}
-              onChange={(e) => setVndPerPoint(Number(e.target.value))}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={vndPerPointStr}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                setVndPerPointStr(cleanVal);
+              }}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-slate-400">
-              Ví dụ: {vndPerPoint.toLocaleString("vi-VN")} VNĐ = 1 điểm. Khách sẽ tích điểm dựa trên giá trị đơn rửa xe.
+              Ví dụ: {(Number(vndPerPointStr) || 0).toLocaleString("vi-VN")} VNĐ = 1 điểm. Khách sẽ tích điểm dựa trên giá trị đơn rửa xe.
             </p>
           </div>
         </div>
