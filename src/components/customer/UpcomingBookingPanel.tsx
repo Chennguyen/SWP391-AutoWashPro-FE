@@ -1,51 +1,57 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { getVehicles } from "@/lib/api/vehicle";
-import { getLoyaltySettings, type LoyaltyPointsConfig } from "@/lib/api/loyalty-admin";
-import type { Vehicle } from "@/types/vehicle";
-import {
-  CalendarDays,
-  Car,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  RefreshCw,
-  XCircle,
-  ArrowLeft,
-  Banknote,
-  Wrench,
-  ChevronRight,
-  AlertCircle,
-  Plus,
-  WalletCards,
-} from "lucide-react";
-import Link from "next/link";
+import { BookingCard } from "@/components/customer/booking/BookingCard";
 import { ApiError } from "@/lib/api/api-error";
 import { cancelBooking, checkInBooking, getBookings } from "@/lib/api/booking";
 import { getMyVerificationStatus } from "@/lib/api/customer";
-import type { CustomerBooking } from "@/types/booking";
+import {
+  getLoyaltySettings,
+  type LoyaltyPointsConfig,
+} from "@/lib/api/loyalty-admin";
+import { getVehicles } from "@/lib/api/vehicle";
 import { getWallet, topUpWallet, type Wallet } from "@/lib/api/wallet";
 import {
-  subscribeToToken,
-  getTokenSnapshot,
-  getServerTokenSnapshot,
-  toISODate,
+  canCheckIn,
   formatDateOnly,
   formatTimeRange,
-  statusStyle,
+  getServerTokenSnapshot,
+  getTokenSnapshot,
   isCancelledStatus,
   isCompletedStatus,
   isUpcomingStatus,
-  canCheckIn,
   minutesUntilBooking,
+  statusStyle,
+  subscribeToToken,
+  toISODate,
 } from "@/lib/booking-helpers";
-import { BookingCard } from "@/components/customer/booking/BookingCard";
+import type { CustomerBooking } from "@/types/booking";
+import type { Vehicle } from "@/types/vehicle";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarDays,
+  Car,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Plus,
+  RefreshCw,
+  WalletCards,
+  Wrench,
+  XCircle,
+} from "lucide-react";
+import Link from "next/link";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 const UPCOMING_PREVIEW_COUNT = 3;
 const CANCEL_CUTOFF_MINUTES = 30;
-
-
 
 // ─── Cancel Modal ───────────────────────────────────────────────────────────────
 
@@ -72,11 +78,17 @@ function CancelModal({
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-bold text-slate-900">Hủy lịch đặt</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Mã lịch: <span className="font-mono font-semibold text-slate-700">{bookingId}</span>
+          Mã lịch:{" "}
+          <span className="font-mono font-semibold text-slate-700">
+            {bookingId}
+          </span>
         </p>
 
         <div className="mt-4">
-          <label htmlFor="cancel-reason" className="mb-1.5 block text-sm font-medium text-slate-700">
+          <label
+            htmlFor="cancel-reason"
+            className="mb-1.5 block text-sm font-medium text-slate-700"
+          >
             Lý do hủy <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -180,9 +192,15 @@ function CheckInConfirmModal({
       setTopUpSuccess("Nạp tiền thành công!");
       setTopUpAmount(0);
       // Gửi sự kiện cập nhật ví ra toàn hệ thống
-      window.dispatchEvent(new CustomEvent("autowash-wallet-updated", { detail: nextWallet }));
+      window.dispatchEvent(
+        new CustomEvent("autowash-wallet-updated", { detail: nextWallet }),
+      );
     } catch (err) {
-      setTopUpError(err instanceof Error ? err.message : "Nạp tiền thất bại, vui lòng thử lại.");
+      setTopUpError(
+        err instanceof Error
+          ? err.message
+          : "Nạp tiền thất bại, vui lòng thử lại.",
+      );
     } finally {
       setTopUpLoading(false);
     }
@@ -219,15 +237,21 @@ function CheckInConfirmModal({
         <div className="mt-4 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex justify-between text-sm text-slate-600">
             <span>Tổng tiền dịch vụ:</span>
-            <span className="font-semibold text-slate-900">{finalPrice.toLocaleString("vi-VN")}₫</span>
+            <span className="font-semibold text-slate-900">
+              {finalPrice.toLocaleString("vi-VN")}₫
+            </span>
           </div>
           <div className="flex justify-between text-sm text-emerald-600">
             <span>Đã đặt cọc (30%):</span>
-            <span className="font-semibold">-{depositAmount.toLocaleString("vi-VN")}₫</span>
+            <span className="font-semibold">
+              -{depositAmount.toLocaleString("vi-VN")}₫
+            </span>
           </div>
           <div className="flex justify-between border-t border-slate-200 pt-2.5 text-base font-bold text-slate-900">
             <span>Cần thanh toán thêm:</span>
-            <span className="text-blue-600">{remainingAmount.toLocaleString("vi-VN")}₫</span>
+            <span className="text-blue-600">
+              {remainingAmount.toLocaleString("vi-VN")}₫
+            </span>
           </div>
         </div>
 
@@ -252,19 +276,28 @@ function CheckInConfirmModal({
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-600" />
             <div className="space-y-1">
               <p className="font-semibold">Số dư ví không đủ để check-in</p>
-              <p>Bạn cần nạp thêm tối thiểu <span className="font-bold">{missingAmount.toLocaleString("vi-VN")}₫</span> để thanh toán phần còn lại.</p>
+              <p>
+                Bạn cần nạp thêm tối thiểu{" "}
+                <span className="font-bold">
+                  {missingAmount.toLocaleString("vi-VN")}₫
+                </span>{" "}
+                để thanh toán phần còn lại.
+              </p>
             </div>
           </div>
         )}
 
         {/* Khung nạp tiền nhanh */}
         {insufficientBalance && (
-          <form onSubmit={handleQuickTopUp} className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+          <form
+            onSubmit={handleQuickTopUp}
+            className="mt-4 rounded-xl border border-slate-100 bg-slate-50/50 p-4"
+          >
             <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
               <Plus size={12} />
               Nạp tiền nhanh vào ví
             </div>
-            
+
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
@@ -280,7 +313,9 @@ function CheckInConfirmModal({
                   placeholder="Nhập số tiền nạp"
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
                 />
-                <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">₫</span>
+                <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">
+                  ₫
+                </span>
               </div>
               <button
                 type="submit"
@@ -314,13 +349,19 @@ function CheckInConfirmModal({
             </div>
 
             {topUpError && (
-              <div role="alert" className="mt-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div
+                role="alert"
+                className="mt-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+              >
                 {topUpError}
               </div>
             )}
 
             {topUpSuccess && (
-              <div role="status" className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              <div
+                role="status"
+                className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700"
+              >
                 {topUpSuccess}
               </div>
             )}
@@ -340,7 +381,9 @@ function CheckInConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={loading || walletLoading || insufficientBalance || topUpLoading}
+            disabled={
+              loading || walletLoading || insufficientBalance || topUpLoading
+            }
             className={`rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${
               insufficientBalance
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
@@ -391,7 +434,10 @@ function BookingDetailPanel({
           setConfigs(settings);
         }
       } catch (err) {
-        console.warn("Failed to load auxiliary data in BookingDetailPanel:", err);
+        console.warn(
+          "Failed to load auxiliary data in BookingDetailPanel:",
+          err,
+        );
       }
     }
     void loadAuxData();
@@ -401,7 +447,8 @@ function BookingDetailPanel({
   }, [token]);
 
   const minutesToBooking = minutesUntilBooking(booking);
-  const canCancelByTime = minutesToBooking === null || minutesToBooking > CANCEL_CUTOFF_MINUTES;
+  const canCancelByTime =
+    minutesToBooking === null || minutesToBooking > CANCEL_CUTOFF_MINUTES;
   const canCancelByLifecycle =
     canCancelByTime &&
     !isCancelledStatus(booking.status) &&
@@ -419,7 +466,9 @@ function BookingDetailPanel({
       if (err instanceof ApiError && err.status >= 500) {
         setCancelError("Đang xảy ra lỗi vui lòng quay lại sau");
       } else {
-        setCancelError(err instanceof Error ? err.message : "Không thể check-in booking.");
+        setCancelError(
+          err instanceof Error ? err.message : "Không thể check-in booking.",
+        );
       }
     } finally {
       setCheckingIn(false);
@@ -429,7 +478,9 @@ function BookingDetailPanel({
   async function handleConfirmCancel(reason: string) {
     if (!reason) return;
     if (!canCancelByTime) {
-      setCancelError(`Không thể hủy vì lịch còn dưới ${CANCEL_CUTOFF_MINUTES} phút nữa.`);
+      setCancelError(
+        `Không thể hủy vì lịch còn dưới ${CANCEL_CUTOFF_MINUTES} phút nữa.`,
+      );
       return;
     }
     setCancelling(true);
@@ -442,7 +493,11 @@ function BookingDetailPanel({
       if (err instanceof ApiError && err.status >= 500) {
         setCancelError("Đang xảy ra lỗi vui lòng quay lại sau");
       } else {
-        setCancelError(err instanceof Error ? err.message : "Không thể hủy lịch, vui lòng thử lại.");
+        setCancelError(
+          err instanceof Error
+            ? err.message
+            : "Không thể hủy lịch, vui lòng thử lại.",
+        );
       }
     } finally {
       setCancelling(false);
@@ -470,7 +525,9 @@ function BookingDetailPanel({
             <CheckCircle2 size={12} aria-hidden />
             {booking.status}
           </span>
-          <h3 className="mt-2 text-xl font-black text-slate-950">{booking.branchName}</h3>
+          <h3 className="mt-2 text-xl font-black text-slate-950">
+            {booking.branchName}
+          </h3>
           {booking.branchAddress && (
             <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
               <MapPin size={13} aria-hidden />
@@ -487,7 +544,9 @@ function BookingDetailPanel({
             <CalendarDays size={13} aria-hidden />
             Ngày
           </div>
-          <p className="mt-1 text-sm font-bold text-slate-950">{formatDateOnly(booking)}</p>
+          <p className="mt-1 text-sm font-bold text-slate-950">
+            {formatDateOnly(booking)}
+          </p>
         </div>
 
         <div className="rounded-lg bg-slate-50 p-2.5">
@@ -495,7 +554,9 @@ function BookingDetailPanel({
             <Clock size={13} aria-hidden />
             Giờ
           </div>
-          <p className="mt-1 text-sm font-bold text-slate-950">{formatTimeRange(booking)}</p>
+          <p className="mt-1 text-sm font-bold text-slate-950">
+            {formatTimeRange(booking)}
+          </p>
         </div>
 
         <div className="rounded-lg bg-slate-50 p-2.5">
@@ -514,7 +575,9 @@ function BookingDetailPanel({
               <Wrench size={13} aria-hidden />
               Dịch vụ
             </div>
-            <p className="mt-1 text-sm font-bold text-slate-950">{booking.serviceName}</p>
+            <p className="mt-1 text-sm font-bold text-slate-950">
+              {booking.serviceName}
+            </p>
           </div>
         )}
 
@@ -523,7 +586,9 @@ function BookingDetailPanel({
             <MapPin size={13} aria-hidden />
             Mã lịch
           </div>
-          <p className="mt-1 font-mono text-sm font-bold text-slate-950">{booking.id}</p>
+          <p className="mt-1 font-mono text-sm font-bold text-slate-950">
+            {booking.id}
+          </p>
         </div>
       </div>
 
@@ -534,8 +599,12 @@ function BookingDetailPanel({
         const sedanSurcharge = configs?.sedanBasePrice ?? 0;
 
         const bookingVehicle = vehicles.find((v) => {
-          const vPlate = v.licensePlate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-          const bPlate = booking.vehicleLicensePlate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+          const vPlate = v.licensePlate
+            .replace(/[^A-Za-z0-9]/g, "")
+            .toUpperCase();
+          const bPlate = booking.vehicleLicensePlate
+            .replace(/[^A-Za-z0-9]/g, "")
+            .toUpperCase();
           return vPlate === bPlate;
         });
         const vehicleType = bookingVehicle?.vehicleType;
@@ -553,8 +622,13 @@ function BookingDetailPanel({
           } else if (lowerPlate.includes("sedan")) {
             isSedan = true;
           } else {
-            const diff = Math.max(0, (booking.totalPrice ?? finalPrice) - basePrice);
-            if (Math.abs(diff - suvSurcharge) < Math.abs(diff - sedanSurcharge)) {
+            const diff = Math.max(
+              0,
+              (booking.totalPrice ?? finalPrice) - basePrice,
+            );
+            if (
+              Math.abs(diff - suvSurcharge) < Math.abs(diff - sedanSurcharge)
+            ) {
               isSUV = true;
             } else {
               isSedan = true;
@@ -603,7 +677,9 @@ function BookingDetailPanel({
               <div className="flex justify-between text-sm">
                 <div>
                   <span className="text-slate-600">Ưu đãi giảm giá</span>
-                  <p className="text-xs text-slate-400 font-normal">(Khuyến mãi từ hệ thống)</p>
+                  <p className="text-xs text-slate-400 font-normal">
+                    (Khuyến mãi từ hệ thống)
+                  </p>
                 </div>
                 {promotionDiscount > 0 ? (
                   <span className="font-medium" style={{ color: "#EE4D2D" }}>
@@ -618,7 +694,9 @@ function BookingDetailPanel({
               <div className="flex justify-between text-sm">
                 <div>
                   <span className="text-slate-600">Voucher</span>
-                  <p className="text-xs text-slate-400 font-normal">(Mã giảm giá đã áp dụng)</p>
+                  <p className="text-xs text-slate-400 font-normal">
+                    (Mã giảm giá đã áp dụng)
+                  </p>
                 </div>
                 {voucherDiscount > 0 ? (
                   <span className="font-medium" style={{ color: "#EE4D2D" }}>
@@ -633,7 +711,9 @@ function BookingDetailPanel({
               <div className="flex justify-between text-sm">
                 <div>
                   <span className="text-slate-600">Số tiền phải cọc (30%)</span>
-                  <p className="text-xs text-slate-400">Bạn phải cọc trước 30% để giữ slot</p>
+                  <p className="text-xs text-slate-400">
+                    Bạn phải cọc trước 30% để giữ slot
+                  </p>
                 </div>
                 <span className="font-medium text-slate-700">
                   -{depositAmount.toLocaleString("vi-VN")}₫
@@ -645,7 +725,9 @@ function BookingDetailPanel({
 
               {/* Tổng tiền phải trả khi check-in */}
               <div className="flex justify-between text-sm">
-                <span className="font-semibold text-slate-800">Tổng tiền phải trả khi check-in</span>
+                <span className="font-semibold text-slate-800">
+                  Tổng tiền phải trả khi check-in
+                </span>
                 <span className="font-bold text-slate-950">
                   {remainingAmount.toLocaleString("vi-VN")}₫
                 </span>
@@ -656,18 +738,24 @@ function BookingDetailPanel({
       })()}
 
       {cancelError && (
-        <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {cancelError}
         </div>
       )}
 
-      {!canCancelByTime && !isCancelledStatus(booking.status) && !isCompletedStatus(booking.status) ? (
+      {!canCancelByTime &&
+      !isCancelledStatus(booking.status) &&
+      !isCompletedStatus(booking.status) ? (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Không thể hủy vì lịch còn dưới {CANCEL_CUTOFF_MINUTES} phút nữa.
         </div>
       ) : null}
 
       {/* Actions */}
+      {/* aahhihihihihihihih */}
       {showCheckInBtn ? (
         <div className="mt-5">
           <button
@@ -700,7 +788,10 @@ function BookingDetailPanel({
         <CheckInConfirmModal
           booking={booking}
           onConfirm={handleCheckIn}
-          onClose={() => { setShowCheckInModal(false); setCancelError(null); }}
+          onClose={() => {
+            setShowCheckInModal(false);
+            setCancelError(null);
+          }}
           loading={checkingIn}
           token={token}
         />
@@ -710,7 +801,10 @@ function BookingDetailPanel({
         <CancelModal
           bookingId={booking.id}
           onConfirm={handleConfirmCancel}
-          onClose={() => { setShowCancelModal(false); setCancelError(null); }}
+          onClose={() => {
+            setShowCancelModal(false);
+            setCancelError(null);
+          }}
           loading={cancelling}
         />
       )}
@@ -722,7 +816,7 @@ function BookingDetailPanel({
 
 /**
  * Thành phần (Component) UpcomingBookingPanel
- * 
+ *
  * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
@@ -765,7 +859,10 @@ export function UpcomingBookingPanel() {
       const verification = await getMyVerificationStatus(token);
       setStatus(verification.status);
 
-      if (verification.status === "Pending" || verification.status === "Rejected") {
+      if (
+        verification.status === "Pending" ||
+        verification.status === "Rejected"
+      ) {
         setBookings([]);
         setLoading(false);
         return;
@@ -776,7 +873,13 @@ export function UpcomingBookingPanel() {
       const to = new Date();
       to.setDate(to.getDate() + 60);
 
-      const next = await getBookings(token, toISODate(from), toISODate(to), 1, 50);
+      const next = await getBookings(
+        token,
+        toISODate(from),
+        toISODate(to),
+        1,
+        50,
+      );
       // Only upcoming (not cancelled / completed)
       const upcoming = next.filter((b) => isUpcomingStatus(b.status));
       setBookings(upcoming);
@@ -788,7 +891,11 @@ export function UpcomingBookingPanel() {
       if (err instanceof ApiError && err.status === 401) {
         setError("Phiên đăng nhập đã hết hạn.");
       } else {
-        setError(err instanceof Error ? err.message : "Không thể tải lịch đặt sắp tới.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải lịch đặt sắp tới.",
+        );
       }
     } finally {
       setLoading(false);
@@ -814,14 +921,15 @@ export function UpcomingBookingPanel() {
     await loadBookings();
   }
 
-  const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+  const isUnverified =
+    typeof window !== "undefined" &&
+    window.localStorage.getItem("is_unverified") === "true";
 
   if (status === "Pending" || status === "Rejected" || isUnverified) {
     return null;
   }
 
   return (
-
     <section
       id="upcoming-booking"
       className="rounded-2xl border border-slate-200 bg-white p-6"
@@ -832,7 +940,9 @@ export function UpcomingBookingPanel() {
         <div>
           <h2 className="text-lg font-bold text-slate-950">Lịch đặt sắp tới</h2>
           <p className="mt-1 text-sm text-slate-500">
-            {showDetail ? "Chi tiết lịch đặt." : "Bấm vào lịch để xem thông tin chi tiết."}
+            {showDetail
+              ? "Chi tiết lịch đặt."
+              : "Bấm vào lịch để xem thông tin chi tiết."}
           </p>
         </div>
         {!showDetail && (
@@ -843,7 +953,11 @@ export function UpcomingBookingPanel() {
             title="Tải lại lịch đặt"
             className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
+            <RefreshCw
+              size={16}
+              className={loading ? "animate-spin" : ""}
+              aria-hidden
+            />
             <span className="sr-only">Tải lại lịch đặt</span>
           </button>
         )}
@@ -860,7 +974,10 @@ export function UpcomingBookingPanel() {
       {authChecked && token && loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-lg bg-slate-100" />
+            <div
+              key={i}
+              className="h-20 animate-pulse rounded-lg bg-slate-100"
+            />
           ))}
         </div>
       ) : null}
@@ -880,7 +997,12 @@ export function UpcomingBookingPanel() {
       ) : null}
 
       {/* Detail view */}
-      {authChecked && token && !loading && !error && showDetail && selectedBooking ? (
+      {authChecked &&
+      token &&
+      !loading &&
+      !error &&
+      showDetail &&
+      selectedBooking ? (
         <BookingDetailPanel
           booking={selectedBooking}
           onBack={handleBack}
@@ -890,7 +1012,12 @@ export function UpcomingBookingPanel() {
       ) : null}
 
       {/* List view */}
-      {authChecked && token && !loading && !error && !showDetail && bookings.length > 0 ? (
+      {authChecked &&
+      token &&
+      !loading &&
+      !error &&
+      !showDetail &&
+      bookings.length > 0 ? (
         <div className="space-y-3">
           {bookings.slice(0, UPCOMING_PREVIEW_COUNT).map((booking) => (
             <BookingCard
