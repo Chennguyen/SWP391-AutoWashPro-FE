@@ -17,7 +17,7 @@ import { ApiError } from "@/lib/api/api-error";
 import { createBooking, getSlots } from "@/lib/api/booking";
 import { getWallet, topUpWallet, type Wallet } from "@/lib/api/wallet";
 import { type AdminPromotion, getLoyaltySettings } from "@/lib/api/loyalty-admin";
-import { getLoyaltyInfo, getMyVouchers } from "@/lib/api/loyalty";
+import { getLoyaltyInfo, getMyVouchers, type LoyaltyInfo } from "@/lib/api/loyalty";
 import { validateVoucher } from "@/lib/api/voucher";
 import { cn } from "@/lib/utils";
 import type { BookingResult, Branch, VoucherValidation } from "@/types/booking";
@@ -107,6 +107,7 @@ export function ReviewPaymentStep({
   onUnauthorized,
 }: ReviewPaymentStepProps) {
   const [configs, setConfigs] = useState({
+    vndPerPoint: 10_000,
     basePrice: 100_000,
     sedanBasePrice: 0,
     suvBasePrice: 30_000,
@@ -120,6 +121,7 @@ export function ReviewPaymentStep({
         const settings = await getLoyaltySettings(token);
         if (active) {
           setConfigs({
+            vndPerPoint: settings.vndPerPoint ?? 10_000,
             basePrice: settings.basePrice ?? 100_000,
             sedanBasePrice: settings.sedanBasePrice ?? 0,
             suvBasePrice: settings.suvBasePrice ?? 30_000,
@@ -151,7 +153,7 @@ export function ReviewPaymentStep({
   const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
   const [promotionsLoading, setPromotionsLoading] = useState(false);
   const [localAppliedVoucher, setLocalAppliedVoucher] = useState<VoucherValidation | null>(appliedVoucher);
-  const [loyalty, setLoyalty] = useState<any>(null);
+  const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
   const [myVouchers, setMyVouchers] = useState<any[]>([]);
   const [vouchersLoading, setVouchersLoading] = useState(false);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
@@ -159,6 +161,7 @@ export function ReviewPaymentStep({
   const [voucherCodeInput, setVoucherCodeInput] = useState("");
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [voucherValidationLoading, setVoucherValidationLoading] = useState(false);
+  const [redeemPoint, setRedeemPoint] = useState(false);
 
   // Sync prop changes to local state
   useEffect(() => {
@@ -422,8 +425,13 @@ export function ReviewPaymentStep({
     return maxPromoDiscount;
   }, [promotions, date, servicePrice, loyalty]);
 
+  const loyaltyPoints = loyalty?.points ?? 0;
   const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
-  const payableAmount = Math.max(0, servicePrice - promotionDiscount - discount);
+  const payableAmountBeforeRedeem = Math.max(0, servicePrice - promotionDiscount - discount);
+  const redeemValue = redeemPoint
+    ? Math.min(payableAmountBeforeRedeem, loyaltyPoints * configs.vndPerPoint)
+    : 0;
+  const payableAmount = Math.max(0, payableAmountBeforeRedeem - redeemValue);
   const deposit = Math.round(payableAmount * depositRate);
   const voucherId = localAppliedVoucher?.voucherId ?? localAppliedVoucher?.id ?? null;
   const walletBalance = wallet?.balance ?? 0;
@@ -539,7 +547,7 @@ export function ReviewPaymentStep({
         voucherId,
         bookingDate: date,
         startTime: toStartTime(date, slot),
-        redemPoint: false,
+        redemPoint: redeemPoint,
       });
       const nextWallet = await getWallet(token);
       setWallet(nextWallet);
@@ -696,6 +704,34 @@ export function ReviewPaymentStep({
             {localAppliedVoucher && discount > 0 ? (
               <span className="font-medium" style={{ color: "#EE4D2D" }}>
                 -{formatVND(discount)}
+              </span>
+            ) : (
+              <span className="font-medium text-slate-700">0₫</span>
+            )}
+          </div>
+
+          <label className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white px-3 py-3">
+            <div>
+              <span className="block text-sm font-semibold text-slate-900">Dùng điểm thưởng</span>
+              <p className="mt-1 text-xs text-slate-500">
+                Bạn có {loyaltyPoints.toLocaleString("vi-VN")} điểm
+                {configs.vndPerPoint > 0 ? ` · ước tính giảm tối đa ${formatVND(loyaltyPoints * configs.vndPerPoint)}` : ""}
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={redeemPoint}
+              onChange={(event) => setRedeemPoint(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-slate-950"
+              disabled={loyaltyPoints <= 0}
+            />
+          </label>
+
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Quy đổi điểm thưởng</span>
+            {redeemValue > 0 ? (
+              <span className="font-medium" style={{ color: "#EE4D2D" }}>
+                -{formatVND(redeemValue)}
               </span>
             ) : (
               <span className="font-medium text-slate-700">0₫</span>

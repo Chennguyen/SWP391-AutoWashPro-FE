@@ -1,11 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Ban, ChevronLeft, ChevronRight, LogIn, RefreshCw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, X } from "lucide-react";
 import {
-  cancelAdminBooking,
-  completeBooking,
-  checkInAdminBooking,
   getAdminBookings,
   getBranches,
   type AdminBooking,
@@ -240,37 +237,6 @@ export function AdminBookingsPage() {
     return () => clearInterval(interval);
   }, [autoRefresh, loadBookings, pageIndex]);
 
-  async function handleCheckIn(booking: AdminBooking) {
-    if (!window.confirm(`Xác nhận khách hàng đã đến check-in cho xe ${booking.vehiclePlate}?`)) return;
-    try {
-      await checkInAdminBooking(token, booking.id);
-      await loadBookings(pageIndex);
-    } catch (checkInError) {
-      window.alert(checkInError instanceof Error ? checkInError.message : "Không thể check-in booking.");
-    }
-  }
-
-  async function handleComplete(booking: AdminBooking) {
-    const note = window.prompt("Ghi chú hoàn thành", "Đã rửa sạch") ?? "";
-    try {
-      await completeBooking(token, booking.id, note);
-      await loadBookings(pageIndex);
-    } catch (completeError) {
-      window.alert(completeError instanceof Error ? completeError.message : "Không thể hoàn thành booking.");
-    }
-  }
-
-  async function handleCancel(booking: AdminBooking) {
-    const reason = window.prompt("Lý do hủy", "Khách không đến");
-    if (!reason) return;
-    try {
-      await cancelAdminBooking(token, booking.id, reason);
-      await loadBookings(pageIndex);
-    } catch (cancelError) {
-      window.alert(cancelError instanceof Error ? cancelError.message : "Không thể hủy booking.");
-    }
-  }
-
   function handleFilter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPageIndex(1);
@@ -289,7 +255,7 @@ export function AdminBookingsPage() {
     <AdminShell>
       <AdminPageHeader
         title="Quản lý lịch đặt"
-        description="Theo dõi booking theo ngày, chi nhánh và xử lý hoàn thành/hủy lịch."
+        description="Theo dõi booking theo ngày, chi nhánh và trạng thái."
         actions={
           <label className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
             <input
@@ -363,20 +329,19 @@ export function AdminBookingsPage() {
                 <th className="px-4 py-3">Xe</th>
                 <th className="px-4 py-3">Ngày / Giờ</th>
                 <th className="px-4 py-3">Trạng thái</th>
-                <th className="px-4 py-3 text-right">Hành động</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
                     <RefreshCw className="mx-auto mb-2 animate-spin text-blue-600" size={22} aria-hidden />
                     Đang tải dữ liệu...
                   </td>
                 </tr>
               ) : filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
                     Chưa có booking phù hợp.
                   </td>
                 </tr>
@@ -407,43 +372,6 @@ export function AdminBookingsPage() {
                       </p>
                     </td>
                     <td className="px-4 py-3">{statusBadge(booking.status)}</td>
-                    <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        {booking.status === "Confirmed" || booking.status === "Pending" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleCheckIn(booking)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
-                            title="Check-in khách đến"
-                          >
-                            <LogIn size={13} aria-hidden />
-                            Check-in
-                          </button>
-                        ) : null}
-                        {booking.status === "InProgress" || booking.status === "CheckIn" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleComplete(booking)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                            title="Hoàn thành"
-                          >
-                            <BadgeCheck size={13} aria-hidden />
-                            Hoàn thành
-                          </button>
-                        ) : null}
-                        {booking.status !== "Completed" && booking.status !== "Cancelled" ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleCancel(booking)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-100"
-                            title="Hủy"
-                          >
-                            <Ban size={13} aria-hidden />
-                            Hủy
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
                   </tr>
                 ))
               )}
