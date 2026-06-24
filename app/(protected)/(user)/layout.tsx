@@ -1,0 +1,32 @@
+import { ReactNode, Suspense } from "react";
+import { DashboardSidebar } from "@/features/users/components/dashboard-sidebar";
+import { NotificationProvider } from "@/features/notifications/context";
+import { NotificationToaster } from "@/features/notifications/components/notification-toaster";
+import { RankUpgradeCelebration } from "@/features/loyalty/components/rank-upgrade-celebration";
+import { UnverifiedBanner } from "@/features/users/components/unverified-banner";
+
+/**
+ * Bố cục (Layout) CustomerLayout
+ * 
+ * Chức năng: Định nghĩa khung bố cục chung (Layout Template) cho hệ thống AutoWash Pro.
+ * Vai trò: Quản lý cấu trúc bao bọc giao diện chung cho các trang con.
+ */
+export default function CustomerLayout({ children }: { children: ReactNode }) {
+  return (
+    <NotificationProvider>
+      <div className="flex flex-col min-h-screen bg-background-outer text-slate-900">
+        <Suspense fallback={<div className="h-14 bg-[#050505] border-b border-white/10" />}>
+          <DashboardSidebar />
+        </Suspense>
+        <UnverifiedBanner />
+
+        {/* Main content wrapper */}
+        <div className="flex-1 min-w-0">
+          {children}
+        </div>
+      </div>
+      <NotificationToaster />
+      <RankUpgradeCelebration />
+    </NotificationProvider>
+  );
+}
