@@ -52,7 +52,7 @@ export function UserMenu({ user }: UserMenuProps) {
           </div>
           
           <Link
-            href="/customer/info?tab=profile"
+            href="/customer/profile?tab=profile"
             className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-[#2563EB] transition-colors"
             onClick={() => setIsOpen(false)}
           >
@@ -61,7 +61,7 @@ export function UserMenu({ user }: UserMenuProps) {
           </Link>
           
           <Link
-            href="/customer/info?tab=vehicles"
+            href="/customer/profile?tab=vehicles"
             className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-[#2563EB] transition-colors"
             onClick={() => setIsOpen(false)}
           >
@@ -72,7 +72,7 @@ export function UserMenu({ user }: UserMenuProps) {
           <div className="border-t border-slate-100 my-1"></div>
           
           <Link
-            href="/auth/login"
+            href="/sign-in"
             className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
             onClick={() => setIsOpen(false)}
           >

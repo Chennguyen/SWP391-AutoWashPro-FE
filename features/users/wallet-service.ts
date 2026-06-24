@@ -1,4 +1,5 @@
-import { apiBase, handleApiResponse } from "@/lib/api-error";
+import { axiosInstance } from "@/lib/axios";
+import { GetTransactionsResponse } from "@/types/transaction";
 
 export interface Wallet {
   id?: string;
@@ -27,31 +28,14 @@ type WalletRecord = {
 type WalletResponse = WalletRecord | { data?: WalletRecord };
 
 /**
- * Phân giải hậu tố đường dẫn URL cho các endpoint ví của khách hàng.
- * 
- * @param path Đường dẫn tương đối tùy chọn.
- * @returns Chuỗi URL API đầy đủ.
- */
-function walletEndpoint(path = ""): string {
-  return `${apiBase()}/api/v1/wallet${path}`;
-}
-
-/**
- * Giải nén thông tin ví thô từ phong bì phản hồi REST tiêu chuẩn từ ngoài vào.
- * 
- * @param body Phản hồi ví của API không phân biệt chữ hoa/thường.
- * @returns Bản ghi dữ liệu ví thô.
+ * Giải nén thông tin ví thô từ phản hồi của API.
  */
 function unwrapWallet(body: WalletResponse): WalletRecord {
   return "data" in body && body.data ? body.data : (body as WalletRecord);
 }
 
 /**
- * Chuẩn hóa các thuộc tính của ví bao gồm số dư và đơn vị tiền tệ.
- * Hỗ trợ nhiều phiên bản backend khác nhau và các khác biệt về viết hoa/thường của trường.
- * 
- * @param body Bản ghi phản hồi thô.
- * @returns Đối tượng Wallet đã được chuẩn hóa.
+ * Chuẩn hóa các thuộc tính của ví.
  */
 function normalizeWallet(body: WalletResponse): Wallet {
   const raw = unwrapWallet(body);
@@ -76,40 +60,50 @@ function normalizeWallet(body: WalletResponse): Wallet {
 }
 
 /**
- * Lấy số dư hiện tại và thông tin chi tiết ví của khách hàng.
+ * Lấy số dư hiện tại và thông tin chi tiết ví của khách hàng bằng Axios.
  * 
  * @param token Token xác thực.
  * @returns Một promise giải quyết thành thông tin chi tiết Wallet.
  */
 export async function getWallet(token: string): Promise<Wallet> {
-  const res = await fetch(walletEndpoint(), {
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const body = await handleApiResponse<WalletResponse>(res);
-  return normalizeWallet(body);
+  const res = await axiosInstance.get<WalletResponse>("/api/v1/wallet");
+  return normalizeWallet(res.data);
 }
 
 /**
- * Nạp thêm tiền vào ví ảo của khách hàng.
+ * Nạp thêm tiền vào ví ảo của khách hàng bằng Axios.
  * 
  * @param token Token xác thực.
  * @param balance Số tiền cần nạp thêm vào ví.
  * @returns Một promise giải quyết thành thông tin Wallet đã được cập nhật.
  */
 export async function topUpWallet(token: string, balance: number): Promise<Wallet> {
-  const res = await fetch(walletEndpoint("/top-up"), {
-    method: "PATCH",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ Balance: balance }),
+  const res = await axiosInstance.patch<WalletResponse>("/api/v1/wallet/top-up", { Balance: balance });
+  return normalizeWallet(res.data);
+}
+
+/**
+ * Lấy danh sách lịch sử giao dịch ví của khách hàng từ Backend.
+ * 
+ * @param params Tham số phân trang, loại giao dịch và từ khóa mô tả.
+ * @returns Phản hồi danh sách giao dịch kèm thông tin phân trang.
+ */
+export async function getWalletTransactions(
+  params: { pageIndex: number; pageSize: number; type?: number; description?: string }
+): Promise<GetTransactionsResponse> {
+  const query = new URLSearchParams({
+    PageIndex: String(params.pageIndex),
+    PageSize: String(params.pageSize),
   });
-  const body = await handleApiResponse<WalletResponse>(res);
-  return normalizeWallet(body);
+  
+  if (params.type !== undefined) {
+    query.set("Type", String(params.type));
+  }
+  if (params.description?.trim()) {
+    query.set("Description", params.description.trim());
+  }
+
+  // Gọi đến endpoint /api/v1/Transaction được cấu hình ở Backend
+  const res = await axiosInstance.get<GetTransactionsResponse>(`/api/v1/Transaction?${query.toString()}`);
+  return res.data;
 }

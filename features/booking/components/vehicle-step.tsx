@@ -95,7 +95,7 @@ export function VehicleStep({
           <p className="font-semibold text-slate-600">Bạn chưa có xe nào được đăng ký.</p>
           <p className="mt-1 text-sm text-slate-400">Thêm xe trước khi đặt lịch.</p>
           <Link
-            href="/customer/info"
+            href="/customer/profile"
             className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             Thêm xe ngay

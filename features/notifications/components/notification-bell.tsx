@@ -148,7 +148,7 @@ export function NotificationBell() {
           router.push("/customer/history");
         }
       } else if (type === "TierUpgraded") {
-        router.push("/customer/info");
+        router.push("/customer/profile");
       }
     });
   }

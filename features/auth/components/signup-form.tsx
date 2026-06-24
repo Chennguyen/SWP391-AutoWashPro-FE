@@ -1,10 +1,14 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { AuthInput } from "@/features/auth/components/auth-input";
 import { registerUser } from "@/features/auth/services";
 import { ApiError } from "@/lib/api-error";
+import { Button } from "@/components/ui/button";
 
 /* ───── Password strength indicator ───── */
 function PasswordStrength({ password }: { password: string }) {
@@ -46,49 +50,64 @@ type UploadedImage = {
   preview: string;
 };
 
-type FormFields = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  cccd: string;
-  password: string;
-  confirmPassword: string;
-};
+const signupSchema = z
+  .object({
+    firstName: z.string().min(1, "Vui lòng nhập tên."),
+    lastName: z.string().min(1, "Vui lòng nhập họ."),
+    email: z
+      .string()
+      .min(1, "Vui lòng nhập email.")
+      .email("Email không hợp lệ."),
+    phone: z
+      .string()
+      .min(1, "Vui lòng nhập số điện thoại.")
+      .regex(/^(0|\+84)[0-9]{8,10}$/, "Số điện thoại không hợp lệ."),
+    cccd: z
+      .string()
+      .min(1, "Vui lòng nhập số CCCD.")
+      .regex(/^[0-9]{9,12}$/, "Số CCCD phải từ 9–12 chữ số."),
+    password: z
+      .string()
+      .min(1, "Vui lòng nhập mật khẩu.")
+      .min(6, "Mật khẩu phải từ 6 ký tự."),
+    confirmPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu."),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Mật khẩu không khớp.",
+    path: ["confirmPassword"],
+  });
 
-type FormErrors = Partial<FormFields & { faceImages: string; global: string }>;
-
-function getFieldNameVietnamese(field: keyof FormFields): string {
-  switch (field) {
-    case "firstName": return "tên";
-    case "lastName": return "họ";
-    case "email": return "email";
-    case "phone": return "số điện thoại";
-    case "cccd": return "số CCCD";
-    case "password": return "mật khẩu";
-    case "confirmPassword": return "xác nhận mật khẩu";
-    default: return "trường này";
-  }
-}
+type SignupFields = z.infer<typeof signupSchema>;
 
 /* ───── Main Component ───── */
 export function SignupForm() {
   const router = useRouter();
 
-  const [form, setForm] = useState<FormFields>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    cccd: "",
-    password: "",
-    confirmPassword: "",
+  const [faceImages, setFaceImages] = useState<UploadedImage[]>([]);
+  const [faceImagesError, setFaceImagesError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<SignupFields>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      cccd: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [faceImages, setFaceImages] = useState<UploadedImage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const passwordVal = watch("password");
 
   // Track blob URLs for cleanup to prevent memory leaks
   const previewUrls = useRef(new Set<string>());
@@ -99,54 +118,6 @@ export function SignupForm() {
       previewUrls.current.clear();
     };
   }, []);
-
-  function handleChange(field: keyof FormFields) {
-    return (e: ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      setForm((prev) => ({ ...prev, [field]: val }));
-      
-      // Xử lý realtime viền đỏ (khi người dùng xóa trắng dữ liệu sau khi đã submit có lỗi)
-      if (errors[field]) {
-        const hasValue = field === "password" || field === "confirmPassword" ? val !== "" : val.trim() !== "";
-        if (hasValue) {
-          setErrors((prev) => ({ ...prev, [field]: undefined }));
-        } else {
-          setErrors((prev) => ({ ...prev, [field]: `Vui lòng nhập ${getFieldNameVietnamese(field)}.` }));
-        }
-      }
-    };
-  }
-
-  function validate(): FormErrors {
-    const errs: FormErrors = {};
-
-    if (!form.firstName.trim()) errs.firstName = "Vui lòng nhập tên.";
-    if (!form.lastName.trim()) errs.lastName = "Vui lòng nhập họ.";
-
-    if (!form.email.trim()) errs.email = "Vui lòng nhập email.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      errs.email = "Email không hợp lệ.";
-
-    if (!form.phone.trim()) errs.phone = "Vui lòng nhập số điện thoại.";
-    else if (!/^(0|\+84)[0-9]{8,10}$/.test(form.phone.trim()))
-      errs.phone = "Số điện thoại không hợp lệ.";
-
-    if (!form.cccd.trim()) errs.cccd = "Vui lòng nhập số CCCD.";
-    else if (!/^[0-9]{9,12}$/.test(form.cccd.trim()))
-      errs.cccd = "Số CCCD phải từ 9–12 chữ số.";
-
-    if (!form.password) errs.password = "Vui lòng nhập mật khẩu.";
-    else if (form.password.length < 6) errs.password = "Mật khẩu phải từ 6 ký tự.";
-
-    if (!form.confirmPassword) errs.confirmPassword = "Vui lòng xác nhận mật khẩu.";
-    else if (form.confirmPassword !== form.password)
-      errs.confirmPassword = "Mật khẩu không khớp.";
-
-    if (faceImages.length < 3)
-      errs.faceImages = `Vui lòng tải lên đủ 3 ảnh khuôn mặt (hiện tại: ${faceImages.length}/3).`;
-
-    return errs;
-  }
 
   function handleFaceImageUpload(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -161,8 +132,11 @@ export function SignupForm() {
       return { id: Math.random().toString(36).slice(2), file, preview };
     });
 
-    setFaceImages((prev) => [...prev, ...newImages]);
-    if (errors.faceImages) setErrors((prev) => ({ ...prev, faceImages: undefined }));
+    const updated = [...faceImages, ...newImages];
+    setFaceImages(updated);
+    if (updated.length >= 3) {
+      setFaceImagesError(null);
+    }
     e.target.value = ""; // Reset input so the same file can be re-selected if removed
   }
 
@@ -173,29 +147,31 @@ export function SignupForm() {
         URL.revokeObjectURL(img.preview);
         previewUrls.current.delete(img.preview);
       }
-      return prev.filter((i) => i.id !== id);
+      const filtered = prev.filter((i) => i.id !== id);
+      if (filtered.length < 3) {
+        setFaceImagesError(`Vui lòng tải lên đủ 3 ảnh khuôn mặt (hiện tại: ${filtered.length}/3).`);
+      }
+      return filtered;
     });
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const errs = validate();
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
+  async function onSubmit(data: SignupFields) {
+    setGlobalError(null);
+
+    // Validate face images manually
+    if (faceImages.length < 3) {
+      setFaceImagesError(`Vui lòng tải lên đủ 3 ảnh khuôn mặt (hiện tại: ${faceImages.length}/3).`);
       return;
     }
 
-    setErrors({});
-    setLoading(true);
-
     try {
       await registerUser({
-        firstName: form.firstName,
-        lastName: form.lastName,
-        email: form.email,
-        phone: form.phone,
-        password: form.password,
-        cccd: form.cccd,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        password: data.password,
+        cccd: data.cccd,
         faceImages: faceImages.map((img) => img.file),
       });
 
@@ -205,19 +181,15 @@ export function SignupForm() {
       if (err instanceof ApiError) {
         if (err.status === 409) {
           // Trùng email — highlight ô email
-          setErrors({ email: err.message });
+          setError("email", { message: err.message });
         } else if (err.status >= 500) {
-          // Che giấu lỗi 5xx khỏi người dùng cuối trên production
-          setErrors({ global: "Đang xảy ra lỗi vui lòng quay lại sau" });
+          setGlobalError("Đang xảy ra lỗi vui lòng quay lại sau");
         } else {
-          // Các lỗi server khác (400 validation, v.v.)
-          setErrors({ global: err.message });
+          setGlobalError(err.message);
         }
       } else {
-        setErrors({ global: "Không thể kết nối đến máy chủ. Vui lòng thử lại." });
+        setGlobalError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
       }
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -266,7 +238,7 @@ export function SignupForm() {
             <button
               id="success-modal-confirm-btn"
               type="button"
-              onClick={() => router.push("/auth/login?registered=1")}
+              onClick={() => router.push("/sign-in?registered=1")}
               className="mt-5 w-full rounded-xl bg-[#CDB390] py-3 text-sm font-semibold text-white transition-all hover:bg-[#BCA27F] active:scale-[0.98]"
             >
               Tôi đã hiểu
@@ -275,7 +247,7 @@ export function SignupForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
         {/* ── Họ & Tên ── */}
         <div className="grid grid-cols-2 gap-3">
           <AuthInput
@@ -284,10 +256,8 @@ export function SignupForm() {
             type="text"
             placeholder="Nguyễn"
             autoComplete="family-name"
-            value={form.lastName}
-            onChange={handleChange("lastName")}
-            error={errors.lastName}
-            showRequiredAsterisk={!form.lastName.trim()}
+            error={errors.lastName?.message}
+            {...register("lastName")}
           />
           <AuthInput
             id="signup-first-name"
@@ -295,10 +265,8 @@ export function SignupForm() {
             type="text"
             placeholder="Văn A"
             autoComplete="given-name"
-            value={form.firstName}
-            onChange={handleChange("firstName")}
-            error={errors.firstName}
-            showRequiredAsterisk={!form.firstName.trim()}
+            error={errors.firstName?.message}
+            {...register("firstName")}
           />
         </div>
 
@@ -309,10 +277,8 @@ export function SignupForm() {
           type="email"
           placeholder="ban@example.com"
           autoComplete="email"
-          value={form.email}
-          onChange={handleChange("email")}
-          error={errors.email}
-          showRequiredAsterisk={!form.email.trim()}
+          error={errors.email?.message}
+          {...register("email")}
         />
 
         {/* ── Số điện thoại ── */}
@@ -322,23 +288,19 @@ export function SignupForm() {
           type="tel"
           placeholder="0901234567"
           autoComplete="tel"
-          value={form.phone}
-          onChange={handleChange("phone")}
-          error={errors.phone}
-          showRequiredAsterisk={!form.phone.trim()}
+          error={errors.phone?.message}
+          {...register("phone")}
         />
 
-        {/* ── CCCD ── */}
+        {/* ── Số CCCD ── */}
         <AuthInput
           id="signup-cccd"
           label="Số CCCD / CMND"
           type="text"
           placeholder="012345678901"
           autoComplete="off"
-          value={form.cccd}
-          onChange={handleChange("cccd")}
-          error={errors.cccd}
-          showRequiredAsterisk={!form.cccd.trim()}
+          error={errors.cccd?.message}
+          {...register("cccd")}
         />
 
         {/* ── Mật khẩu ── */}
@@ -349,12 +311,10 @@ export function SignupForm() {
             type="password"
             placeholder="••••••••"
             autoComplete="new-password"
-            value={form.password}
-            onChange={handleChange("password")}
-            error={errors.password}
-            showRequiredAsterisk={!form.password}
+            error={errors.password?.message}
+            {...register("password")}
           />
-          <PasswordStrength password={form.password} />
+          <PasswordStrength password={passwordVal} />
         </div>
 
         {/* ── Xác nhận mật khẩu ── */}
@@ -364,10 +324,8 @@ export function SignupForm() {
           type="password"
           placeholder="••••••••"
           autoComplete="new-password"
-          value={form.confirmPassword}
-          onChange={handleChange("confirmPassword")}
-          error={errors.confirmPassword}
-          showRequiredAsterisk={!form.confirmPassword}
+          error={errors.confirmPassword?.message}
+          {...register("confirmPassword")}
         />
 
         {/* ── Face Images Upload ── */}
@@ -449,16 +407,16 @@ export function SignupForm() {
             )}
 
             {/* Face image error */}
-            {errors.faceImages && (
+            {faceImagesError && (
               <p className="mt-2 rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-700">
-                {errors.faceImages}
+                {faceImagesError}
               </p>
             )}
           </div>
         </div>
 
         {/* ── Global error (network / server 400/500) ── */}
-        {errors.global && (
+        {globalError && (
           <div
             role="alert"
             className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
@@ -466,18 +424,18 @@ export function SignupForm() {
             <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
-            <span>{errors.global}</span>
+            <span>{globalError}</span>
           </div>
         )}
 
         {/* ── Submit ── */}
-        <button
+        <Button
           id="signup-submit-btn"
           type="submit"
-          disabled={loading}
-          className="mt-2 w-full rounded-xl bg-[#CDB390] px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition-all duration-200 hover:bg-[#BCA27F] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#CDB390]/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+          disabled={isSubmitting}
+          className="mt-2 w-full rounded-xl bg-[#CDB390] hover:bg-[#BCA27F] py-6 text-sm font-semibold tracking-wide text-white transition-all duration-200 active:scale-[0.98]"
         >
-          {loading ? (
+          {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -488,7 +446,7 @@ export function SignupForm() {
           ) : (
             "Đăng ký"
           )}
-        </button>
+        </Button>
       </form>
     </>
   );

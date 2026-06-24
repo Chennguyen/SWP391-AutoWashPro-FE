@@ -8,7 +8,7 @@ import { LoginForm } from "@/features/auth/components/login-form";
  * Trang (Page) LoginPage
  * 
  * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
- * Đường dẫn tương đối: src/app/app/auth/login/page.tsx
+ * Đường dẫn tương đối: src/app/app/sign-in/page.tsx
  */
 export default function LoginPage() {
   return (
@@ -33,7 +33,7 @@ export default function LoginPage() {
         <p className="mt-6 text-center text-sm text-gray-500">
           Chưa có tài khoản?{" "}
           <Link
-            href="/auth/signup"
+            href="/sign-up"
             className="font-semibold text-[#2563EB] hover:text-[#1D4ED8] hover:underline transition-colors"
           >
             Đăng ký

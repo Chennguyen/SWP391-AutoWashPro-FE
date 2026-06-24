@@ -7,7 +7,7 @@ import { SignupForm } from "@/features/auth/components/signup-form";
  * Trang (Page) SignUpPage
  * 
  * Chức năng: Định nghĩa giao diện tuyến đường (Routing Page) cho hệ thống AutoWash Pro.
- * Đường dẫn tương đối: src/app/app/auth/signup/page.tsx
+ * Đường dẫn tương đối: src/app/app/sign-up/page.tsx
  */
 export default function SignUpPage() {
   return (
@@ -30,7 +30,7 @@ export default function SignUpPage() {
         <p className="mt-6 text-center text-sm text-gray-500">
           Đã có tài khoản?{" "}
           <Link
-            href="/auth/login"
+            href="/sign-in"
             className="font-semibold text-[#2563EB] hover:text-[#1D4ED8] hover:underline transition-colors"
           >
             Đăng nhập

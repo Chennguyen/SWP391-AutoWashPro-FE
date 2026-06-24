@@ -1,4 +1,5 @@
 import { apiBase, handleApiResponse } from "@/lib/api-error";
+import { axiosInstance } from "@/lib/axios";
 
 type UnknownRecord = Record<string, unknown>;
 type ApiRecord<T> = T | { data?: T; Data?: T };
@@ -662,12 +663,8 @@ export async function getBranches(
   if (params.isActive !== undefined) query.set("isActive", String(params.isActive));
   if (params.keyword?.trim()) query.set("keyword", params.keyword.trim());
 
-  const res = await fetch(adminEndpoint(`/branches?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  const body = await handleApiResponse<ApiList<unknown>>(res);
-  return unwrapPage(body).items.map(normalizeBranch);
+  const res = await axiosInstance.get<ApiList<unknown>>(`/api/v1/admin/branches?${query.toString()}`);
+  return unwrapPage(res.data).items.map(normalizeBranch);
 }
 
 /**
@@ -681,13 +678,7 @@ export async function createBranch(
   token: string,
   data: { Name: string; Address: string },
 ): Promise<void> {
-  const res = await fetch(adminEndpoint("/branches"), {
-    method: "POST",
-    cache: "no-store",
-    headers: jsonHeaders(token),
-    body: JSON.stringify(data),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.post("/api/v1/admin/branches", data);
 }
 
 /**
@@ -703,13 +694,7 @@ export async function updateBranch(
   id: string,
   data: { Name?: string; Address?: string; IsActive?: boolean },
 ): Promise<void> {
-  const res = await fetch(adminEndpoint(`/branches/${encodeURIComponent(id)}`), {
-    method: "PATCH",
-    cache: "no-store",
-    headers: jsonHeaders(token),
-    body: JSON.stringify(data),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.patch(`/api/v1/admin/branches/${encodeURIComponent(id)}`, data);
 }
 
 /**
@@ -720,12 +705,7 @@ export async function updateBranch(
  * @returns Hứa giải quyết khi quá trình xóa hoàn tất.
  */
 export async function deleteBranch(token: string, id: string): Promise<void> {
-  const res = await fetch(adminEndpoint(`/branches/${encodeURIComponent(id)}`), {
-    method: "DELETE",
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.delete(`/api/v1/admin/branches/${encodeURIComponent(id)}`);
 }
 
 /**
@@ -745,11 +725,8 @@ export async function getUsers(
   });
   if (params.searchTerm?.trim()) query.set("searchTerm", params.searchTerm.trim());
 
-  const res = await fetch(adminEndpoint(`/users?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  const page = unwrapPage(await handleApiResponse<ApiList<unknown>>(res));
+  const res = await axiosInstance.get<ApiList<unknown>>(`/api/v1/admin/users?${query.toString()}`);
+  const page = unwrapPage(res.data);
   return { ...page, items: page.items.map(normalizeUser) };
 }
 
@@ -770,11 +747,8 @@ export async function getPendingUsers(
   });
   if (params.searchTerm?.trim()) query.set("searchTerm", params.searchTerm.trim());
 
-  const res = await fetch(adminEndpoint(`/users/pending-verification?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  const page = unwrapPage(await handleApiResponse<ApiList<unknown>>(res));
+  const res = await axiosInstance.get<ApiList<unknown>>(`/api/v1/admin/users/pending-verification?${query.toString()}`);
+  const page = unwrapPage(res.data);
   return { ...page, items: page.items.map(normalizeUser) };
 }
 
@@ -786,11 +760,8 @@ export async function getPendingUsers(
  * @returns Chi tiết dữ liệu AdminUser.
  */
 export async function getUser(token: string, id: string): Promise<AdminUser> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  return normalizeUser(unwrapRecord(await handleApiResponse<ApiRecord<unknown>>(res)));
+  const res = await axiosInstance.get<ApiRecord<unknown>>(`/api/v1/admin/users/${encodeURIComponent(id)}`);
+  return normalizeUser(unwrapRecord(res.data));
 }
 
 /**
@@ -801,12 +772,7 @@ export async function getUser(token: string, id: string): Promise<AdminUser> {
  * @returns Hứa giải quyết khi cập nhật xác minh thành công.
  */
 export async function verifyUser(token: string, id: string): Promise<void> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/approval`), {
-    method: "PATCH",
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.patch(`/api/v1/admin/users/${encodeURIComponent(id)}/approval`);
 }
 
 /**
@@ -822,15 +788,8 @@ export async function rejectUser(
   id: string,
   rejectReason: string,
 ): Promise<void> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/reject`), {
-    method: "PATCH",
-    cache: "no-store",
-    headers: jsonHeaders(token),
-    body: JSON.stringify({ rejectReason: rejectReason }),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.patch(`/api/v1/admin/users/${encodeURIComponent(id)}/reject`, { rejectReason: rejectReason });
 }
-
 
 /**
  * Cập nhật cờ trạng thái tài khoản của người dùng (Active, Locked, Inactive).
@@ -845,13 +804,7 @@ export async function updateUserStatus(
   id: string,
   status: AccountStatus,
 ): Promise<void> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/status`), {
-    method: "PATCH",
-    cache: "no-store",
-    headers: jsonHeaders(token),
-    body: JSON.stringify({ Status: status }),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.patch(`/api/v1/admin/users/${encodeURIComponent(id)}/status`, { Status: status });
 }
 
 /**
@@ -862,11 +815,8 @@ export async function updateUserStatus(
  * @returns Chuỗi đại diện cho trạng thái hiện tại của người dùng.
  */
 export async function getUserStatus(token: string, id: string): Promise<string> {
-  const res = await fetch(adminEndpoint(`/users/${encodeURIComponent(id)}/status`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  const body = asRecord(unwrapRecord(await handleApiResponse<ApiRecord<unknown>>(res)));
+  const res = await axiosInstance.get<ApiRecord<unknown>>(`/api/v1/admin/users/${encodeURIComponent(id)}/status`);
+  const body = asRecord(unwrapRecord(res.data));
   return readString(body, ["status", "Status"]);
 }
 
@@ -896,11 +846,8 @@ export async function getAdminBookings(
   if (params.Date) query.set("Date", params.Date);
   if (params.Status) query.set("Status", params.Status);
 
-  const res = await fetch(adminEndpoint(`/bookings?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  const page = unwrapPage(await handleApiResponse<ApiList<unknown>>(res));
+  const res = await axiosInstance.get<ApiList<unknown>>(`/api/v1/admin/bookings?${query.toString()}`);
+  const page = unwrapPage(res.data);
   return { ...page, items: page.items.map(normalizeBooking) };
 }
 
@@ -922,11 +869,8 @@ export async function getBookingSlots(
     PageSize: String(params.PageSize ?? 10),
   });
 
-  const res = await fetch(adminEndpoint(`/booking-slots?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  const page = unwrapPage(await handleApiResponse<ApiList<unknown>>(res));
+  const res = await axiosInstance.get<ApiList<unknown>>(`/api/v1/admin/booking-slots?${query.toString()}`);
+  const page = unwrapPage(res.data);
   return { ...page, items: page.items.map(normalizeSlot) };
 }
 
@@ -939,13 +883,7 @@ export async function getBookingSlots(
  * @returns Hứa giải quyết khi trạng thái được hoàn tất trong database.
  */
 export async function completeBooking(token: string, id: string, note: string): Promise<void> {
-  const res = await fetch(adminEndpoint(`/bookings/${encodeURIComponent(id)}/complete`), {
-    method: "POST",
-    cache: "no-store",
-    headers: jsonHeaders(token),
-    body: JSON.stringify({ Note: note }),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.post(`/api/v1/admin/bookings/${encodeURIComponent(id)}/complete`, { Note: note });
 }
 
 /**
@@ -957,12 +895,7 @@ export async function completeBooking(token: string, id: string, note: string): 
  * @returns Hứa giải quyết khi check-in hoàn tất.
  */
 export async function checkInAdminBooking(token: string, id: string): Promise<void> {
-  const res = await fetch(`${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {
-    method: "POST",
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.post(`/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {});
 }
 
 /**
@@ -978,13 +911,7 @@ export async function cancelAdminBooking(
   id: string,
   reason: string,
 ): Promise<void> {
-  const res = await fetch(adminEndpoint(`/bookings/${encodeURIComponent(id)}/cancel`), {
-    method: "POST",
-    cache: "no-store",
-    headers: jsonHeaders(token),
-    body: JSON.stringify({ Reason: reason }),
-  });
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.post(`/api/v1/admin/bookings/${encodeURIComponent(id)}/cancel`, { Reason: reason });
 }
 
 /**
@@ -1004,11 +931,8 @@ export async function getDashboardStats(
   });
   if (params.BranchId) query.set("BranchId", params.BranchId);
 
-  const res = await fetch(adminEndpoint(`/dashboard?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  return normalizeDashboard(await handleApiResponse<unknown>(res));
+  const res = await axiosInstance.get<unknown>(`/api/v1/admin/dashboard?${query.toString()}`);
+  return normalizeDashboard(res.data);
 }
 
 /**
@@ -1028,11 +952,8 @@ export async function getRevenueReport(
   });
   if (params.BranchId) query.set("BranchId", params.BranchId);
 
-  const res = await fetch(adminEndpoint(`/reports/revenue?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  return normalizeRevenue(await handleApiResponse<unknown>(res));
+  const res = await axiosInstance.get<unknown>(`/api/v1/admin/reports/revenue?${query.toString()}`);
+  return normalizeRevenue(res.data);
 }
 
 /**
@@ -1051,9 +972,6 @@ export async function getLoyaltyReport(
     ToDate: params.ToDate,
   });
 
-  const res = await fetch(adminEndpoint(`/reports/loyalty?${query.toString()}`), {
-    cache: "no-store",
-    headers: authHeaders(token),
-  });
-  return normalizeLoyalty(await handleApiResponse<unknown>(res));
+  const res = await axiosInstance.get<unknown>(`/api/v1/admin/reports/loyalty?${query.toString()}`);
+  return normalizeLoyalty(res.data);
 }

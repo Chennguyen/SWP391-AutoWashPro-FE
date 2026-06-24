@@ -37,7 +37,7 @@ export function Header() {
       {/* Right CTA */}
       <div className="flex-1 flex justify-end">
         <Link
-          href="/auth/login"
+          href="/sign-in"
           style={{ color: '#000000' }}
           className="text-xs font-bold tracking-[0.2em] uppercase bg-white border border-white rounded-full px-6 py-2.5 hover:bg-white/90 hover:scale-105 transition-all duration-300"
         >

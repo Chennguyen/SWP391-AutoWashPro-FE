@@ -21,6 +21,8 @@ interface BookingDetailModalProps {
 function canCancelBooking(booking: CustomerBooking): boolean {
   if (isCancelledStatus(booking.status)) return false;
   if (isCompletedStatus(booking.status)) return false;
+  const statusLower = booking.status.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  if (statusLower === "inprogress" || statusLower.includes("progress")) return false;
   const minutes = minutesUntilBooking(booking);
   // Backend chỉ cho hủy khi booking trong ngày (< 1440 phút = 24h),
   // và phải còn thời gian (> 0 phút, chưa qua giờ hẹn)
@@ -48,6 +50,8 @@ export function BookingDetailModal({
   onRequestCancel,
 }: BookingDetailModalProps) {
   const canCancel = canCancelBooking(booking);
+  const statusLower = booking.status.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const isInProgress = statusLower === "inprogress" || statusLower.includes("progress");
 
   const rows = [
     { icon: MapPin, label: "Chi nhánh", value: booking.branchName },
@@ -127,25 +131,27 @@ export function BookingDetailModal({
         ) : null}
 
         {/* Footer actions */}
-        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            Đóng
-          </button>
-
-          {canCancel ? (
+        {!isInProgress ? (
+          <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
             <button
               type="button"
-              onClick={() => onRequestCancel(booking)}
-              className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
             >
-              Hủy đặt lịch
+              Đóng
             </button>
-          ) : null}
-        </div>
+
+            {canCancel ? (
+              <button
+                type="button"
+                onClick={() => onRequestCancel(booking)}
+                className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Hủy đặt lịch
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       const role = getStoredRole();
 
       if (!role) {
-        router.replace("/auth/login");
+        router.replace("/sign-in");
         return;
       }
 

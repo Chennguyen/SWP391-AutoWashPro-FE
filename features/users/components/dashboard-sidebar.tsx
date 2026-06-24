@@ -18,7 +18,7 @@ import { NotificationBell } from "@/features/notifications/components/notificati
 
 const NAV_ITEMS = [
   { label: "Trang chủ",         icon: LayoutDashboard, href: "/customer" },
-  { label: "Thông tin cá nhân", icon: Info,             href: "/customer/info" },
+  { label: "Thông tin cá nhân", icon: Info,             href: "/customer/profile" },
   { label: "Đặt lịch",          icon: CalendarPlus,    href: "/customer/booking" },
   { label: "Lịch đang hoạt động", icon: Clock,          href: "/customer/history?tab=active" },
   { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history?tab=history" },
@@ -53,7 +53,7 @@ export function DashboardSidebar() {
     // router.refresh() invalidates Next.js Router Cache so the next user
     // always gets a fresh React tree, not a cached version of the previous session.
     router.refresh();
-    router.replace("/auth/login");
+    router.replace("/sign-in");
   }
 
   return (

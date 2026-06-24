@@ -5,6 +5,7 @@ import type {
   CustomerBooking,
 } from "@/features/booking/booking-types";
 import { apiBase, handleApiResponse } from "@/lib/api-error";
+import { axiosInstance } from "@/lib/axios";
 
 type SlotRecord = {
   id?: string | number;
@@ -436,15 +437,8 @@ export async function getSlots(
     date: date,
   });
 
-  const res = await fetch(`${apiBase()}/api/v1/bookings/slot?${params.toString()}`, {
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const body = await handleApiResponse<SlotListResponse>(res);
-  const rawList = unwrapList(body);
+  const res = await axiosInstance.get<SlotListResponse>(`/api/v1/bookings/slot?${params.toString()}`);
+  const rawList = unwrapList(res.data);
   return rawList.map(normalizeSlot).filter((slot) => slot.time);
 }
 
@@ -459,24 +453,15 @@ export async function createBooking(
   token: string,
   payload: CreateBookingPayload,
 ): Promise<BookingResult> {
-  const res = await fetch(`${apiBase()}/api/v1/bookings/`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      branchId: payload.branchId,
-      vehicleId: payload.vehicleId,
-      voucherId: payload.voucherId,
-      bookingDate: payload.bookingDate,
-      startTime: payload.startTime,
-      redemPoint: payload.redemPoint,
-    }),
+  const res = await axiosInstance.post<BookingResponse>("/api/v1/bookings/", {
+    branchId: payload.branchId,
+    vehicleId: payload.vehicleId,
+    voucherId: payload.voucherId,
+    bookingDate: payload.bookingDate,
+    startTime: payload.startTime,
+    redemPoint: payload.redemPoint,
   });
-  const body = await handleApiResponse<BookingResponse>(res);
-  return normalizeBookingResult(body);
+  return normalizeBookingResult(res.data);
 }
 
 /**
@@ -513,15 +498,8 @@ export async function getBookings(
     params.set("status", status);
   }
 
-  const res = await fetch(`${apiBase()}/api/v1/bookings/?${params.toString()}`, {
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const body = await handleApiResponse<BookingListResponse>(res);
-  return unwrapBookings(body).map(normalizeCustomerBooking);
+  const res = await axiosInstance.get<BookingListResponse>(`/api/v1/bookings/?${params.toString()}`);
+  return unwrapBookings(res.data).map(normalizeCustomerBooking);
 }
 
 /**
@@ -532,16 +510,10 @@ export async function getBookings(
  * @returns Một promise giải quyết thành đối tượng CustomerBooking tương ứng.
  */
 export async function getBooking(token: string, id: string): Promise<CustomerBooking> {
-  const res = await fetch(`${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}`, {
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  const raw = await handleApiResponse<
+  const res = await axiosInstance.get<
     { data?: CustomerBookingRecord; Data?: CustomerBookingRecord } | CustomerBookingRecord
-  >(res);
+  >(`/api/v1/bookings/${encodeURIComponent(id)}`);
+  const raw = res.data;
   const record =
     ("data" in raw && raw.data ? raw.data : "Data" in raw && raw.Data ? raw.Data : raw) as CustomerBookingRecord;
   return normalizeCustomerBooking(record);
@@ -555,19 +527,7 @@ export async function getBooking(token: string, id: string): Promise<CustomerBoo
  * @returns Một promise giải quyết khi hoạt động check-in hoàn tất.
  */
 export async function checkInBooking(token: string, id: string): Promise<void> {
-  const res = await fetch(
-    `${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}/check-in`,
-    {
-      method: "POST",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({}),
-    },
-  );
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.post(`/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {});
 }
 
 /**
@@ -583,21 +543,7 @@ export async function cancelBooking(
   id: string,
   reason: string,
 ): Promise<void> {
-  const res = await fetch(
-    `${apiBase()}/api/v1/bookings/${encodeURIComponent(id)}/cancel`,
-    {
-      method: "POST",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ reason }),
-    },
-  );
-
-  if (res.status === 204) return;
-  await handleApiResponse<unknown>(res);
+  await axiosInstance.post(`/api/v1/bookings/${encodeURIComponent(id)}/cancel`, { reason });
 }
 
 

@@ -233,7 +233,7 @@ function CustomerInfoPanelContent() {
                 Đăng nhập lại để tải thông tin xe và ví.
               </p>
               <Link
-                href="/auth/login"
+                href="/sign-in"
                 className="mt-5 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
                 Đăng nhập lại
