@@ -1,17 +1,29 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { AuthInput } from "@/features/auth/components/auth-input";
 import { ApiError } from "@/lib/api-error";
 import { loginUser } from "@/features/auth/services";
+import { useAuthStore } from "@/stores/auth-store";
+import { Button } from "@/components/ui/button";
 
-type LoginErrors = {
-  email?: string;
-  password?: string;
-  global?: string;
-};
+const loginSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Vui lòng nhập email.")
+    .email("Email không hợp lệ."),
+  password: z
+    .string()
+    .min(1, "Vui lòng nhập mật khẩu.")
+    .min(6, "Mật khẩu phải từ 6 ký tự."),
+});
+
+type LoginFields = z.infer<typeof loginSchema>;
 
 type JwtPayload = {
   Role?: string;
@@ -24,29 +36,9 @@ type JwtPayload = {
   "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"?: string;
 };
 
-function validateLogin(email: string, password: string): LoginErrors {
-  const errors: LoginErrors = {};
-
-  if (!email.trim()) {
-    errors.email = "Vui lòng nhập email.";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    errors.email = "Email không hợp lệ.";
-  }
-
-  if (!password) {
-    errors.password = "Vui lòng nhập mật khẩu.";
-  } else if (password.length < 6) {
-    errors.password = "Mật khẩu phải từ 6 ký tự.";
-  }
-
-  return errors;
-}
-
 function decodeJwtPayload(token: string): JwtPayload | null {
   const payload = token.split(".")[1];
-  if (!payload) {
-    return null;
-  }
+  if (!payload) return null;
 
   try {
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
@@ -79,67 +71,37 @@ function getRole(payload: JwtPayload | null) {
   );
 }
 
-function persistAuthSession(token: string, payload: JwtPayload | null) {
-  const role = getRole(payload);
-  const userId =
-    payload?.sub ??
-    payload?.nameid ??
-    payload?.[
-      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-    ];
-  const email =
-    payload?.email ??
-    payload?.[
-      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
-    ];
-
-  localStorage.setItem("token", token);
-  if (role) {
-    localStorage.setItem("role", role);
-  }
-  if (userId) {
-    localStorage.setItem("userId", userId);
-  }
-  if (email) {
-    localStorage.setItem("email", email);
-  }
-  window.dispatchEvent(new Event("autowash-auth"));
-
-  return role;
-}
-
 /**
  * Thành phần (Component) LoginForm
  * 
- * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
- * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ * Chức năng: Đăng nhập hệ thống AutoWash Pro sử dụng React Hook Form + Zod & Zustand.
  */
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
+  const setAuthData = useAuthStore((state) => state.setAuthData);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<LoginErrors>({});
-  const [loading, setLoading] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    setError,
+  } = useForm<LoginFields>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-    const validationErrors = validateLogin(email, password);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    setErrors({});
-    setLoading(true);
+  async function onSubmit(data: LoginFields) {
+    setGlobalError(null);
 
     try {
-      const result = await loginUser(email, password);
-
-
+      const result = await loginUser(data.email, data.password);
 
       const token =
         result.data?.access_token ??
@@ -147,15 +109,33 @@ export function LoginForm() {
         result.data?.accessToken;
 
       if (!token) {
-        setErrors({ global: "Không nhận được token đăng nhập." });
+        setGlobalError("Không nhận được token đăng nhập.");
         return;
       }
 
       const payload = decodeJwtPayload(token);
-      const role = persistAuthSession(token, payload);
+      const role = getRole(payload);
+      const userId =
+        payload?.sub ??
+        payload?.nameid ??
+        payload?.[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+        ];
+      const emailAddress =
+        payload?.email ??
+        payload?.[
+          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+        ];
 
-      // Bust the Next.js Router Cache so any previously cached pages
-      // (from another user's session) are invalidated before navigation.
+      // Lưu trạng thái qua Zustand (tự động đồng bộ localStorage)
+      setAuthData({
+        token,
+        role,
+        userId,
+        email: emailAddress,
+      });
+
+      // Làm mới cache router trước khi chuyển trang
       router.refresh();
 
       if (role.toLowerCase() === "admin") {
@@ -167,25 +147,20 @@ export function LoginForm() {
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 401) {
-          setErrors({ email: " ", password: error.message });
+          setError("password", { message: error.message });
           return;
         }
 
-        // Che giấu lỗi 5xx khỏi người dùng cuối trên production
         if (error.status >= 500) {
-          setErrors({ global: "Đang xảy ra lỗi vui lòng quay lại sau" });
+          setGlobalError("Đang xảy ra lỗi vui lòng quay lại sau");
           return;
         }
 
-        setErrors({ global: error.message });
+        setGlobalError(error.message);
         return;
       }
 
-      setErrors({
-        global: "Không thể kết nối đến máy chủ. Vui lòng thử lại.",
-      });
-    } finally {
-      setLoading(false);
+      setGlobalError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
     }
   }
 
@@ -214,21 +189,15 @@ export function LoginForm() {
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
         <AuthInput
           id="login-email"
           label="Email"
           type="email"
           placeholder="ban@example.com"
           autoComplete="email"
-          value={email}
-          onChange={(event) => {
-            setEmail(event.target.value);
-            if (errors.email) {
-              setErrors((current) => ({ ...current, email: undefined }));
-            }
-          }}
-          error={errors.email?.trim() ? errors.email : undefined}
+          error={errors.email?.message}
+          {...register("email")}
         />
 
         <AuthInput
@@ -237,22 +206,16 @@ export function LoginForm() {
           type="password"
           placeholder="••••••••"
           autoComplete="current-password"
-          value={password}
-          onChange={(event) => {
-            setPassword(event.target.value);
-            if (errors.password) {
-              setErrors((current) => ({ ...current, password: undefined }));
-            }
-          }}
-          error={errors.password}
+          error={errors.password?.message}
           rightLabel={
             <Link href="#" className="hover:underline">
               Quên mật khẩu?
             </Link>
           }
+          {...register("password")}
         />
 
-        {errors.global ? (
+        {globalError ? (
           <div
             role="alert"
             className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -271,17 +234,17 @@ export function LoginForm() {
                 d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
               />
             </svg>
-            <span>{errors.global}</span>
+            <span>{globalError}</span>
           </div>
         ) : null}
 
-        <button
+        <Button
           id="login-submit-btn"
           type="submit"
-          disabled={loading}
-          className="mt-1 w-full rounded-xl bg-[#CDB390] px-4 py-3.5 text-sm font-semibold tracking-wide text-white transition-all duration-200 hover:bg-[#BCA27F] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#CDB390]/40 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+          disabled={isSubmitting}
+          className="mt-1 w-full rounded-xl bg-[#CDB390] hover:bg-[#BCA27F] py-6 text-sm font-semibold tracking-wide text-white transition-all duration-200 active:scale-[0.98]"
         >
-          {loading ? (
+          {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg
                 className="h-4 w-4 animate-spin"
@@ -308,7 +271,7 @@ export function LoginForm() {
           ) : (
             "Đăng nhập"
           )}
-        </button>
+        </Button>
       </form>
     </>
   );

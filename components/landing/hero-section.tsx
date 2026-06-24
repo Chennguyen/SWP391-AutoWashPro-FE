@@ -47,7 +47,7 @@ export function HeroSection() {
 
         {/* Single CTA */}
         <Link
-          href="/auth/login"
+          href="/sign-in"
           style={{ color: '#000000' }}
           className="inline-block text-sm md:text-base font-bold tracking-[0.2em] uppercase bg-white border border-white rounded-full px-10 py-5 hover:bg-white/90 hover:scale-105 transition-all duration-300"
         >

@@ -490,6 +490,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const trans = translateBookingNotification(title, msg);
         finalTitle = trans.title;
         finalMsg = trans.message;
+
+        if (type === "BookingCancelled" && typeof window !== "undefined") {
+          window.dispatchEvent(new Event("autowash-booking-cancelled"));
+        }
       }
 
       const normalized: NotificationItem = {

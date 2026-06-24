@@ -28,7 +28,7 @@ export function FinalCTA() {
         {/* CTA */}
         <div className="shrink-0">
           <Link
-            href="/auth/login"
+            href="/sign-in"
             className="inline-block text-base font-bold tracking-[0.2em] uppercase text-white bg-[#050505] border border-[#050505] rounded-full px-12 py-6 hover:bg-black hover:scale-105 transition-all duration-300 shadow-xl shadow-black/10"
           >
             Đặt lịch ngay

@@ -13,6 +13,7 @@ import {
   Settings,
   Users,
   X,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
@@ -22,7 +23,8 @@ const NAV_ITEMS = [
   { label: "Chi nhánh", icon: Building2, href: "/admin/branches" },
   { label: "Người dùng", icon: Users, href: "/admin/users" },
   { label: "Lịch đặt", icon: CalendarCheck, href: "/admin/bookings" },
-  { label: "Cấu hình hệ thống", icon: Settings, href: "/admin/loyalty" },
+  { label: "Cấu hình hệ thống", icon: Settings, href: "/admin/system-config" },
+  { label: "Chương trình Loyalty", icon: Award, href: "/admin/loyalty-config" },
   { label: "Báo cáo", icon: BarChart3, href: "/admin/reports" },
 ];
 
@@ -52,7 +54,7 @@ export function AdminSidebar() {
 
   function handleLogout() {
     clearAuthSession();
-    router.replace("/auth/login");
+    router.replace("/sign-in");
   }
 
   const nav = (

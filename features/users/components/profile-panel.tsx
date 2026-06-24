@@ -310,7 +310,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
         window.localStorage.removeItem("lastName");
         window.dispatchEvent(new Event("autowash-auth"));
 
-        window.location.href = "/auth/login";
+        window.location.href = "/sign-in";
       }, 1000);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {

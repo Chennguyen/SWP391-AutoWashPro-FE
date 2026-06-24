@@ -446,9 +446,21 @@ function BookingDetailPanel({
     };
   }, [token]);
 
-  const minutesToBooking = minutesUntilBooking(booking);
-  const canCancelByTime =
-    minutesToBooking === null || minutesToBooking > CANCEL_CUTOFF_MINUTES;
+  const canCancelByTime = (() => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const bookingDate = new Date(booking.bookingDate);
+      bookingDate.setHours(0, 0, 0, 0);
+
+      const diffTime = bookingDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 1;
+    } catch {
+      return false;
+    }
+  })();
   const canCancelByLifecycle =
     canCancelByTime &&
     !isCancelledStatus(booking.status) &&
@@ -479,7 +491,7 @@ function BookingDetailPanel({
     if (!reason) return;
     if (!canCancelByTime) {
       setCancelError(
-        `Không thể hủy vì lịch còn dưới ${CANCEL_CUTOFF_MINUTES} phút nữa.`,
+        "Không thể hủy vì lịch đặt đã quá gần thời gian hẹn (chỉ được hủy trước ngày hẹn tối thiểu 1 ngày).",
       );
       return;
     }
@@ -750,7 +762,7 @@ function BookingDetailPanel({
       !isCancelledStatus(booking.status) &&
       !isCompletedStatus(booking.status) ? (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Không thể hủy vì lịch còn dưới {CANCEL_CUTOFF_MINUTES} phút nữa.
+          Chỉ có thể tự hủy lịch trước ngày đặt hẹn tối thiểu 1 ngày.
         </div>
       ) : null}
 
@@ -845,6 +857,8 @@ export function UpcomingBookingPanel() {
     setError(null);
   }, [token]);
 
+
+
   const selectedBooking = useMemo(
     () => bookings.find((b) => b.id === selectedId) ?? null,
     [bookings, selectedId],
@@ -907,6 +921,20 @@ export function UpcomingBookingPanel() {
     const id = window.setTimeout(() => void loadBookings(), 0);
     return () => window.clearTimeout(id);
   }, [authChecked, loadBookings, token]);
+
+  // Lắng nghe sự kiện SignalR thông báo hủy lịch để tự động tải lại danh sách
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    function handleBookingCancelled() {
+      void loadBookings();
+    }
+
+    window.addEventListener("autowash-booking-cancelled", handleBookingCancelled);
+    return () => {
+      window.removeEventListener("autowash-booking-cancelled", handleBookingCancelled);
+    };
+  }, [loadBookings]);
 
   function handleSelectBooking(booking: CustomerBooking) {
     setSelectedId(booking.id);
