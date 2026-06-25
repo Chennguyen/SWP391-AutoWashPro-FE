@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ApiError } from "@/lib/api-error";
 import { getBranches } from "@/features/booking/public-read-service";
@@ -81,9 +82,6 @@ export function BookingWizard() {
   const authChecked = tokenSnapshot !== null;
 
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(false);
-  const [branchesError, setBranchesError] = useState<string | null>(null);
   const [slotNotice, setSlotNotice] = useState<string | null>(null);
   const [forcedDisabledSlots, setForcedDisabledSlots] = useState<string[]>([]);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -119,28 +117,25 @@ export function BookingWizard() {
     setSessionExpired(true);
   }, []);
 
-  const loadBranches = useCallback(async () => {
-    setBranchesLoading(true);
-    setBranchesError(null);
-    try {
-      const nextBranches = await getBranches("", token);
-      setBranches(nextBranches);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        handleUnauthorized();
-        return;
+  const { data: branches = [], isLoading: branchesLoading, error: branchesErrorObj } = useQuery({
+    queryKey: ["branches", token],
+    queryFn: async () => {
+      try {
+        return await getBranches("", token);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          handleUnauthorized();
+        }
+        throw error;
       }
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: authChecked,
+  });
 
-      setBranches([]);
-      setBranchesError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải danh sách chi nhánh.",
-      );
-    } finally {
-      setBranchesLoading(false);
-    }
-  }, [handleUnauthorized, token]);
+  const branchesError = branchesErrorObj
+    ? (branchesErrorObj instanceof Error ? branchesErrorObj.message : "Không thể tải danh sách chi nhánh.")
+    : null;
 
   const loadLoyaltyTier = useCallback(async () => {
     if (!token) return;
@@ -167,14 +162,6 @@ export function BookingWizard() {
       setPriorityBookingDays(3);
     }
   }, [token]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadBranches();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [loadBranches]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

@@ -255,9 +255,9 @@ async function fetchPromotions(token: string): Promise<any[]> {
       description: String(p.description ?? p.Description ?? ""),
       discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
       discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
-      startDate: String(p.startDate ?? p.StartDate ?? ""),
-      endDate: String(p.endDate ?? p.EndDate ?? ""),
-      isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? false),
+      startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
+      endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
+      isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? (!p.tierIds || p.tierIds.length === 0)),
       isActive: Boolean(p.isActive ?? p.IsActive ?? true),
     }));
   } catch (err) {

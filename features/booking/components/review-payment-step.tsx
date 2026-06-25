@@ -345,9 +345,9 @@ export function ReviewPaymentStep({
           description: String(p.description ?? p.Description ?? ""),
           discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
           discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
-          startDate: String(p.startDate ?? p.StartDate ?? ""),
-          endDate: String(p.endDate ?? p.EndDate ?? ""),
-          isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? false),
+          startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
+          endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
+          isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? (!p.tierIds || p.tierIds.length === 0)),
           isActive: Boolean(p.isActive ?? p.IsActive ?? true),
           tierIds: Array.isArray(p.tierIds ?? p.TierIds) ? (p.tierIds ?? p.TierIds) as string[] : [],
         })) : [];
@@ -393,7 +393,40 @@ export function ReviewPaymentStep({
         if (!tierIds.includes(loyalty.tier.id)) return false;
       }
 
-      console.warn("DEBUG [ReviewPaymentStep] Promotion active check (Ignoring date validation as requested):", {
+      // Date range validation against the selected booking date
+      if (date) {
+        const parseLocal = (dStr: string) => {
+          if (!dStr) return null;
+          const cleanDate = dStr.slice(0, 10);
+          const parts = cleanDate.split(/[-/]/);
+          if (parts.length === 3) {
+            const year = Number(parts[0]);
+            const month = Number(parts[1]) - 1;
+            const day = Number(parts[2]);
+            if (!Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)) {
+              return new Date(year, month, day);
+            }
+          }
+          const parsed = new Date(dStr);
+          return Number.isNaN(parsed.getTime()) ? null : parsed;
+        };
+
+        const targetDate = parseLocal(date);
+
+        if (targetDate) {
+          if (p.startDate) {
+            const start = parseLocal(p.startDate);
+            if (start && targetDate < start) return false;
+          }
+
+          if (p.endDate) {
+            const end = parseLocal(p.endDate);
+            if (end && targetDate > end) return false;
+          }
+        }
+      }
+
+      console.warn("DEBUG [ReviewPaymentStep] Promotion active check passed:", {
         name: p.name,
         isGlobal: p.isGlobal,
         isActive: p.isActive,

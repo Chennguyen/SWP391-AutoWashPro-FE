@@ -27,28 +27,44 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function formatDate(isoString: string): string {
+function formatTxDate(isoString: string): string {
   if (!isoString) return "-";
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return isoString;
-  return date.toLocaleString("vi-VN", {
-    dateStyle: "short",
-    timeStyle: "short",
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatTxTime(isoString: string): string {
+  if (!isoString) return "-";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return isoString;
+  return date.toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function getTransactionBadge(type: number | string) {
   const t = Number(type);
-  if (t === 0) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Đặt cọc</Badge>;
-  if (t === 1) return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Thanh toán</Badge>;
-  if (t === 2) return <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">Nạp tiền</Badge>;
+  const isDeposit = t === 0 || String(type).trim().toLowerCase() === "deposit";
+  const isFullPayment = t === 1 || String(type).trim().toLowerCase() === "fullpayment";
+  const isTopup = t === 2 || String(type).trim().toLowerCase() === "wallettopup";
+
+  if (isDeposit) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Đặt cọc</Badge>;
+  if (isFullPayment) return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Thanh toán</Badge>;
+  if (isTopup) return <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">Nạp tiền</Badge>;
   
   return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">{type}</Badge>;
 }
 
 function getAmountClassAndPrefix(type: number | string) {
   const t = Number(type);
-  if (t === 2) return { className: "text-emerald-600 font-bold", prefix: "+" };
+  const isTopup = t === 2 || String(type).trim().toLowerCase() === "wallettopup";
+  if (isTopup) return { className: "text-emerald-600 font-bold", prefix: "+" };
   return { className: "text-red-600 font-bold", prefix: "-" };
 }
 
@@ -254,7 +270,8 @@ export function WalletPanel({
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead className="w-[140px] text-xs font-bold uppercase text-slate-500">Thời gian</TableHead>
+                <TableHead className="w-[120px] text-xs font-bold uppercase text-slate-500">Ngày</TableHead>
+                <TableHead className="w-[80px] text-xs font-bold uppercase text-slate-500">Giờ</TableHead>
                 <TableHead className="w-[100px] text-xs font-bold uppercase text-slate-500">Loại</TableHead>
                 <TableHead className="w-[140px] text-right text-xs font-bold uppercase text-slate-500">Số tiền</TableHead>
                 <TableHead className="text-xs font-bold uppercase text-slate-500">Mô tả</TableHead>
@@ -263,14 +280,14 @@ export function WalletPanel({
             <TableBody>
               {txLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-sm text-slate-500">
+                  <TableCell colSpan={5} className="h-24 text-center text-sm text-slate-500">
                     <RefreshCw className="mx-auto mb-1 animate-spin text-blue-600" size={18} />
                     Đang tải giao dịch...
                   </TableCell>
                 </TableRow>
               ) : transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-sm text-slate-500">
+                  <TableCell colSpan={5} className="h-24 text-center text-sm text-slate-500">
                     Chưa có giao dịch nào được ghi nhận.
                   </TableCell>
                 </TableRow>
@@ -279,7 +296,12 @@ export function WalletPanel({
                   const style = getAmountClassAndPrefix(tx.type);
                   return (
                     <TableRow key={tx.transactionId} className="hover:bg-slate-50/50">
-                      <TableCell className="text-xs text-slate-500">{formatDate(tx.transactionDate || tx.createdAt)}</TableCell>
+                      <TableCell className="text-xs text-slate-600 font-medium">
+                        {formatTxDate(tx.transactionDate || tx.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500">
+                        {formatTxTime(tx.transactionDate || tx.createdAt)}
+                      </TableCell>
                       <TableCell>{getTransactionBadge(tx.type)}</TableCell>
                       <TableCell className="text-right">
                         <span className={style.className}>

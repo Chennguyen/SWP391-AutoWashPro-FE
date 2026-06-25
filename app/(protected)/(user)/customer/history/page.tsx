@@ -20,6 +20,7 @@ import { BookingDetailModal } from "@/features/booking/components/booking-detail
 import { CancelBookingModal } from "@/features/booking/components/cancel-booking-modal";
 import { BookingHistoryFilter } from "@/features/booking/components/booking-history-filter";
 import { BookingHistoryList } from "@/features/booking/components/booking-history-list";
+import { BookingCustomerSummary } from "@/features/booking/components/booking-customer-summary";
 
 const PAGE_SIZE = 5;
 
@@ -162,56 +163,66 @@ function BookingHistoryPageContent() {
     : "Xem lại toàn bộ lịch sử rửa xe của bạn.";
 
   return (
-    <main className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto w-full">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
-        <p className="mt-1 text-sm text-slate-500">{pageDescription}</p>
-      </div>
-
-      {/* Date filter / Refresh bar */}
-      {subTab === "history" ? (
-        <BookingHistoryFilter
-          fromDate={fromDate}
-          toDate={toDate}
-          loading={loading}
-          token={token}
-          onFromDateChange={setFromDate}
-          onToDateChange={setToDate}
-          onRefresh={loadBookings}
-        />
-      ) : (
-        <div className="mb-5 flex justify-end">
-          <button
-            onClick={loadBookings}
-            disabled={loading || !token}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
-            Tải lại
-          </button>
+    <main className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8 items-start">
+        {/* Cột trái: Khung thông tin cá nhân */}
+        <div className="lg:col-span-1 lg:sticky lg:top-6">
+          <BookingCustomerSummary />
         </div>
-      )}
 
-      {/* Booking list (handles all states: not-logged-in / loading / error / empty / list) */}
-      <BookingHistoryList
-        authChecked={authChecked}
-        token={token}
-        loading={loading}
-        error={error}
-        filtered={filtered}
-        paginated={paginated}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        pageSize={PAGE_SIZE}
-        onBookingClick={(clicked) => setDetailBooking(clicked)}
-        onPageChange={handlePageChange}
-        emptyMessage={
-          subTab === "active"
-            ? "Bạn không có lịch hẹn nào đang hoạt động."
-            : "Không có lịch đặt nào trong khoảng thời gian này."
-        }
-      />
+        {/* Cột phải: Nội dung lịch sử */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
+            <p className="mt-1 text-sm text-slate-500">{pageDescription}</p>
+          </div>
+
+          {/* Date filter / Refresh bar */}
+          {subTab === "history" ? (
+            <BookingHistoryFilter
+              fromDate={fromDate}
+              toDate={toDate}
+              loading={loading}
+              token={token}
+              onFromDateChange={setFromDate}
+              onToDateChange={setToDate}
+              onRefresh={loadBookings}
+            />
+          ) : (
+            <div className="flex justify-end">
+              <button
+                onClick={loadBookings}
+                disabled={loading || !token}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
+                Tải lại
+              </button>
+            </div>
+          )}
+
+          {/* Booking list (handles all states: not-logged-in / loading / error / empty / list) */}
+          <BookingHistoryList
+            authChecked={authChecked}
+            token={token}
+            loading={loading}
+            error={error}
+            filtered={filtered}
+            paginated={paginated}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={PAGE_SIZE}
+            onBookingClick={(clicked) => setDetailBooking(clicked)}
+            onPageChange={handlePageChange}
+            emptyMessage={
+              subTab === "active"
+                ? "Bạn không có lịch hẹn nào đang hoạt động."
+                : "Không có lịch đặt nào trong khoảng thời gian này."
+            }
+          />
+        </div>
+      </div>
 
       {/* Detail modal */}
       {detailBooking ? (
