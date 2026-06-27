@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Car } from "lucide-react";
-import type { CustomerBooking } from "@/features/booking/booking-types";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import { formatBookingDateTime, statusStyle } from "@/features/booking/utils";
 
 interface BookingCardProps {

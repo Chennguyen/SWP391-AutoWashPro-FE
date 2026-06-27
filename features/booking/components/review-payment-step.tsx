@@ -20,8 +20,8 @@ import { type AdminPromotion, getLoyaltySettings } from "@/features/loyalty/loya
 import { getLoyaltyInfo, getMyVouchers, type LoyaltyInfo } from "@/features/loyalty/loyalty-service";
 import { validateVoucher } from "@/features/booking/voucher-service";
 import { cn } from "@/lib/utils";
-import type { BookingResult, Branch, VoucherValidation } from "@/features/booking/booking-types";
-import type { Vehicle } from "@/features/booking/vehicle-types";
+import type { BookingResult, Branch, VoucherValidation } from "@/features/booking/types/booking-types";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
 
 const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
 
@@ -48,6 +48,15 @@ function addMinutes(time: string, minutes: number) {
   const nextHour = Math.floor(total / 60);
   const nextMinute = total % 60;
   return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
+}
+
+function toBoolean(val: any, fallback = true): boolean {
+  if (val === undefined || val === null) return fallback;
+  if (typeof val === "boolean") return val;
+  const s = String(val).trim().toLowerCase();
+  if (s === "false" || s === "0") return false;
+  if (s === "true" || s === "1") return true;
+  return fallback;
 }
 
 function formatSlotRange(slot: string, duration: number, endTime?: string) {
@@ -347,8 +356,8 @@ export function ReviewPaymentStep({
           discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
           startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
           endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
-          isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? (!p.tierIds || p.tierIds.length === 0)),
-          isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+          isGlobal: toBoolean(p.isGlobal ?? p.IsGlobal, !p.tierIds || p.tierIds.length === 0),
+          isActive: toBoolean(p.isActive ?? p.IsActive, true),
           tierIds: Array.isArray(p.tierIds ?? p.TierIds) ? (p.tierIds ?? p.TierIds) as string[] : [],
         })) : [];
 

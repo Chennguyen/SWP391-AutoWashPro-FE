@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar } from "lucide-react";
 import { ApiError } from "@/lib/api-error";
 import { getBookings, getSlots } from "@/features/booking/booking-service";
-import type { BookingSlot, CustomerBooking } from "@/features/booking/booking-types";
+import type { BookingSlot, CustomerBooking } from "@/features/booking/types/booking-types";
 
 const SLOT_INTERVAL_MINUTES = 15;
 

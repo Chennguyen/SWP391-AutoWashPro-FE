@@ -4,10 +4,10 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { AuthInput } from "@/features/auth/components/auth-input";
-import { registerUser } from "@/features/auth/services";
 import { ApiError } from "@/lib/api-error";
+import { signupSchema, SignupFields } from "../validation/auth-validation";
+import { useRegister } from "../hooks/useRegister";
 import { Button } from "@/components/ui/button";
 
 /* ───── Password strength indicator ───── */
@@ -50,38 +50,10 @@ type UploadedImage = {
   preview: string;
 };
 
-const signupSchema = z
-  .object({
-    firstName: z.string().min(1, "Vui lòng nhập tên."),
-    lastName: z.string().min(1, "Vui lòng nhập họ."),
-    email: z
-      .string()
-      .min(1, "Vui lòng nhập email.")
-      .email("Email không hợp lệ."),
-    phone: z
-      .string()
-      .min(1, "Vui lòng nhập số điện thoại.")
-      .regex(/^(0|\+84)[0-9]{8,10}$/, "Số điện thoại không hợp lệ."),
-    cccd: z
-      .string()
-      .min(1, "Vui lòng nhập số CCCD.")
-      .regex(/^[0-9]{9,12}$/, "Số CCCD phải từ 9–12 chữ số."),
-    password: z
-      .string()
-      .min(1, "Vui lòng nhập mật khẩu.")
-      .min(6, "Mật khẩu phải từ 6 ký tự."),
-    confirmPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu."),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Mật khẩu không khớp.",
-    path: ["confirmPassword"],
-  });
-
-type SignupFields = z.infer<typeof signupSchema>;
-
 /* ───── Main Component ───── */
 export function SignupForm() {
   const router = useRouter();
+  const registerMutation = useRegister();
 
   const [faceImages, setFaceImages] = useState<UploadedImage[]>([]);
   const [faceImagesError, setFaceImagesError] = useState<string | null>(null);
@@ -93,7 +65,7 @@ export function SignupForm() {
     handleSubmit,
     watch,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<SignupFields>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
@@ -155,6 +127,8 @@ export function SignupForm() {
     });
   }
 
+  const isSubmitting = registerMutation.isPending;
+
   async function onSubmit(data: SignupFields) {
     setGlobalError(null);
 
@@ -165,7 +139,7 @@ export function SignupForm() {
     }
 
     try {
-      await registerUser({
+      await registerMutation.mutateAsync({
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,

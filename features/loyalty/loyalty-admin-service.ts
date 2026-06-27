@@ -1,60 +1,40 @@
 // ─── Loyalty Admin API ────────────────────────────────────────────────────────
 import { apiBase, handleApiResponse } from "@/lib/api-error";
+import type {
+  AdminTier,
+  CreateTierPayload,
+  UpdateTierPayload,
+  LoyaltyPointsConfig,
+  LoyaltyPointsConfigRaw,
+  AdminRewardTypeEnum,
+  AdminRewardType,
+  AdminReward,
+  CreateRewardPayload,
+  UpdateRewardPayload,
+  AdminPromotion,
+  CreatePromotionPayload,
+  AdjustPointsAction,
+  AdjustPointsPayload,
+  UpdatePromotionPayload,
+} from "./types/loyalty-admin-types";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-/**
- * AdminTier
- * Sơ đồ cấu trúc đại diện cho Cấu hình Hạng thành viên của backend.
- */
-export type AdminTier = {
-  id: string;
-  name: string;
-  level: number;
-  requiredWashes: number;
-  priorityBookingDays: number;
-  description?: string;
+export type {
+  AdminTier,
+  CreateTierPayload,
+  UpdateTierPayload,
+  LoyaltyPointsConfig,
+  LoyaltyPointsConfigRaw,
+  AdminRewardTypeEnum,
+  AdminRewardType,
+  AdminReward,
+  CreateRewardPayload,
+  UpdateRewardPayload,
+  AdminPromotion,
+  CreatePromotionPayload,
+  AdjustPointsAction,
+  AdjustPointsPayload,
+  UpdatePromotionPayload,
 };
-
-export type CreateTierPayload = {
-  name: string;
-  level: number;
-  requiredWashes: number;
-  priorityBookingDays: number;
-  description?: string;
-};
-
-export type UpdateTierPayload = Partial<{
-  name: string;
-  level: number;
-  requiredWashes: number;
-  priorityBookingDays: number;
-  description: string;
-}>;
-
-/**
- * LoyaltyPointsConfig
- * Đối tượng cấu hình đã phân tích chứa tỉ lệ quy đổi điểm và thời gian hoạt động hệ thống.
- */
-export type LoyaltyPointsConfig = {
-  vndPerPoint: number;      // configKey: "point_earn_rate"
-  slotDurationMinutes?: number; // configKey: "SlotDurationMinutes"
-  workingStartHour?: string;    // configKey: "WorkingStartHour"
-  workingEndHour?: string;      // configKey: "WorkingEndHour"
-  basePrice?: number;           // configKey: "BasePrice"
-  suvBasePrice?: number;        // configKey: "SuvBasePrice"
-  sedanBasePrice?: number;      // configKey: "SedanBasePrice"
-  paymentDeposite?: number;     // configKey: "PaymentDeposite"
-};
-
-export type LoyaltyPointsConfigRaw = {
-  configKey: string;
-  configValue: string;
-};
-
-/** rewardType là integer enum: 0 = FREE_WASH, 1 = VOUCHER, 2 = GIFT */
-export type AdminRewardTypeEnum = 0 | 1 | 2;
-export type AdminRewardType = "FREE_WASH" | "VOUCHER" | "GIFT" | string;
 
 export const REWARD_TYPE_MAP: Record<AdminRewardTypeEnum, AdminRewardType> = {
   0: "FREE_WASH",
@@ -66,72 +46,6 @@ export const REWARD_TYPE_REVERSE: Record<string, AdminRewardTypeEnum> = {
   FREE_WASH: 0,
   VOUCHER: 1,
   GIFT: 2,
-};
-
-export type AdminReward = {
-  id: string;
-  name: string;
-  description: string;
-  pointsRequired: number;
-  rewardType: AdminRewardType;
-  rewardTypeEnum: AdminRewardTypeEnum;
-  quantityAvailable: number | null;
-  validDays: number | null;
-  isActive: boolean;
-  tierIds?: string[];
-};
-
-export type CreateRewardPayload = {
-  name: string;
-  description: string;
-  pointsRequired: number;
-  rewardType: AdminRewardTypeEnum;   // integer enum
-  quantityAvailable: number;
-  validDays: number;
-  isActive: boolean;
-  tierIds?: string[];
-};
-
-export type UpdateRewardPayload = Partial<{
-  name: string;
-  description: string;
-  pointsRequired: number;
-  quantityAvailable: number;
-  validDays: number;
-  isActive: boolean;
-  tierIds: string[];
-}>;
-
-export type AdminPromotion = {
-  id: string;
-  name: string;
-  description: string;
-  discountType: string;   // "Percentage" or "FixedAmount"
-  discountValue: number;
-  startDate: string;
-  endDate: string;
-  isGlobal: boolean;
-  isActive?: boolean;
-  tierIds?: string[];
-};
-
-export type CreatePromotionPayload = {
-  name: string;
-  description: string;
-  discountType: string;
-  discountValue: number;
-  startDate: string;
-  endDate: string;
-  isGlobal: boolean;
-  tierIds?: string[];
-};
-
-export type AdjustPointsAction = "ADD" | "SUBTRACT";
-
-export type AdjustPointsPayload = {
-  action: AdjustPointsAction;
-  points: number;
-  reason: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -823,17 +737,7 @@ export async function deleteAdminPromotion(token: string, id: string): Promise<v
   await handleApiResponse<unknown>(res);
 }
 
-export type UpdatePromotionPayload = Partial<{
-  name: string;
-  description: string;
-  discountType: string;
-  discountValue: number;
-  startDate: string;
-  endDate: string;
-  isGlobal: boolean;
-  isActive: boolean;
-  tierIds: string[];
-}>;
+// UpdatePromotionPayload is imported from types/loyalty-admin-types
 
 /**
  * Cập nhật một chương trình khuyến mãi (Promotion) trong hệ thống.

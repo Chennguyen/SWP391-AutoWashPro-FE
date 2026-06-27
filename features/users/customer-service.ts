@@ -1,14 +1,7 @@
 import { apiBase, handleApiResponse } from "@/lib/api-error";
 
-export type CustomerProfile = {
-  firstName: string;
-  lastName: string;
-  cccd: string;
-  email?: string;
-  phone?: string;
-  status?: string;
-  rejectReason?: string;
-};
+import { CustomerProfile, UpdateCustomerProfilePayload } from "./types/user-types";
+export { type CustomerProfile, type UpdateCustomerProfilePayload };
 
 type CustomerProfileRecord = {
   firstName?: string;
@@ -29,13 +22,6 @@ type CustomerProfileResponse =
   | {
       data?: CustomerProfileRecord;
     };
-
-export type UpdateCustomerProfilePayload = {
-  firstName: string;
-  lastName: string;
-  cccd: string;
-  phone?: string;
-};
 
 /**
  * Hàm bổ trợ để phân giải đường dẫn endpoint cho các API hồ sơ người dùng.

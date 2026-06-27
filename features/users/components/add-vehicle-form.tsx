@@ -2,14 +2,18 @@
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api-error";
-import { addVehicle, updateVehicle } from "@/features/booking/vehicle-service";
+import {
+  useAddVehicleMutation,
+  useUpdateVehicleMutation,
+} from "@/features/users/hooks/useUserVehicles";
+import { vehicleSchema } from "@/features/users/validation/user-validation";
 import {
   getVehicleBrandChoice,
   getVehicleModelChoice,
   VIETNAM_VEHICLE_BRANDS,
   VIETNAM_VEHICLE_MODELS,
 } from "@/features/booking/vehicle-options";
-import type { UpdateVehiclePayload, Vehicle } from "@/features/booking/vehicle-types";
+import type { UpdateVehiclePayload, Vehicle } from "@/features/booking/types/vehicle-types";
 
 interface AddVehicleFormProps {
   token: string;
@@ -71,7 +75,9 @@ export function AddVehicleForm({
   });
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const addVehicleMutation = useAddVehicleMutation(token);
+  const updateVehicleMutation = useUpdateVehicleMutation(token);
+  const saving = addVehicleMutation.isPending || updateVehicleMutation.isPending;
   const previewUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -108,20 +114,23 @@ export function AddVehicleForm({
   }
 
   function validate(): boolean {
+    const parse = vehicleSchema.safeParse({
+      licensePlate: form.licensePlate.trim(),
+      brand: form.brand.trim(),
+      model: form.model.trim(),
+      color: form.color.trim(),
+      vehicleType,
+    });
+
     const nextErrors: FormErrors = {};
 
-    if (!form.licensePlate.trim()) {
-      nextErrors.licensePlate = "Vui lòng nhập biển số xe.";
+    if (!parse.success) {
+      parse.error.issues.forEach((err) => {
+        const path = err.path[0] as FieldName;
+        nextErrors[path] = err.message;
+      });
     }
-    if (!form.brand.trim()) {
-      nextErrors.brand = "Vui lòng nhập hãng xe.";
-    }
-    if (!form.model.trim()) {
-      nextErrors.model = "Vui lòng nhập dòng xe.";
-    }
-    if (!form.color.trim()) {
-      nextErrors.color = "Vui lòng nhập màu xe.";
-    }
+
     if (!isEditing && imageFiles.length === 0) {
       nextErrors.licensePlateImage = "Vui lòng chọn từ 1 đến 3 ảnh xác minh.";
     }
@@ -206,7 +215,6 @@ export function AddVehicleForm({
       return;
     }
 
-    setSaving(true);
     try {
       if (vehicle) {
         const payload: UpdateVehiclePayload = {
@@ -215,9 +223,9 @@ export function AddVehicleForm({
           color: form.color.trim(),
           vehicleType,
         };
-        await updateVehicle(token, vehicle.id, payload);
+        await updateVehicleMutation.mutateAsync({ id: vehicle.id, payload });
       } else {
-        await addVehicle(token, {
+        await addVehicleMutation.mutateAsync({
           licensePlate: form.licensePlate.trim(),
           brand: form.brand.trim(),
           model: form.model.trim(),
@@ -239,8 +247,6 @@ export function AddVehicleForm({
           ? error.message
           : "Có lỗi xảy ra, vui lòng thử lại.",
       );
-    } finally {
-      setSaving(false);
     }
   }
 

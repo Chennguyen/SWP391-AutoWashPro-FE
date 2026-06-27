@@ -4,8 +4,9 @@ import { useRef, useState } from "react";
 import { ArrowLeft, Car, ExternalLink, Pencil, Plus, Trash2, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-error";
-import { deleteVehicle, getVehicle } from "@/features/booking/vehicle-service";
-import type { Vehicle } from "@/features/booking/vehicle-types";
+import { useDeleteVehicleMutation } from "../hooks/useUserVehicles";
+import { getVehicle } from "@/features/booking/vehicle-service";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import { AddVehicleForm } from "./add-vehicle-form";
 
 interface VehicleListProps {
@@ -36,6 +37,8 @@ export function VehicleList({
   onRefresh,
   onUnauthorized,
 }: VehicleListProps) {
+  const deleteVehicleMutation = useDeleteVehicleMutation(token);
+
   const [formMode, setFormMode] = useState<FormMode>({ type: "closed" });
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -73,7 +76,7 @@ export function VehicleList({
     setActionError(null);
     setDeletingId(vehicle.id);
     try {
-      await deleteVehicle(token, vehicle.id);
+      await deleteVehicleMutation.mutateAsync(vehicle.id);
       setSelectedVehicle(null);
       activeDetailIdRef.current = null;
       setFormMode({ type: "closed" });

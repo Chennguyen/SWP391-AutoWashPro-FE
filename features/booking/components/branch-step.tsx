@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, MapPin } from "lucide-react";
-import type { Branch } from "@/features/booking/booking-types";
+import type { Branch } from "@/features/booking/types/booking-types";
 
 interface BranchStepProps {
   branches: Branch[];

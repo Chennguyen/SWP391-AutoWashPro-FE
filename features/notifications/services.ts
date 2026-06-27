@@ -1,31 +1,7 @@
 import { apiBase, handleApiResponse } from "@/lib/api-error";
 
-export type NotificationType =
-  | "BookingCreated"
-  | "BookingReminder"
-  | "BookingCancelled"
-  | "BookingCompleted"
-  | "TierUpgraded"
-  | "RewardRedeemed"
-  | "IdentityApproved"
-  | "IdentityRejected"
-  | "SystemAlert";
-
-export type NotificationItem = {
-  id: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-  isRead: boolean;
-  createdAt: string;
-};
-
-export type GetNotificationsParams = {
-  type?: NotificationType;
-  isRead?: boolean;
-  page?: number;
-  pageSize?: number;
-};
+import { NotificationType, NotificationItem, GetNotificationsParams } from "./types/notification-types";
+export { type NotificationType, type NotificationItem, type GetNotificationsParams };
 
 const BACKEND_BASE = "https://autowashpro-deploy-latest.onrender.com";
 export const HUB_URL = `${BACKEND_BASE}/notificationHub`;

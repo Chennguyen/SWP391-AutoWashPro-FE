@@ -3,7 +3,7 @@ import type {
   UpdateVehiclePayload,
   Vehicle,
   VehicleType,
-} from "@/features/booking/vehicle-types";
+} from "@/features/booking/types/vehicle-types";
 import { apiBase, handleApiResponse } from "@/lib/api-error";
 
 type VehicleRecord = {

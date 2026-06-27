@@ -30,7 +30,7 @@ interface NotificationContextProps {
   markAllAsRead: () => void;
 }
 
-const NotificationContext = createContext<NotificationContextProps | undefined>(undefined);
+export const NotificationContext = createContext<NotificationContextProps | undefined>(undefined);
 
 function normalizeStoredToken(value: string): string {
   return value.replace(/^Bearer\s+/i, "").replace(/^"|"$/g, "").trim();
@@ -193,6 +193,15 @@ function unwrapList(body: any): any[] {
   return [];
 }
 
+function toBoolean(val: any, fallback = true): boolean {
+  if (val === undefined || val === null) return fallback;
+  if (typeof val === "boolean") return val;
+  const s = String(val).trim().toLowerCase();
+  if (s === "false" || s === "0") return false;
+  if (s === "true" || s === "1") return true;
+  return fallback;
+}
+
 async function fetchPromotions(token: string): Promise<any[]> {
   try {
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://autowashpro-deploy-latest.onrender.com";
@@ -257,8 +266,8 @@ async function fetchPromotions(token: string): Promise<any[]> {
       discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
       startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
       endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
-      isGlobal: Boolean(p.isGlobal ?? p.IsGlobal ?? (!p.tierIds || p.tierIds.length === 0)),
-      isActive: Boolean(p.isActive ?? p.IsActive ?? true),
+      isGlobal: toBoolean(p.isGlobal ?? p.IsGlobal, !p.tierIds || p.tierIds.length === 0),
+      isActive: toBoolean(p.isActive ?? p.IsActive, true),
     }));
   } catch (err) {
     console.warn("DEBUG [fetchPromotions] Error loading promotions for notifications:", err);
@@ -563,12 +572,4 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       {children}
     </NotificationContext.Provider>
   );
-}
-
-export function useNotifications() {
-  const context = useContext(NotificationContext);
-  if (context === undefined) {
-    throw new Error("useNotifications must be used within a NotificationProvider");
-  }
-  return context;
 }

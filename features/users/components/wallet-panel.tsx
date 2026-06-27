@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useState, useEffect, useCallback } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { Plus, RefreshCw, WalletCards, Lock, ChevronLeft, ChevronRight } from "lucide-react";
-import { topUpWallet, getWalletTransactions, type Wallet } from "@/features/users/wallet-service";
-import { type TransactionItem } from "@/types/transaction";
+import { useTopUpWalletMutation, useGetWalletTransactionsQuery } from "../hooks/useUserWallet";
+import { type Wallet } from "../types/user-types";
 import { ApiError } from "@/lib/api-error";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -83,38 +83,20 @@ export function WalletPanel({
 }: WalletPanelProps) {
   const [amount, setAmount] = useState(500000);
   const [topUpError, setTopUpError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // States cho lịch sử giao dịch
-  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
-  const [txLoading, setTxLoading] = useState(false);
-  const [txError, setTxError] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  const loadTransactions = useCallback(async () => {
-    if (!token) return;
-    setTxLoading(true);
-    setTxError(null);
-    try {
-      const res = await getWalletTransactions({
-        pageIndex,
-        pageSize: 5,
-      });
-      setTransactions(res.transactions || []);
-      setTotalPages(res.pagination?.totalPages || 1);
-    } catch (err) {
-      setTxError(
-        err instanceof Error ? err.message : "Không thể tải lịch sử giao dịch."
-      );
-    } finally {
-      setTxLoading(false);
-    }
-  }, [token, pageIndex]);
+  // TanStack Query & Mutation
+  const topUpMutation = useTopUpWalletMutation(token);
+  const txQuery = useGetWalletTransactionsQuery(
+    { pageIndex, pageSize: 5 },
+    { enabled: !!token }
+  );
 
-  useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
+  const transactions = txQuery.data?.transactions || [];
+  const totalPages = txQuery.data?.pagination?.totalPages || 1;
+  const txLoading = txQuery.isLoading;
+  const txError = txQuery.error ? txQuery.error.message : null;
+  const saving = topUpMutation.isPending;
 
   async function handleTopUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,12 +107,11 @@ export function WalletPanel({
       return;
     }
 
-    setSaving(true);
     try {
-      await topUpWallet(token, amount);
+      await topUpMutation.mutateAsync(amount);
       await onRefresh();
       setPageIndex(1);
-      await loadTransactions();
+      void txQuery.refetch();
     } catch (topUpException) {
       if (topUpException instanceof ApiError && topUpException.status === 401) {
         onUnauthorized();
@@ -142,8 +123,6 @@ export function WalletPanel({
           ? topUpException.message
           : "Không thể nạp ví, vui lòng thử lại.",
       );
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -251,7 +230,7 @@ export function WalletPanel({
           <h3 className="text-base font-bold text-slate-900">Lịch sử giao dịch ví</h3>
           <button
             type="button"
-            onClick={() => void loadTransactions()}
+            onClick={() => void txQuery.refetch()}
             disabled={txLoading}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition"
             aria-label="Làm mới lịch sử"

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Car, CheckCircle2 } from "lucide-react";
 import { ApiError } from "@/lib/api-error";
 import { getVehicles } from "@/features/booking/vehicle-service";
-import type { Vehicle } from "@/features/booking/vehicle-types";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
 
 interface VehicleStepProps {
   token: string;

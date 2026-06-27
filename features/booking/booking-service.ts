@@ -3,7 +3,7 @@ import type {
   BookingSlot,
   CreateBookingPayload,
   CustomerBooking,
-} from "@/features/booking/booking-types";
+} from "@/features/booking/types/booking-types";
 import { apiBase, handleApiResponse } from "@/lib/api-error";
 import { axiosInstance } from "@/lib/axios";
 
