@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Star, Info } from "lucide-react";
-import { ApiError } from "@/lib/api-error";
-import { getLoyaltyInfo, getAllTiers, type LoyaltyInfo, type LoyaltyTier } from "@/features/loyalty/loyalty-service";
-import { getNextRankTier, getRankProgress, RANK_TIERS, resolveRankTier } from "@/features/loyalty/utils";
+import { useGetLoyaltyInfoQuery, useGetAllTiersQuery } from "@/features/loyalty/hooks/useLoyalty";
+import { getNextRankTier, getRankProgress, resolveRankTier, RANK_TIERS } from "@/features/loyalty/utils";
+import type { LoyaltyTier } from "@/features/loyalty/types/loyalty-types";
 import { cn } from "@/lib/utils";
 
 interface RankPanelProps {
@@ -23,54 +23,47 @@ function formatNumber(value: number): string {
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
 export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
-  const [info, setInfo] = useState<LoyaltyInfo | null>(null);
-  const [tiers, setTiers] = useState<LoyaltyTier[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Queries
+  const loyaltyInfoQuery = useGetLoyaltyInfoQuery(token);
+  const allTiersQuery = useGetAllTiersQuery(token);
 
-  const loadRank = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [fetchedInfo, fetchedTiers] = await Promise.all([
-        getLoyaltyInfo(token),
-        getAllTiers(token),
-      ]);
-      setInfo(fetchedInfo);
-      setTiers(fetchedTiers.sort((a, b) => a.level - b.level));
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        onUnauthorized();
-        return;
-      }
-      setError(err instanceof Error ? err.message : "Không thể tải thông tin bậc rank.");
-    } finally {
-      setLoading(false);
+  const info = loyaltyInfoQuery.data || null;
+  const rawTiers = allTiersQuery.data || [];
+  const tiers = [...rawTiers].sort((a, b) => a.level - b.level);
+  
+  const loading = loyaltyInfoQuery.isLoading || allTiersQuery.isLoading;
+  
+  let error: string | null = null;
+  if (loyaltyInfoQuery.error) {
+    error = loyaltyInfoQuery.error.message;
+  } else if (allTiersQuery.error) {
+    error = allTiersQuery.error.message;
+  }
+
+  // Handle unauthorized state
+  useEffect(() => {
+    if (loyaltyInfoQuery.error?.status === 401 || allTiersQuery.error?.status === 401) {
+      onUnauthorized();
     }
-  }, [onUnauthorized, token]);
+  }, [loyaltyInfoQuery.error, allTiersQuery.error, onUnauthorized]);
 
+  // Set up event listeners for refresh
   useEffect(() => {
     if (!token) return;
-    const id = window.setTimeout(() => {
-      setInfo(null);
-      setError(null);
-      void loadRank();
-    }, 0);
 
     function handleRefresh() {
-      void loadRank();
+      void loyaltyInfoQuery.refetch();
+      void allTiersQuery.refetch();
     }
 
     window.addEventListener("autowash-auth", handleRefresh);
     window.addEventListener("autowash-rank-upgrade", handleRefresh);
 
     return () => {
-      window.clearTimeout(id);
       window.removeEventListener("autowash-auth", handleRefresh);
       window.removeEventListener("autowash-rank-upgrade", handleRefresh);
     };
-  }, [loadRank, token]);
+  }, [loyaltyInfoQuery, allTiersQuery, token]);
 
   // Rank-up celebration effect
   useEffect(() => {

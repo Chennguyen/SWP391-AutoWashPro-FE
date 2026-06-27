@@ -2,8 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { X, AlertCircle } from "lucide-react";
-import type { CustomerBooking } from "@/features/booking/booking-types";
-import { cancelBooking } from "@/features/booking/booking-service";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
+import { useCancelBookingMutation } from "@/features/booking/hooks/useBookings";
 import { ApiError } from "@/lib/api-error";
 
 interface CancelBookingModalProps {
@@ -28,6 +28,7 @@ export function CancelBookingModal({
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cancelMutation = useCancelBookingMutation(token);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -42,7 +43,7 @@ export function CancelBookingModal({
     setError(null);
 
     try {
-      await cancelBooking(token, booking.id, trimmed);
+      await cancelMutation.mutateAsync({ id: booking.id, cancelReason: trimmed });
       onSuccess();
     } catch (err) {
       if (err instanceof ApiError) {

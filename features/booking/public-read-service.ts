@@ -1,4 +1,4 @@
-import type { Branch } from "@/features/booking/booking-types";
+import type { Branch } from "@/features/booking/types/booking-types";
 import { apiBase, handleApiResponse } from "@/lib/api-error";
 
 type BranchRecord = {

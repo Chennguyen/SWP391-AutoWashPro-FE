@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
-import type { BookingResult } from "@/features/booking/booking-types";
+import type { BookingResult } from "@/features/booking/types/booking-types";
 
 interface BookingSuccessStepProps {
   result: BookingResult;

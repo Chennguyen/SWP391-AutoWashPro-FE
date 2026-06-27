@@ -24,8 +24,8 @@ import {
   subscribeToToken,
   toISODate,
 } from "@/features/booking/utils";
-import type { CustomerBooking } from "@/features/booking/booking-types";
-import type { Vehicle } from "@/features/booking/vehicle-types";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import {
   AlertCircle,
   ArrowLeft,
@@ -55,7 +55,7 @@ const CANCEL_CUTOFF_MINUTES = 30;
 
 // ─── Cancel Modal ───────────────────────────────────────────────────────────────
 
-function CancelModal({
+export function CancelModal({
   bookingId,
   onConfirm,
   onClose,
@@ -129,7 +129,7 @@ function CancelModal({
 
 // ─── Check-In Confirm Modal ──────────────────────────────────────────────────────
 
-function CheckInConfirmModal({
+export function CheckInConfirmModal({
   booking,
   onConfirm,
   onClose,

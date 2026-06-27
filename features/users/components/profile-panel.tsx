@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Mail, Phone, User, UserCog, Lock, Eye, EyeOff, Save } from "lucide-react";
 import { ApiError } from "@/lib/api-error";
+import { CustomerProfile } from "../types/user-types";
 import {
-  getCustomerProfile,
-  updateCustomerProfile,
-  changeCustomerPassword,
-  getMyVerificationStatus,
-  resubmitVerification,
-  type CustomerProfile,
-} from "@/features/users/customer-service";
+  useGetProfileQuery,
+  useGetVerificationStatusQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
+  useResubmitVerificationMutation,
+} from "../hooks/useUserProfile";
+import { profileSchema, passwordSchema } from "../validation/user-validation";
 import { AlertTriangle, Info, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,6 @@ interface ProfilePanelProps {
  */
 export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
-  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Trạng thái Xác minh
@@ -39,7 +39,6 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -47,7 +46,6 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [savingPassword, setSavingPassword] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
@@ -58,39 +56,53 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
 
   // Trạng thái Gửi lại xác minh
   const [faceImages, setFaceImages] = useState<{ file: File; preview: string }[]>([]);
-  const [resubmitting, setResubmitting] = useState(false);
   const [resubmitSuccess, setResubmitSuccess] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
 
-  const loadProfile = useCallback(async () => {
-    if (!token) {
-      return;
-    }
+  // Queries & Mutations
+  const verificationQuery = useGetVerificationStatusQuery(token);
+  const profileQuery = useGetProfileQuery(token, {
+    enabled: verificationQuery.data?.status === "Active",
+  });
 
-    setLoading(true);
-    setLoadError(null);
-    try {
-      // 1. Luôn lấy trạng thái xác minh trước bằng /my-status
-      const verification = await getMyVerificationStatus(token);
-      
+  const resubmitMutation = useResubmitVerificationMutation(token);
+  const updateProfileMutation = useUpdateProfileMutation(token);
+  const changePasswordMutation = useChangePasswordMutation(token);
+
+  const loading = verificationQuery.isLoading || (verificationQuery.data?.status === "Active" && profileQuery.isLoading);
+  const resubmitting = resubmitMutation.isPending;
+  const savingProfile = updateProfileMutation.isPending;
+  const savingPassword = changePasswordMutation.isPending;
+
+  useEffect(() => {
+    if (verificationQuery.error) {
+      const err = verificationQuery.error;
+      if (err.status === 401) {
+        onUnauthorized();
+      } else {
+        setLoadError(err.message || "Không thể tải thông tin cá nhân.");
+      }
+    }
+  }, [verificationQuery.error, onUnauthorized]);
+
+  useEffect(() => {
+    if (profileQuery.error) {
+      const err = profileQuery.error;
+      if (err.status === 401) {
+        onUnauthorized();
+      } else {
+        setLoadError(err.message || "Không thể tải thông tin cá nhân.");
+      }
+    }
+  }, [profileQuery.error, onUnauthorized]);
+
+  useEffect(() => {
+    if (verificationQuery.data) {
+      const verification = verificationQuery.data;
       setVerificationStatus(verification.status);
       setRejectReason(verification.rejectReason || "");
 
-      // 2. Nếu đã Active, gọi API chính thức /api/v1/me để lấy hồ sơ chính xác nhất
-      if (verification.status === "Active") {
-        const officialProfile = await getCustomerProfile(token);
-        console.log(">>> [ProfilePanel] Active profile from /me SUCCESS:", officialProfile);
-        setProfile(officialProfile);
-        setFirstName(officialProfile.firstName || "");
-        setLastName(officialProfile.lastName || "");
-        setPhone(officialProfile.phone || "");
-
-        window.localStorage.setItem("firstName", officialProfile.firstName || "");
-        window.localStorage.setItem("lastName", officialProfile.lastName || "");
-        window.dispatchEvent(new Event("autowash-auth"));
-      } else {
-        // Tài khoản Pending hoặc Rejected -> Dùng thông tin từ /my-status
-        console.log(">>> [ProfilePanel] Non-active profile from /my-status SUCCESS:", verification);
+      if (verification.status !== "Active") {
         setProfile(verification);
         setFirstName(verification.firstName || "");
         setLastName(verification.lastName || "");
@@ -100,33 +112,22 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
         window.localStorage.setItem("lastName", verification.lastName || "");
         window.dispatchEvent(new Event("autowash-auth"));
       }
-    } catch (error) {
-      console.error(">>> [ProfilePanel] loadProfile FAILED:", error);
-      if (error instanceof ApiError && error.status === 401) {
-        onUnauthorized();
-        return;
-      }
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải thông tin cá nhân.",
-      );
-    } finally {
-      setLoading(false);
     }
-  }, [onUnauthorized, token]);
+  }, [verificationQuery.data]);
 
   useEffect(() => {
-    setProfile(null);
-    setLoadError(null);
-    setIsEditing(false);
+    if (profileQuery.data) {
+      const officialProfile = profileQuery.data;
+      setProfile(officialProfile);
+      setFirstName(officialProfile.firstName || "");
+      setLastName(officialProfile.lastName || "");
+      setPhone(officialProfile.phone || "");
 
-    const timeoutId = window.setTimeout(() => {
-      void loadProfile();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [loadProfile, token]);
+      window.localStorage.setItem("firstName", officialProfile.firstName || "");
+      window.localStorage.setItem("lastName", officialProfile.lastName || "");
+      window.dispatchEvent(new Event("autowash-auth"));
+    }
+  }, [profileQuery.data]);
 
   // Bật/tắt chế độ chỉnh sửa
   const toggleEditing = () => {
@@ -174,12 +175,11 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       return;
     }
 
-    setResubmitting(true);
     setResubmitError(null);
     setResubmitSuccess(false);
 
     try {
-      await resubmitVerification(token, {
+      await resubmitMutation.mutateAsync({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         faceImages: faceImages.map((img) => img.file),
@@ -191,24 +191,19 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       setFaceImages([]);
     } catch (error) {
        setResubmitError(error instanceof Error ? error.message : "Có lỗi xảy ra khi gửi lại hồ sơ.");
-    } finally {
-      setResubmitting(false);
     }
   };
 
   // Xác thực dữ liệu cập nhật hồ sơ
   function validateProfileFields(): string | null {
-    if (!firstName.trim()) {
-      return "Vui lòng nhập tên đệm / tên.";
-    }
-    if (!lastName.trim()) {
-      return "Vui lòng nhập họ / tên chính.";
-    }
-    if (!phone.trim()) {
-      return "Vui lòng nhập số điện thoại.";
-    }
-    if (!/^[0-9]{10,11}$/.test(phone.trim())) {
-      return "Số điện thoại phải gồm 10-11 chữ số.";
+    const parse = profileSchema.safeParse({
+      firstName,
+      lastName,
+      phone,
+      cccd: profile?.cccd || "123456789", // dummy for validation
+    });
+    if (!parse.success) {
+      return parse.error.issues[0].message;
     }
     return null;
   }
@@ -222,12 +217,11 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       return;
     }
 
-    setSavingProfile(true);
     setProfileError(null);
     setProfileSuccess(false);
 
     try {
-      const updated = await updateCustomerProfile(token, {
+      const updated = await updateProfileMutation.mutateAsync({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         cccd: profile?.cccd || "",
@@ -253,27 +247,21 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       setProfileError(
         error instanceof Error ? error.message : "Lỗi cập nhật thông tin cá nhân.",
       );
-    } finally {
-      setSavingProfile(false);
     }
   }
 
   // Xác thực dữ liệu đổi mật khẩu
   function validatePasswordFields(): string | null {
-    if (!oldPassword) {
-      return "Vui lòng nhập mật khẩu cũ.";
-    }
-    if (!newPassword) {
-      return "Vui lòng nhập mật khẩu mới.";
-    }
-    if (newPassword.length < 8) {
-      return "Mật khẩu mới phải dài ít nhất 8 ký tự.";
+    const parse = passwordSchema.safeParse({
+      currentPassword: oldPassword,
+      newPassword,
+      confirmPassword,
+    });
+    if (!parse.success) {
+      return parse.error.issues[0].message;
     }
     if (newPassword === oldPassword) {
       return "Mật khẩu mới không được trùng mật khẩu cũ.";
-    }
-    if (newPassword !== confirmPassword) {
-      return "Xác nhận mật khẩu mới không khớp.";
     }
     return null;
   }
@@ -287,12 +275,15 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       return;
     }
 
-    setSavingPassword(true);
     setPasswordError(null);
     setPasswordSuccess(false);
 
     try {
-      await changeCustomerPassword(token, oldPassword, newPassword, confirmPassword);
+      await changePasswordMutation.mutateAsync({
+        currentPassword: oldPassword,
+        newPassword,
+        confirmPassword,
+      });
       setPasswordSuccess(true);
 
       // Reset các trường mật khẩu
@@ -320,8 +311,6 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       setPasswordError(
         error instanceof Error ? error.message : "Lỗi cập nhật mật khẩu.",
       );
-    } finally {
-      setSavingPassword(false);
     }
   }
 

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { ApiError } from "@/lib/api-error";
 import { getBookings } from "@/features/booking/booking-service";
-import type { CustomerBooking } from "@/features/booking/booking-types";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import {
   subscribeToToken,
   getTokenSnapshot,
@@ -228,7 +228,9 @@ function BookingHistoryPageContent() {
       {detailBooking ? (
         <BookingDetailModal
           booking={detailBooking}
+          token={token}
           onClose={() => setDetailBooking(null)}
+          onChanged={loadBookings}
           onRequestCancel={(b) => {
             setDetailBooking(null);
             setCancelBooking(b);

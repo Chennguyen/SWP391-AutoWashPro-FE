@@ -12,7 +12,7 @@ import {
   ShieldAlert,
   Info,
 } from "lucide-react";
-import { useNotifications } from "@/features/notifications/context";
+import { useNotifications } from "../hooks/useNotifications";
 import { cn } from "@/lib/utils";
 import type { NotificationType, NotificationItem } from "@/features/notifications/services";
 import { getNotificationDetails } from "./notification-bell";

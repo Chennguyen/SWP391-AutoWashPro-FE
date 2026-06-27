@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { validateVoucher } from "@/features/booking/voucher-service";
 import { getMyVouchers, type MyVoucher } from "@/features/loyalty/loyalty-service";
-import type { VoucherValidation } from "@/features/booking/booking-types";
+import type { VoucherValidation } from "@/features/booking/types/booking-types";
 import { Tag, Ticket, X } from "lucide-react";
 
 const SERVICE_PRICE = 100_000;

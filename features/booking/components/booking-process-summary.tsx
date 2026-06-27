@@ -1,7 +1,7 @@
 "use client";
 
 import { Building2, Car, CalendarClock, Tag, Check, ChevronRight } from "lucide-react";
-import type { WizardState } from "@/features/booking/booking-types";
+import type { WizardState } from "@/features/booking/types/booking-types";
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN", {

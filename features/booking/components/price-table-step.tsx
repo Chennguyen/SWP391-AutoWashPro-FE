@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Info } from "lucide-react";
 import { getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
-import type { Vehicle } from "@/features/booking/vehicle-types";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
 
 interface PriceTableStepProps {
   token: string;

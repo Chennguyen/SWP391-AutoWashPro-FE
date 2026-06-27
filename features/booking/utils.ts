@@ -1,4 +1,4 @@
-import type { CustomerBooking } from "@/features/booking/booking-types";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
 
 // ─── Token ─────────────────────────────────────────────────────────────────────
 

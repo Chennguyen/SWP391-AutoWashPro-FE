@@ -1,33 +1,7 @@
 import { axiosInstance } from "@/lib/axios";
 import { ApiError } from "@/lib/api-error";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface RegisterPayload {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  password: string;
-  cccd: string;
-  faceImages: File[];
-}
-
-export interface RegisterResult {
-  message?: string;
-  userId?: string;
-}
-
-export interface LoginResult {
-  success: boolean;
-  message: string;
-  data: {
-    access_token?: string;
-    Access_token?: string;
-    accessToken?: string;
-    isVerify?: boolean;
-  } | null;
-}
+import { RegisterPayload, RegisterResult, LoginResult } from "./types/auth-types";
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 

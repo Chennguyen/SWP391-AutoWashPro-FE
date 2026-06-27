@@ -1,6 +1,6 @@
 "use client";
 
-import type { CustomerBooking } from "@/features/booking/booking-types";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import { BookingCard } from "@/features/booking/components/booking-card";
 import { BookingHistoryPagination } from "@/features/booking/components/booking-history-pagination";
 

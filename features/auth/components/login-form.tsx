@@ -2,74 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { AuthInput } from "@/features/auth/components/auth-input";
 import { ApiError } from "@/lib/api-error";
-import { loginUser } from "@/features/auth/services";
-import { useAuthStore } from "@/stores/auth-store";
+import { loginSchema, LoginFields } from "../validation/auth-validation";
+import { useLogin } from "../hooks/useLogin";
 import { Button } from "@/components/ui/button";
-
-const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Vui lòng nhập email.")
-    .email("Email không hợp lệ."),
-  password: z
-    .string()
-    .min(1, "Vui lòng nhập mật khẩu.")
-    .min(6, "Mật khẩu phải từ 6 ký tự."),
-});
-
-type LoginFields = z.infer<typeof loginSchema>;
-
-type JwtPayload = {
-  Role?: string;
-  role?: string;
-  email?: string;
-  sub?: string;
-  nameid?: string;
-  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"?: string;
-  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"?: string;
-};
-
-function decodeJwtPayload(token: string): JwtPayload | null {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-
-  try {
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64.padEnd(
-      base64.length + ((4 - (base64.length % 4)) % 4),
-      "=",
-    );
-    const json = decodeURIComponent(
-      window
-        .atob(padded)
-        .split("")
-        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`)
-        .join(""),
-    );
-
-    return JSON.parse(json) as JwtPayload;
-  } catch {
-    return null;
-  }
-}
-
-function getRole(payload: JwtPayload | null) {
-  return (
-    payload?.Role ??
-    payload?.role ??
-    payload?.[
-      "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
-    ] ??
-    ""
-  );
-}
 
 /**
  * Thành phần (Component) LoginForm
@@ -77,17 +17,16 @@ function getRole(payload: JwtPayload | null) {
  * Chức năng: Đăng nhập hệ thống AutoWash Pro sử dụng React Hook Form + Zod & Zustand.
  */
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const justRegistered = searchParams.get("registered") === "1";
-  const setAuthData = useAuthStore((state) => state.setAuthData);
+  const loginMutation = useLogin();
 
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     setError,
   } = useForm<LoginFields>({
     resolver: zodResolver(loginSchema),
@@ -97,53 +36,13 @@ export function LoginForm() {
     },
   });
 
+  const isSubmitting = loginMutation.isPending;
+
   async function onSubmit(data: LoginFields) {
     setGlobalError(null);
 
     try {
-      const result = await loginUser(data.email, data.password);
-
-      const token =
-        result.data?.access_token ??
-        result.data?.Access_token ??
-        result.data?.accessToken;
-
-      if (!token) {
-        setGlobalError("Không nhận được token đăng nhập.");
-        return;
-      }
-
-      const payload = decodeJwtPayload(token);
-      const role = getRole(payload);
-      const userId =
-        payload?.sub ??
-        payload?.nameid ??
-        payload?.[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-        ];
-      const emailAddress =
-        payload?.email ??
-        payload?.[
-          "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
-        ];
-
-      // Lưu trạng thái qua Zustand (tự động đồng bộ localStorage)
-      setAuthData({
-        token,
-        role,
-        userId,
-        email: emailAddress,
-      });
-
-      // Làm mới cache router trước khi chuyển trang
-      router.refresh();
-
-      if (role.toLowerCase() === "admin") {
-        router.replace("/admin");
-        return;
-      }
-
-      router.replace("/customer");
+      await loginMutation.mutateAsync(data);
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 401) {
@@ -160,9 +59,10 @@ export function LoginForm() {
         return;
       }
 
-      setGlobalError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+      setGlobalError(error instanceof Error ? error.message : "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
     }
   }
+
 
   return (
     <>

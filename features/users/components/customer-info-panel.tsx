@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState, useSyncExternalStore, Suspense } from
 import { Award, Car, type LucideIcon, Star, WalletCards, User, UserCog } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { getVehicles } from "@/features/booking/vehicle-service";
-import { getWallet, type Wallet } from "@/features/users/wallet-service";
-import { ApiError } from "@/lib/api-error";
-import type { Vehicle } from "@/features/booking/vehicle-types";
+import { useGetVehiclesQuery } from "../hooks/useUserVehicles";
+import { useGetWalletQuery } from "../hooks/useUserWallet";
+import { type Wallet } from "../types/user-types";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import { cn } from "@/lib/utils";
 import { VehicleList } from "./vehicle-list";
 import { WalletPanel } from "./wallet-panel";
@@ -93,104 +93,42 @@ function CustomerInfoPanelContent() {
   const token = tokenSnapshot ?? "";
   const authChecked = tokenSnapshot !== null;
 
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehiclesLoading, setVehiclesLoading] = useState(false);
-  const [vehiclesError, setVehiclesError] = useState<string | null>(null);
-
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [walletError, setWalletError] = useState<string | null>(null);
-
   const handleUnauthorized = useCallback(() => {
     window.localStorage.removeItem("token");
     window.localStorage.removeItem("role");
     window.localStorage.removeItem("userId");
     window.localStorage.removeItem("email");
+    window.localStorage.removeItem("firstName");
+    window.localStorage.removeItem("lastName");
     window.dispatchEvent(new Event("autowash-auth"));
     setSessionExpired(true);
-    setVehiclesLoading(false);
-    setWalletLoading(false);
-    setVehiclesError(null);
-    setWalletError(null);
   }, []);
 
+  // Queries
+  const vehiclesQuery = useGetVehiclesQuery(token, 1, 20, { enabled: authChecked && !!token });
+  const walletQuery = useGetWalletQuery(token, { enabled: authChecked && !!token });
+
+  const vehicles = vehiclesQuery.data || [];
+  const vehiclesLoading = vehiclesQuery.isLoading;
+  const vehiclesError = vehiclesQuery.error ? vehiclesQuery.error.message : null;
+
+  const wallet = walletQuery.data || null;
+  const walletLoading = walletQuery.isLoading;
+  const walletError = walletQuery.error ? walletQuery.error.message : null;
+
+  useEffect(() => {
+    if (vehiclesQuery.error?.status === 401 || walletQuery.error?.status === 401) {
+      handleUnauthorized();
+    }
+  }, [vehiclesQuery.error, walletQuery.error, handleUnauthorized]);
+
   const loadVehicles = useCallback(async () => {
-    if (!token) {
-      return;
-    }
-
-    setVehiclesLoading(true);
-    setVehiclesError(null);
-    try {
-      const nextVehicles = await getVehicles(token, 1, 20);
-      setVehicles(nextVehicles);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        handleUnauthorized();
-        return;
-      }
-
-      setVehiclesError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải danh sách xe.",
-      );
-    } finally {
-      setVehiclesLoading(false);
-    }
-  }, [handleUnauthorized, token]);
+    void vehiclesQuery.refetch();
+  }, [vehiclesQuery]);
 
   const loadWallet = useCallback(async () => {
-    if (!token) {
-      return;
-    }
-
-    setWalletLoading(true);
-    setWalletError(null);
-    try {
-      const nextWallet = await getWallet(token);
-      setWallet(nextWallet);
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        handleUnauthorized();
-        return;
-      }
-
-      setWalletError(
-        error instanceof Error
-          ? error.message
-          : "Không thể tải thông tin ví.",
-      );
-    } finally {
-      setWalletLoading(false);
-    }
-  }, [handleUnauthorized, token]);
-
-  const loadAll = useCallback(async () => {
-    await Promise.all([loadVehicles(), loadWallet()]);
-  }, [loadVehicles, loadWallet]);
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      setVehicles([]);
-      setWallet(null);
-      setVehiclesError(null);
-      setWalletError(null);
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [token]);
-
-  useEffect(() => {
-    if (!authChecked || !token) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void loadAll();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [authChecked, loadAll, token]);
+    void walletQuery.refetch();
+  }, [walletQuery]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">

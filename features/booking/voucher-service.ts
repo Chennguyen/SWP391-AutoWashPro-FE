@@ -1,7 +1,7 @@
 // ─── Voucher API ──────────────────────────────────────────────────────────────
 // Chiến lược: kiểm tra do người dùng kích hoạt — không lưu cache (no-store), gọi trực tiếp từ phía client khi cần.
 
-import type { VoucherValidation } from '@/features/booking/booking-types';
+import type { VoucherValidation } from '@/features/booking/types/booking-types';
 import { apiBase, handleApiResponse } from '@/lib/api-error';
 
 type VoucherRecord = {

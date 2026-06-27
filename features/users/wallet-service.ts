@@ -1,12 +1,8 @@
 import { axiosInstance } from "@/lib/axios";
 import { GetTransactionsResponse } from "@/types/transaction";
 
-export interface Wallet {
-  id?: string;
-  balance: number;
-  currency?: string;
-  updatedAt?: string;
-}
+import { Wallet } from "./types/user-types";
+export { type Wallet };
 
 type WalletRecord = {
   id?: string | number;
