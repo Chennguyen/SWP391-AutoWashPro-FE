@@ -51,7 +51,7 @@ export function LoginForm() {
         }
 
         if (error.status >= 500) {
-          setGlobalError("Đang xảy ra lỗi vui lòng quay lại sau");
+          setGlobalError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
           return;
         }
 

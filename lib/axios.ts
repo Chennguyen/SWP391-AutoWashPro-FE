@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { apiBase, ApiError } from "@/lib/api-error";
+import { apiBase, ApiError, translateErrorMessage } from "@/lib/api-error";
 
 export const axiosInstance = axios.create({
   baseURL: apiBase(),
@@ -58,12 +58,21 @@ axiosInstance.interceptors.response.use(
       }
     }
 
-    if (status === 500 || message.toLowerCase().includes("unexpected error")) {
+    if (
+      status >= 500 ||
+      message.toLowerCase().includes("unexpected error") ||
+      message.toLowerCase().includes("internal server error")
+    ) {
       message = "Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.";
+    } else {
+      message = translateErrorMessage(message);
     }
 
     // Gắn cờ Unverified nếu backend trả về thông báo lỗi cụ thể
-    if (message.includes("Only active and verified customer accounts")) {
+    if (
+      message.includes("Only active and verified customer accounts") ||
+      message.includes("Tài khoản chưa được kích hoạt hoặc xác minh")
+    ) {
       if (typeof window !== "undefined") {
         window.localStorage.setItem("is_unverified", "true");
         window.dispatchEvent(new Event("autowash-auth"));

@@ -178,7 +178,7 @@ export function VehicleList({
 
       {error ? (
         (() => {
-          const isUnverified = error.includes("Only active and verified customer accounts") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
+          const isUnverified = error.includes("Only active and verified customer accounts") || error.includes("Tài khoản chưa được kích hoạt hoặc xác minh") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
           return (
             <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
               <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />

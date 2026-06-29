@@ -476,7 +476,7 @@ function BookingDetailPanel({
       await onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.status >= 500) {
-        setCancelError("Đang xảy ra lỗi vui lòng quay lại sau");
+        setCancelError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
       } else {
         setCancelError(
           err instanceof Error ? err.message : "Không thể check-in booking.",
@@ -503,7 +503,7 @@ function BookingDetailPanel({
       await onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.status >= 500) {
-        setCancelError("Đang xảy ra lỗi vui lòng quay lại sau");
+        setCancelError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
       } else {
         setCancelError(
           err instanceof Error

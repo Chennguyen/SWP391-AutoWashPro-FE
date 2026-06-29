@@ -204,7 +204,7 @@ function toBoolean(val: any, fallback = true): boolean {
 
 async function fetchPromotions(token: string): Promise<any[]> {
   try {
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://autowashpro-deploy-latest.onrender.com";
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://autowashpro-deploy-latest-90f6.onrender.com";
     const params = new URLSearchParams({ pageSize: "100", pageIndex: "1" });
     
     let res = await fetch(`${apiBaseUrl}/api/v1/promotions/available?${params.toString()}`, {
