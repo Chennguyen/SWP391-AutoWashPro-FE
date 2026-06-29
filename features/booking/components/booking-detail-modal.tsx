@@ -107,7 +107,7 @@ export function BookingDetailModal({
       if (onChanged) await onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.status >= 500) {
-        setActionError("Đang xảy ra lỗi vui lòng quay lại sau");
+        setActionError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
       } else {
         setActionError(err instanceof Error ? err.message : "Không thể check-in booking.");
       }
@@ -133,7 +133,7 @@ export function BookingDetailModal({
       if (onChanged) await onChanged();
     } catch (err) {
       if (err instanceof ApiError && err.status >= 500) {
-        setActionError("Đang xảy ra lỗi vui lòng quay lại sau");
+        setActionError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
       } else {
         setActionError(err instanceof Error ? err.message : "Không thể hủy lịch, vui lòng thử lại.");
       }

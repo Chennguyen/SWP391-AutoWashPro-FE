@@ -3,7 +3,7 @@ import { apiBase, handleApiResponse } from "@/lib/api-error";
 import { NotificationType, NotificationItem, GetNotificationsParams } from "./types/notification-types";
 export { type NotificationType, type NotificationItem, type GetNotificationsParams };
 
-const BACKEND_BASE = "https://autowashpro-deploy-latest.onrender.com";
+const BACKEND_BASE = "https://autowashpro-deploy-latest-90f6.onrender.com";
 export const HUB_URL = `${BACKEND_BASE}/notificationHub`;
 
 function authHeaders(token: string): HeadersInit {

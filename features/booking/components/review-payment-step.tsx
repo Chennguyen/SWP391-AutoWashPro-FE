@@ -613,7 +613,7 @@ export function ReviewPaymentStep({
 
       // Che giấu lỗi 5xx khỏi người dùng cuối trên production
       if (submitError instanceof ApiError && submitError.status >= 500) {
-        setError("Đang xảy ra lỗi vui lòng quay lại sau");
+        setError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
         return;
       }
 

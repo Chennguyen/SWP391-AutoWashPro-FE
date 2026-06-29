@@ -157,7 +157,7 @@ export function SignupForm() {
           // Trùng email — highlight ô email
           setError("email", { message: err.message });
         } else if (err.status >= 500) {
-          setGlobalError("Đang xảy ra lỗi vui lòng quay lại sau");
+          setGlobalError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
         } else {
           setGlobalError(err.message);
         }

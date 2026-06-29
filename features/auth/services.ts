@@ -35,9 +35,17 @@ export async function registerUser(
   } catch (error) {
     if (error instanceof ApiError) {
       const msg = error.message.toLowerCase();
-      // Bảo lưu logic: Nếu trùng email
-      if (error.status === 409 || error.status === 400 && msg.includes("user exist with mail")) {
-        throw new ApiError("Email này đã được đăng ký. Vui lòng dùng email khác.", 409);
+      // Nếu trùng email, sđt hoặc cccd
+      if (error.status === 409 || error.status === 400) {
+        if (msg.includes("user exist with mail") || msg.includes("email")) {
+          throw new ApiError("Email này đã được đăng ký. Vui lòng dùng email khác.", 409);
+        }
+        if (msg.includes("user exist with phone") || msg.includes("phone")) {
+          throw new ApiError("Số điện thoại này đã được đăng ký. Vui lòng dùng số điện thoại khác.", 409);
+        }
+        if (msg.includes("user exist with cccd") || msg.includes("cccd")) {
+          throw new ApiError("Số CCCD này đã được đăng ký. Vui lòng kiểm tra lại.", 409);
+        }
       }
       throw error;
     }
@@ -82,7 +90,7 @@ export async function loginUser(email: string, password: string): Promise<LoginR
       } else if (raw.includes("not found")) {
         message = "Tài khoản không tồn tại.";
       } else if (raw.includes("unexpected error")) {
-        message = "Có lỗi hệ thống xảy ra. Vui lòng thử lại sau.";
+        message = "Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.";
       }
 
       throw new ApiError(message, error.status);

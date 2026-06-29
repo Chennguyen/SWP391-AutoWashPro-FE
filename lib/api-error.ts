@@ -59,9 +59,111 @@ function stringifyErrors(errors: unknown): string | null {
  * @param status Mã trạng thái HTTP của phản hồi.
  * @returns Một chuỗi đại diện cho thông báo lỗi.
  */
+export function translateErrorMessage(message: string): string {
+  const raw = message.toLowerCase();
+
+  // 1. Lỗi đăng nhập & Tài khoản
+  if (
+    raw.includes("invalid email or password") ||
+    raw.includes("username or password is incorrect") ||
+    raw.includes("invalid credentials")
+  ) {
+    return "Email hoặc mật khẩu không đúng.";
+  }
+  if (raw.includes("account") && (raw.includes("lock") || raw.includes("block"))) {
+    return "Tài khoản đã bị tạm khóa. Vui lòng liên hệ hỗ trợ.";
+  }
+  if (
+    raw.includes("user not found") ||
+    raw.includes("user does not exist") ||
+    raw.includes("account does not exist")
+  ) {
+    return "Tài khoản không tồn tại.";
+  }
+  if (raw.includes("only active and verified customer accounts")) {
+    return "Tài khoản chưa được kích hoạt hoặc xác minh.";
+  }
+
+  // 2. Lỗi đăng ký trùng lặp thông tin
+  if (
+    raw.includes("user exist with mail") ||
+    raw.includes("email is already taken") ||
+    raw.includes("email already exists") ||
+    raw.includes("email already in use")
+  ) {
+    return "Email này đã được đăng ký. Vui lòng dùng email khác.";
+  }
+  if (
+    raw.includes("user exist with phone") ||
+    raw.includes("phone number already") ||
+    raw.includes("phone already") ||
+    raw.includes("phone number is already in use")
+  ) {
+    return "Số điện thoại này đã được đăng ký. Vui lòng dùng số điện thoại khác.";
+  }
+  if (
+    raw.includes("user exist with cccd") ||
+    raw.includes("cccd already") ||
+    raw.includes("citizen identity")
+  ) {
+    return "Số CCCD này đã được đăng ký. Vui lòng kiểm tra lại.";
+  }
+
+  // 3. Lỗi thay đổi mật khẩu
+  if (
+    raw.includes("incorrect password") ||
+    raw.includes("current password does not match") ||
+    raw.includes("passwords do not match")
+  ) {
+    return "Mật khẩu hiện tại không đúng.";
+  }
+  if (raw.includes("passwords must have at least one non alphanumeric character")) {
+    return "Mật khẩu mới phải chứa ít nhất một ký tự đặc biệt (ví dụ: @, #, $, ...).";
+  }
+  if (raw.includes("passwords must have at least one lowercase")) {
+    return "Mật khẩu mới phải chứa ít nhất một chữ cái thường.";
+  }
+  if (raw.includes("passwords must have at least one uppercase")) {
+    return "Mật khẩu mới phải chứa ít nhất một chữ cái viết hoa.";
+  }
+  if (raw.includes("passwords must have at least one digit") || raw.includes("must have at least one digit")) {
+    return "Mật khẩu mới phải chứa ít nhất một chữ số (0-9).";
+  }
+  if (raw.includes("passwords must be at least") || raw.includes("password is too short")) {
+    return "Mật khẩu mới quá ngắn. Vui lòng nhập mật khẩu dài hơn.";
+  }
+
+  // 4. Lỗi đặt lịch & mã giảm giá
+  if (
+    raw.includes("slot already booked") ||
+    raw.includes("time slot is already booked") ||
+    raw.includes("slot unavailable")
+  ) {
+    return "Khung giờ này đã được đặt lịch trước. Vui lòng chọn khung giờ khác.";
+  }
+  if (
+    raw.includes("invalid voucher") ||
+    raw.includes("voucher expired") ||
+    raw.includes("voucher is not valid") ||
+    raw.includes("voucher not found")
+  ) {
+    return "Mã giảm giá không hợp lệ hoặc đã hết hạn.";
+  }
+
+  return message;
+}
+
+/**
+ * Trích xuất một thông báo lỗi thân thiện với người dùng từ các cấu trúc dữ liệu phản hồi lỗi API khác nhau.
+ * Sẽ dự phòng về văn bản mặc định như "Lỗi [status]" nếu không tìm thấy thông báo nào.
+ * 
+ * @param body Nội dung phản hồi đã được phân tích cú pháp.
+ * @param status Mã trạng thái HTTP của phản hồi.
+ * @returns Một chuỗi đại diện cho thông báo lỗi.
+ */
 function pickErrorMessage(body: unknown, status: number): string {
   if (typeof body === "string" && body.trim()) {
-    return body;
+    return translateErrorMessage(body);
   }
 
   if (!isRecord(body)) {
@@ -77,7 +179,7 @@ function pickErrorMessage(body: unknown, status: number): string {
     body.title ??
     `Lỗi ${status}`;
 
-  return String(message);
+  return translateErrorMessage(String(message));
 }
 
 /**
@@ -104,11 +206,18 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = pickErrorMessage(body, res.status);
 
-    if (res.status === 500 || message.toLowerCase().includes("unexpected error")) {
+    if (
+      res.status >= 500 ||
+      message.toLowerCase().includes("unexpected error") ||
+      message.toLowerCase().includes("internal server error")
+    ) {
       message = "Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.";
     }
 
-    if (message.includes("Only active and verified customer accounts")) {
+    if (
+      message.includes("Only active and verified customer accounts") ||
+      message.includes("Tài khoản chưa được kích hoạt hoặc xác minh")
+    ) {
       if (typeof window !== "undefined") {
         window.localStorage.setItem("is_unverified", "true");
         window.dispatchEvent(new Event("autowash-auth"));
