@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { validateVoucher } from "@/features/booking/voucher-service";
-import { getMyVouchers, type MyVoucher } from "@/features/loyalty/loyalty-service";
+import { getMyVouchers, getRewards, redeemReward, getLoyaltyInfo, type MyVoucher, type Reward, type LoyaltyInfo } from "@/features/loyalty/loyalty-service";
 import type { VoucherValidation } from "@/features/booking/types/booking-types";
-import { Tag, Ticket, X } from "lucide-react";
+import { Tag, Ticket, X, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const SERVICE_PRICE = 100_000;
 
@@ -45,6 +46,14 @@ export function VoucherStep({
   const [myVouchers, setMyVouchers] = useState<MyVoucher[]>([]);
   const [vouchersLoading, setVouchersLoading] = useState(false);
 
+  // Điểm và phần thưởng để đổi
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+  const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
+
   const loadMyVouchers = useCallback(async () => {
     if (!token) return;
     const userId = getUserId();
@@ -69,9 +78,58 @@ export function VoucherStep({
     }
   }, [token]);
 
+  const loadRewardsAndPoints = useCallback(async () => {
+    if (!token) return;
+    setRewardsLoading(true);
+    try {
+      const info = await getLoyaltyInfo(token);
+      setLoyaltyInfo(info);
+      const list = await getRewards(token);
+      // Chỉ hiện thị phần thưởng còn hoạt động và yêu cầu điểm
+      const activeRewards = list.filter((r) => r.isActive && r.pointsRequired > 0);
+      setRewards(activeRewards);
+    } catch {
+      // Lỗi load điểm và phần thưởng không chặn UX
+    } finally {
+      setRewardsLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     void loadMyVouchers();
-  }, [loadMyVouchers]);
+    void loadRewardsAndPoints();
+  }, [loadMyVouchers, loadRewardsAndPoints]);
+
+  async function handleRedeem(reward: Reward) {
+    const userId = getUserId();
+    if (!userId || !token) {
+      setRedeemError("Không tìm thấy thông tin xác thực.");
+      return;
+    }
+
+    if (loyaltyInfo && loyaltyInfo.points < reward.pointsRequired) {
+      setRedeemError("Bạn không đủ điểm tích lũy để đổi voucher này.");
+      return;
+    }
+
+    setRedeemError(null);
+    setRedeemSuccess(null);
+    setRedeemingId(reward.id);
+
+    try {
+      await redeemReward(token, reward.id, userId);
+      setRedeemSuccess(`Đổi thành công phần thưởng "${reward.name}"!`);
+      // Tải lại số điểm và danh sách voucher
+      await loadRewardsAndPoints();
+      await loadMyVouchers();
+      // Tự động xóa thông báo sau 4 giây
+      setTimeout(() => setRedeemSuccess(null), 4000);
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : "Đổi điểm thất bại, vui lòng thử lại.");
+    } finally {
+      setRedeemingId(null);
+    }
+  }
 
   async function handleApply(code?: string) {
     const applyCode = (code ?? voucherCode).trim();
@@ -178,7 +236,8 @@ export function VoucherStep({
 
       {/* Quick-pick: Voucher từ ví */}
       {!appliedVoucher && (
-        <div>
+        <>
+          <div>
           <div className="flex items-center gap-2 mb-2">
             <Ticket size={15} className="text-slate-400" />
             <p className="text-sm font-semibold text-slate-700">Voucher trong ví của bạn</p>
@@ -229,6 +288,82 @@ export function VoucherStep({
             </div>
           )}
         </div>
+
+        {/* Đổi điểm lấy Voucher mới */}
+        <div className="border-t border-slate-100 pt-5 mt-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} className="text-amber-500" />
+              <p className="text-sm font-semibold text-slate-700">Đổi điểm tích lũy lấy Voucher</p>
+            </div>
+            {loyaltyInfo !== null && (
+              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 flex items-center gap-1">
+                Điểm của bạn: {loyaltyInfo.points.toLocaleString("vi-VN")} điểm
+              </span>
+            )}
+          </div>
+
+          {redeemError && (
+            <div className="mb-3 flex items-start gap-2 p-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-xs">
+              <span>⚠ {redeemError}</span>
+            </div>
+          )}
+
+          {redeemSuccess && (
+            <div className="mb-3 flex items-start gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs">
+              <span>✓ {redeemSuccess}</span>
+            </div>
+          )}
+
+          {rewardsLoading ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+              ))}
+            </div>
+          ) : rewards.length === 0 ? (
+            <p className="text-xs text-slate-400 py-1">
+              Hiện tại chưa cấu hình phần thưởng voucher nào bằng điểm.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {rewards.map((r) => {
+                const canRedeem = loyaltyInfo ? loyaltyInfo.points >= r.pointsRequired : false;
+                const isRedeeming = redeemingId === r.id;
+
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="font-bold text-slate-950 text-xs truncate" title={r.name}>{r.name}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{r.description || "Không có mô tả"}</p>
+                      <span className="inline-block mt-1 text-[10px] font-bold text-amber-600">
+                        {r.pointsRequired.toLocaleString("vi-VN")} điểm
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleRedeem(r)}
+                      disabled={isRedeeming || !canRedeem}
+                      className={cn(
+                        "shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-bold transition shadow-sm",
+                        canRedeem
+                          ? "bg-amber-500 hover:bg-amber-600 text-white active:scale-[0.97]"
+                          : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none"
+                      )}
+                    >
+                      {isRedeeming ? "Đang đổi..." : "Đổi ngay"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </>
       )}
 
       <div className="flex justify-between pt-2">

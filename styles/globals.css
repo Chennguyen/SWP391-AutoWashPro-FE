@@ -581,7 +581,7 @@ main.bg-background-outer {
   width: calc(100% - 2rem) !important;
 }
 
-.bg-background-outer .notif-toast-card {
+.notif-toast-card {
   background-color: var(--background-main) !important;
   border: 1px solid var(--border-box) !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
@@ -593,82 +593,82 @@ main.bg-background-outer {
   gap: 0.75rem !important;
 }
 
-.bg-background-outer .notif-toast-card .notif-toast-title {
+.notif-toast-card .notif-toast-title {
   color: var(--text-light) !important;
   font-weight: 750 !important;
 }
 
-.bg-background-outer .notif-toast-card .notif-toast-message {
-  color: var(--text-body) !important;
+.notif-toast-card .notif-toast-message {
+  color: #ffffff !important;
   font-weight: 400 !important;
 }
 
-.bg-background-outer .notif-toast-card .notif-toast-close {
+.notif-toast-card .notif-toast-close {
   color: var(--text-secondary) !important;
   background: transparent !important;
   border: none !important;
 }
 
-.bg-background-outer .notif-toast-card .notif-toast-close:hover {
+.notif-toast-card .notif-toast-close:hover {
   background-color: var(--background-secondary) !important;
   color: var(--text-light) !important;
 }
 
 /* Icon containers override */
-.bg-background-outer .notif-icon-wrapper {
+.notif-icon-wrapper {
   background-color: var(--background-secondary) !important;
   border-color: var(--border-box) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-blue-500 {
+.notif-icon-wrapper.text-blue-500 {
   color: #60a5fa !important;
   background-color: rgba(96, 165, 250, 0.1) !important;
   border-color: rgba(96, 165, 250, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-amber-500 {
+.notif-icon-wrapper.text-amber-500 {
   color: #fbbf24 !important;
   background-color: rgba(251, 191, 36, 0.1) !important;
   border-color: rgba(251, 191, 36, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-red-500 {
+.notif-icon-wrapper.text-red-500 {
   color: #f87171 !important;
   background-color: rgba(248, 113, 113, 0.1) !important;
   border-color: rgba(248, 113, 113, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-emerald-500 {
+.notif-icon-wrapper.text-emerald-500 {
   color: #34d399 !important;
   background-color: rgba(52, 211, 153, 0.1) !important;
   border-color: rgba(52, 211, 153, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-purple-500 {
+.notif-icon-wrapper.text-purple-500 {
   color: #c084fc !important;
   background-color: rgba(192, 132, 252, 0.1) !important;
   border-color: rgba(192, 132, 252, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-teal-500 {
+.notif-icon-wrapper.text-teal-500 {
   color: #2dd4bf !important;
   background-color: rgba(45, 212, 191, 0.1) !important;
   border-color: rgba(45, 212, 191, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-rose-500 {
+.notif-icon-wrapper.text-rose-500 {
   color: #fb7185 !important;
   background-color: rgba(251, 113, 133, 0.1) !important;
   border-color: rgba(251, 113, 133, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-sky-500 {
+.notif-icon-wrapper.text-sky-500 {
   color: #38bdf8 !important;
   background-color: rgba(56, 189, 248, 0.1) !important;
   border-color: rgba(56, 189, 248, 0.2) !important;
 }
 
-.bg-background-outer .notif-icon-wrapper.text-orange-500 {
+.notif-icon-wrapper.text-orange-500 {
   color: #fb923c !important;
   background-color: rgba(251, 146, 60, 0.1) !important;
   border-color: rgba(251, 146, 60, 0.2) !important;

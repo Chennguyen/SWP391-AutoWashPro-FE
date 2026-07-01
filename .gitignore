@@ -48,3 +48,9 @@ skills-lock.json
 test_bookings.bat
 booking_response.json
 /swagger.json
+
+
+
+backend_issues_report.md
+frontend_issues_report.md
+hydration_and_api_errors_report.md

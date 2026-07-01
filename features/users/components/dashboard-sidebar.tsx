@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
@@ -11,6 +11,7 @@ import {
   X,
   LogOut,
   Clock,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,13 @@ export function DashboardSidebar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab") || "active";
+  const [isUnverified, setIsUnverified] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+    }
+  }, []);
 
   function handleLogout() {
     clearAuthSession();
@@ -84,6 +92,22 @@ export function DashboardSidebar() {
                     ? pathname === "/customer"
                     : pathname === href || pathname.startsWith(href + "/");
               }
+
+              const isLocked = isUnverified && (href.startsWith("/customer/booking") || href.startsWith("/customer/history"));
+              if (isLocked) {
+                return (
+                  <div
+                    key={href}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed select-none bg-white/5 text-white/50"
+                    title="Tài khoản chưa xác thực FaceID"
+                  >
+                    <Icon size={15} style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
+                    <span>{label}</span>
+                    <Lock size={12} className="ml-1 text-white/40" />
+                  </div>
+                );
+              }
+
               return (
                 <Link
                   key={href}
@@ -173,6 +197,24 @@ export function DashboardSidebar() {
                   ? pathname === "/customer"
                   : pathname === href || pathname.startsWith(href + "/");
             }
+
+            const isLocked = isUnverified && (href.startsWith("/customer/booking") || href.startsWith("/customer/history"));
+            if (isLocked) {
+              return (
+                <div
+                  key={href}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed select-none bg-white/5 text-white/50"
+                  title="Tài khoản chưa xác thực FaceID"
+                >
+                  <span className="flex items-center gap-3">
+                    <Icon size={16} style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
+                    {label}
+                  </span>
+                  <Lock size={13} className="text-white/40" />
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={href}
