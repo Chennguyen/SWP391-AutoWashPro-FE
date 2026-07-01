@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Star, Info } from "lucide-react";
 import { useGetLoyaltyInfoQuery, useGetAllTiersQuery } from "@/features/loyalty/hooks/useLoyalty";
 import { getNextRankTier, getRankProgress, resolveRankTier, RANK_TIERS } from "@/features/loyalty/utils";
@@ -23,9 +23,19 @@ function formatNumber(value: number): string {
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
 export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
-  // Queries
-  const loyaltyInfoQuery = useGetLoyaltyInfoQuery(token);
-  const allTiersQuery = useGetAllTiersQuery(token);
+  const [isUnverified, setIsUnverified] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+    }
+  }, []);
+
+  // Queries (Disable when user is unverified to prevent console error logs)
+  const loyaltyInfoQuery = useGetLoyaltyInfoQuery(token, { enabled: mounted && !isUnverified });
+  const allTiersQuery = useGetAllTiersQuery(token, { enabled: mounted && !isUnverified });
 
   const info = loyaltyInfoQuery.data || null;
   const rawTiers = allTiersQuery.data || [];

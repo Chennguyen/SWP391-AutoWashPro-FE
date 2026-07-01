@@ -85,6 +85,16 @@ function CustomerInfoPanelContent() {
     }
   }, [tabParam]);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [isUnverified, setIsUnverified] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+    }
+  }, []);
+
   const tokenSnapshot = useSyncExternalStore(
     subscribeToToken,
     getTokenSnapshot,
@@ -104,9 +114,9 @@ function CustomerInfoPanelContent() {
     setSessionExpired(true);
   }, []);
 
-  // Queries
-  const vehiclesQuery = useGetVehiclesQuery(token, 1, 20, { enabled: authChecked && !!token });
-  const walletQuery = useGetWalletQuery(token, { enabled: authChecked && !!token });
+  // Queries (Disable when user is unverified to avoid 403 Console Errors)
+  const vehiclesQuery = useGetVehiclesQuery(token, 1, 20, { enabled: mounted && authChecked && !!token && !isUnverified });
+  const walletQuery = useGetWalletQuery(token, { enabled: mounted && authChecked && !!token && !isUnverified });
 
   const vehicles = vehiclesQuery.data || [];
   const vehiclesLoading = vehiclesQuery.isLoading;

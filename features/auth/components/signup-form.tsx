@@ -55,6 +55,20 @@ export function SignupForm() {
   const router = useRouter();
   const registerMutation = useRegister();
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const token = window.localStorage.getItem("token");
+      const role = window.localStorage.getItem("role");
+      if (token) {
+        if (role?.toLowerCase() === "admin") {
+          router.replace("/admin");
+        } else {
+          router.replace("/customer");
+        }
+      }
+    }
+  }, [router]);
+
   const [faceImages, setFaceImages] = useState<UploadedImage[]>([]);
   const [faceImagesError, setFaceImagesError] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -154,8 +168,14 @@ export function SignupForm() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          // Trùng email — highlight ô email
-          setError("email", { message: err.message });
+          const msg = err.message.toLowerCase();
+          if (msg.includes("số điện thoại") || msg.includes("phone")) {
+            setError("phone", { message: err.message });
+          } else if (msg.includes("cccd") || msg.includes("cmnd")) {
+            setError("cccd", { message: err.message });
+          } else {
+            setError("email", { message: err.message });
+          }
         } else if (err.status >= 500) {
           setGlobalError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
         } else {

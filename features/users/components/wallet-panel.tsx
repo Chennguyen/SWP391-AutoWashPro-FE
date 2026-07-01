@@ -84,12 +84,21 @@ export function WalletPanel({
   const [amount, setAmount] = useState(500000);
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
+  const [isUnverified, setIsUnverified] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== "undefined") {
+      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+    }
+  }, []);
 
   // TanStack Query & Mutation
   const topUpMutation = useTopUpWalletMutation(token);
   const txQuery = useGetWalletTransactionsQuery(
     { pageIndex, pageSize: 5 },
-    { enabled: !!token }
+    { enabled: mounted && !!token && !isUnverified }
   );
 
   const transactions = txQuery.data?.transactions || [];
@@ -126,7 +135,7 @@ export function WalletPanel({
     }
   }
 
-  const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+
 
   return (
     <section aria-label="Thông tin ví" className="space-y-6">

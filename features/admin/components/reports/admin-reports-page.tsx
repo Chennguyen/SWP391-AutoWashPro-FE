@@ -126,7 +126,7 @@ export function AdminReportsPage() {
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-bold text-slate-950">Chi tiết doanh thu</h2>
-          {revenue && Array.isArray((revenue as any).data) && ((revenue as any).data as any[]).length > 0 ? (
+          {revenue && Array.isArray(revenue.details) && revenue.details.length > 0 ? (
             <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-200">
               <table className="w-full text-left text-sm text-slate-500 border-collapse">
                 <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider sticky top-0 border-b border-slate-200">
@@ -138,7 +138,7 @@ export function AdminReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {((revenue as any).data as any[]).map((item: any, idx: number) => (
+                  {revenue.details.map((item: any, idx: number) => (
                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2.5 font-medium text-slate-900">
                         {item.date ? item.date.split("-").reverse().join("/") : "-"}

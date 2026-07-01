@@ -1,10 +1,8 @@
-import { BookingWizard } from "@/features/booking/components/booking-wizard";
-import type { Metadata } from "next";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Đặt lịch rửa xe - AutoWash Pro",
-  description: "Đặt lịch rửa xe nhanh chóng, chọn chi nhánh, xe và khung giờ phù hợp.",
-};
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { BookingWizard } from "@/features/booking/components/booking-wizard";
 
 /**
  * Trang (Page) CustomerBookingPage
@@ -13,6 +11,14 @@ export const metadata: Metadata = {
  * Đường dẫn tương đối: src/app/app/customer/booking/page.tsx
  */
 export default function CustomerBookingPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true") {
+      router.replace("/customer");
+    }
+  }, [router]);
+
   return (
     <main className="w-full px-4 py-6 md:px-6">
       <div className="mb-6">

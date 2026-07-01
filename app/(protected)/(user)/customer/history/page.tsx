@@ -44,6 +44,13 @@ function BookingHistoryPageContent() {
   const authChecked = tokenSnapshot !== null;
 
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true") {
+      router.replace("/customer");
+    }
+  }, [router]);
+
   const searchParams = useSearchParams();
   const selectId = searchParams.get("selectId");
 

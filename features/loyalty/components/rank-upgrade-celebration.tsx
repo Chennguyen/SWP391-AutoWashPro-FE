@@ -26,6 +26,9 @@ export function RankUpgradeCelebration() {
     const token = readToken();
     if (!token) return;
 
+    const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+    if (isUnverified) return;
+
     if (isCheckingRef.current) return;
     isCheckingRef.current = true;
 
@@ -90,6 +93,9 @@ export function RankUpgradeCelebration() {
         return;
       }
       lastTokenRef.current = currentToken;
+
+      const isUnverified = typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true";
+      if (isUnverified) return;
 
       if (currentToken) {
         // Chỉ lưu cấp độ ban đầu khi đăng nhập mới, tránh hiển thị thăng hạng giả

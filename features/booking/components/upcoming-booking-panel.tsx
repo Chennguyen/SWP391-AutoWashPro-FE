@@ -847,6 +847,13 @@ export function UpcomingBookingPanel() {
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUnverified, setIsUnverified] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+    }
+  }, []);
 
   // ⚡ FIX: Clear stale data immediately when token changes (account switch / logout)
   useEffect(() => {
@@ -865,7 +872,7 @@ export function UpcomingBookingPanel() {
   );
 
   const loadBookings = useCallback(async () => {
-    if (!token) return;
+    if (!token || isUnverified) return;
     setLoading(true);
     setError(null);
     try {
@@ -917,10 +924,10 @@ export function UpcomingBookingPanel() {
   }, [token]);
 
   useEffect(() => {
-    if (!authChecked || !token) return;
+    if (!authChecked || !token || isUnverified) return;
     const id = window.setTimeout(() => void loadBookings(), 0);
     return () => window.clearTimeout(id);
-  }, [authChecked, loadBookings, token]);
+  }, [authChecked, loadBookings, token, isUnverified]);
 
   // Lắng nghe sự kiện SignalR thông báo hủy lịch để tự động tải lại danh sách
   useEffect(() => {
@@ -948,10 +955,6 @@ export function UpcomingBookingPanel() {
   async function handleBookingChanged() {
     await loadBookings();
   }
-
-  const isUnverified =
-    typeof window !== "undefined" &&
-    window.localStorage.getItem("is_unverified") === "true";
 
   if (status === "Pending" || status === "Rejected" || isUnverified) {
     return null;

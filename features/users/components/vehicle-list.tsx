@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Car, ExternalLink, Pencil, Plus, Trash2, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-error";
@@ -40,6 +40,13 @@ export function VehicleList({
   const deleteVehicleMutation = useDeleteVehicleMutation(token);
 
   const [formMode, setFormMode] = useState<FormMode>({ type: "closed" });
+  const [isUnverified, setIsUnverified] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
+    }
+  }, []);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -146,7 +153,7 @@ export function VehicleList({
               <ArrowLeft size={16} aria-hidden />
               Danh sách xe
             </button>
-          ) : (
+          ) : !isUnverified ? (
             <button
               type="button"
               onClick={() =>
@@ -159,9 +166,21 @@ export function VehicleList({
               {formMode.type === "create" ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
               {formMode.type === "create" ? "Đóng" : "Thêm xe"}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
+
+      {isUnverified && (
+        <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-3">
+          <Info size={18} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+          <div>
+            <p className="font-semibold">Tính năng quản lý xe bị hạn chế</p>
+            <p className="mt-1 text-xs md:text-sm">
+              Tài khoản của bạn đang chờ phê duyệt FaceID. Vui lòng đợi xác thực để thêm, sửa hoặc xóa thông tin xe.
+            </p>
+          </div>
+        </div>
+      )}
 
       {formMode.type !== "closed" ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -235,25 +254,27 @@ export function VehicleList({
                 </div>
               )}
             </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={() => setFormMode({ type: "edit", vehicle: selectedVehicle })}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950"
-              >
-                <Pencil size={14} aria-hidden />
-                Sửa
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(selectedVehicle)}
-                disabled={deletingId === selectedVehicle.id}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-500 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Trash2 size={14} aria-hidden />
-                Xóa
-              </button>
-            </div>
+            {!isUnverified && (
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormMode({ type: "edit", vehicle: selectedVehicle })}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950"
+                >
+                  <Pencil size={14} aria-hidden />
+                  Sửa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(selectedVehicle)}
+                  disabled={deletingId === selectedVehicle.id}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-500 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 size={14} aria-hidden />
+                  Xóa
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Ảnh xác minh xe */}
