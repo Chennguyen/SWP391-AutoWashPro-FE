@@ -396,13 +396,6 @@ export function TiersTab({ token }: Props) {
                       >
                         Sửa
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(tier.id, tier.name)}
-                        className="rounded-lg bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100"
-                      >
-                        Xóa
-                      </button>
                     </div>
                   </td>
                 </tr>
