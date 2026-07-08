@@ -157,7 +157,7 @@ export function AdminUsersPage() {
     <AdminShell>
       <AdminPageHeader
         title="Quản lý người dùng"
-        description="Xem danh sách, xác minh tài khoản và khóa/mở khóa người dùng."
+        description="Xem danh sách và xác minh tài khoản người dùng."
       />
 
       <div className="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 md:flex-row md:items-center md:justify-between">
@@ -273,9 +273,7 @@ export function AdminUsersPage() {
                           </button>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => void handleStatus(user)} className={cn("rounded-lg border px-2.5 py-1 text-xs font-semibold transition", user.status === "Locked" ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100")} title={user.status === "Locked" ? "Mở khóa" : "Khóa"}>
-                          {user.status === "Locked" ? "Mở khóa" : "Khóa"}
-                        </button>
+                        <span className="text-xs text-slate-400">-</span>
                       )}
                       {actionLoading === user.id ? <RefreshCw className="ml-1 inline animate-spin text-blue-600" size={14} aria-hidden /> : null}
                     </td>
