@@ -1,0 +1,331 @@
+"use client";
+
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+import { LogIn } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApiError } from "@/lib/api-error";
+import { getBranches } from "@/features/booking/public-read-service";
+import { getLoyaltyInfo } from "@/features/loyalty/loyalty-service";
+import { resolveRankTier } from "@/features/loyalty/utils";
+import type { BookingResult, WizardState } from "@/features/booking/types/booking-types";
+import type { Vehicle } from "@/features/booking/types/vehicle-types";
+import { BranchStep } from "./branch-step";
+import { BookingCustomerSummary } from "./booking-customer-summary";
+import { BookingProcessSummary } from "./booking-process-summary";
+import { BookingSuccessStep } from "./booking-success-step";
+import { ReviewPaymentStep } from "./review-payment-step";
+import { SlotStep } from "./slot-step";
+import { StepIndicator } from "./step-indicator";
+import { VehicleStep } from "./vehicle-step";
+import { PriceTableStep } from "./price-table-step";
+
+const INITIAL_STATE: WizardState = {
+  selectedBranch: null,
+  selectedVehicle: null,
+  selectedDate: "",
+  selectedSlot: "",
+  voucherCode: "",
+  appliedVoucher: null,
+  bookingResult: null,
+  currentStep: 1,
+};
+
+function subscribeToToken(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener("autowash-auth", onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener("autowash-auth", onStoreChange);
+  };
+}
+
+function normalizeStoredToken(value: string): string {
+  const withoutBearer = value.trim().replace(/^Bearer\s+/i, "");
+
+  if (
+    (withoutBearer.startsWith('"') && withoutBearer.endsWith('"')) ||
+    (withoutBearer.startsWith("'") && withoutBearer.endsWith("'"))
+  ) {
+    return withoutBearer.slice(1, -1).trim();
+  }
+
+  return withoutBearer;
+}
+
+function getTokenSnapshot(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return normalizeStoredToken(window.localStorage.getItem("token") ?? "");
+}
+
+function getServerTokenSnapshot(): string | null {
+  return null;
+}
+
+/**
+ * Thành phần (Component) BookingWizard
+ * 
+ * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
+ * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
+ */
+export function BookingWizard() {
+  const tokenSnapshot = useSyncExternalStore(
+    subscribeToToken,
+    getTokenSnapshot,
+    getServerTokenSnapshot,
+  );
+  const token = tokenSnapshot ?? "";
+  const authChecked = tokenSnapshot !== null;
+
+  const [state, setState] = useState<WizardState>(INITIAL_STATE);
+  const [slotNotice, setSlotNotice] = useState<string | null>(null);
+  const [forcedDisabledSlots, setForcedDisabledSlots] = useState<string[]>([]);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [priorityBookingDays, setPriorityBookingDays] = useState<number>(0);
+
+  function patch(partial: Partial<WizardState>) {
+    setState((prev) => ({ ...prev, ...partial }));
+  }
+
+  function goTo(step: number) {
+    patch({ currentStep: step });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handleSlotUnavailable() {
+    if (state.selectedDate && state.selectedSlot) {
+      const slotKey = `${state.selectedDate}|${state.selectedSlot}`;
+      setForcedDisabledSlots((current) =>
+        current.includes(slotKey) ? current : [...current, slotKey],
+      );
+    }
+    setSlotNotice("Slot này vừa có người đặt. Bro chọn lại slot còn trống nha.");
+    patch({ selectedSlot: "", currentStep: 3 });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const handleUnauthorized = useCallback(() => {
+    window.localStorage.removeItem("token");
+    window.localStorage.removeItem("role");
+    window.localStorage.removeItem("userId");
+    window.localStorage.removeItem("email");
+    window.dispatchEvent(new Event("autowash-auth"));
+    setSessionExpired(true);
+  }, []);
+
+  const { data: branches = [], isLoading: branchesLoading, error: branchesErrorObj } = useQuery({
+    queryKey: ["branches", token],
+    queryFn: async () => {
+      try {
+        return await getBranches("", token);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          handleUnauthorized();
+        }
+        throw error;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: authChecked,
+  });
+
+  const branchesError = branchesErrorObj
+    ? (branchesErrorObj instanceof Error ? branchesErrorObj.message : "Không thể tải danh sách chi nhánh.")
+    : null;
+
+  const loadLoyaltyTier = useCallback(async () => {
+    if (!token) return;
+    try {
+      const info = await getLoyaltyInfo(token);
+      console.log("DEBUG [loadLoyaltyTier] raw response normalized:", info);
+      
+      let days =
+        info.tier?.priorityBookingDays ??
+        info.tier?.benefits?.priorityBookingDays ??
+        0;
+      console.log("DEBUG [loadLoyaltyTier] days from backend tier:", days);
+      
+      if (days === 0) {
+        const clientRank = resolveRankTier(info);
+        days = clientRank.priorityBookingDays ?? 3;
+        console.log("DEBUG [loadLoyaltyTier] fallback to client-side rank days:", days);
+      }
+      
+      setPriorityBookingDays(days);
+    } catch (err) {
+      console.error("DEBUG [loadLoyaltyTier] error fetching loyalty:", err);
+      // Mặc định 3 ngày nếu API lỗi
+      setPriorityBookingDays(3);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadLoyaltyTier();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadLoyaltyTier]);
+
+  const { currentStep } = state;
+
+  if (authChecked && !token) {
+    return (
+      <Card className="mx-auto max-w-lg">
+        <CardContent className="flex min-h-72 flex-col items-center justify-center text-center">
+          <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+            <LogIn aria-hidden />
+          </div>
+          <p className="font-semibold text-foreground">
+            {sessionExpired
+              ? "Phiên đăng nhập đã hết hạn."
+              : "Bạn cần đăng nhập để đặt lịch."}
+          </p>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Đăng nhập lại để chọn xe, chọn slot và xác nhận booking.
+          </p>
+          <Button className="mt-5" render={<Link href="/sign-in" />}>
+            Đăng nhập lại
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const wizardContent = (
+    <div className="flex flex-col gap-6">
+      <StepIndicator currentStep={currentStep} />
+
+      <section className="min-h-[460px]" aria-live="polite">
+        {currentStep === 1 ? (
+          <BranchStep
+            branches={branches}
+            loading={branchesLoading}
+            error={branchesError}
+            usingMock={false}
+            selected={state.selectedBranch}
+            onSelect={(branch) => patch({ selectedBranch: branch })}
+            onNext={() => goTo(2)}
+          />
+        ) : null}
+
+        {currentStep === 2 ? (
+          <VehicleStep
+            token={token}
+            selected={state.selectedVehicle}
+            onSelect={(vehicle: Vehicle) => patch({ selectedVehicle: vehicle })}
+            onNext={() => goTo(3)}
+            onBack={() => goTo(1)}
+            onUnauthorized={handleUnauthorized}
+          />
+        ) : null}
+
+        {currentStep === 3 && state.selectedBranch ? (
+          <SlotStep
+            token={token}
+            branchId={state.selectedBranch.id}
+            branchName={state.selectedBranch.name}
+            openTime={state.selectedBranch.openTime}
+            closeTime={state.selectedBranch.closeTime}
+            notice={slotNotice}
+            forcedDisabledSlots={forcedDisabledSlots}
+            priorityBookingDays={priorityBookingDays}
+            selectedDate={state.selectedDate}
+            selectedSlot={state.selectedSlot}
+            onDateChange={(date) => {
+              setSlotNotice(null);
+              patch({ selectedDate: date });
+            }}
+            onSlotChange={(slot) => {
+              setSlotNotice(null);
+              patch({ selectedSlot: slot });
+            }}
+            onNext={() => goTo(4)}
+            onBack={() => goTo(2)}
+            onUnauthorized={handleUnauthorized}
+          />
+        ) : null}
+
+        {currentStep === 4 ? (
+          <PriceTableStep
+            token={token}
+            vehicle={state.selectedVehicle}
+            onNext={() => goTo(5)}
+            onBack={() => goTo(3)}
+          />
+        ) : null}
+
+        {currentStep === 5 &&
+        state.selectedBranch &&
+        state.selectedVehicle &&
+        state.selectedDate &&
+        state.selectedSlot ? (
+          <ReviewPaymentStep
+            token={token}
+            branch={state.selectedBranch}
+            vehicle={state.selectedVehicle}
+            date={state.selectedDate}
+            slot={state.selectedSlot}
+            appliedVoucher={state.appliedVoucher}
+            onSuccess={(result: BookingResult) => {
+              patch({ bookingResult: result, currentStep: 6 });
+            }}
+            onBack={() => goTo(4)}
+            onSlotUnavailable={handleSlotUnavailable}
+            onUnauthorized={handleUnauthorized}
+          />
+        ) : null}
+
+        {currentStep === 6 && state.bookingResult ? (
+          <BookingSuccessStep result={state.bookingResult} />
+        ) : null}
+      </section>
+    </div>
+  );
+
+  return (
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6">
+      <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Customer booking</p>
+          <h1 className="mt-1 text-3xl font-semibold leading-tight text-foreground md:text-4xl">
+            Đặt lịch rửa xe
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Chọn chi nhánh, xe và khung giờ phù hợp. Thông tin cọc, ưu đãi và ví sẽ được kiểm tra trước khi xác nhận.
+          </p>
+        </div>
+        {slotNotice ? (
+          <Alert>
+            <AlertTitle>Slot vừa thay đổi</AlertTitle>
+            <AlertDescription>{slotNotice}</AlertDescription>
+          </Alert>
+        ) : null}
+      </header>
+
+      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_300px] xl:items-start">
+        <BookingCustomerSummary className="xl:sticky xl:top-20" />
+
+        <Card className="min-w-0">
+          <CardHeader className="border-b">
+            <CardTitle>Quy trình đặt lịch</CardTitle>
+          </CardHeader>
+          <CardContent>{wizardContent}</CardContent>
+        </Card>
+
+        {currentStep < 6 ? (
+          <div className="w-full xl:sticky xl:top-20">
+            <BookingProcessSummary state={state} goTo={goTo} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
