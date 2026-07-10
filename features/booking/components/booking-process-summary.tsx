@@ -1,15 +1,12 @@
 "use client";
 
-import { Building2, Car, CalendarClock, Tag, Check, ChevronRight } from "lucide-react";
+import { Building2, Car, CalendarClock, ReceiptText, Check, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import type { WizardState } from "@/features/booking/types/booking-types";
-
-function formatVND(amount: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
 
 function formatDate(dateStr: string) {
   if (!dateStr) return "";
@@ -38,58 +35,53 @@ function SummaryRow({ icon, label, value, isDone, step, currentStep, goTo }: Sum
 
   return (
     <div
-      className={`group relative rounded-xl border p-3.5 transition-all duration-200 ${
-        isDone
-          ? "border-emerald-100 bg-emerald-50/60"
-          : isActive
-            ? "border-slate-200 bg-white shadow-sm"
-            : "border-slate-100 bg-slate-50/40"
-      }`}
+      className={cn(
+        "group relative rounded-xl border p-3.5 transition",
+        isDone && "border-primary/20 bg-muted/50",
+        isActive && "border-primary bg-background shadow-sm",
+        !isDone && !isActive && "border-border bg-muted/30",
+      )}
     >
       <div className="flex items-start gap-2.5">
-        {/* Status dot */}
         <div
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all ${
-            isDone
-              ? "bg-emerald-500 text-white"
-              : isActive
-                ? "bg-slate-950 text-white"
-                : "bg-slate-200 text-slate-400"
-          }`}
+          className={cn(
+            "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition",
+            (isDone || isActive) && "bg-primary text-primary-foreground",
+            !isDone && !isActive && "bg-muted text-muted-foreground",
+          )}
         >
-          {isDone ? <Check size={11} strokeWidth={3} /> : <span className="text-[10px]">{step}</span>}
+          {isDone ? <Check aria-hidden /> : <span className="text-[10px]">{step}</span>}
         </div>
 
         <div className="min-w-0 flex-1">
-          {/* Label */}
           <div className="flex items-center gap-1.5">
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${isDone ? "text-emerald-600" : "text-slate-400"}`}>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               {label}
             </span>
           </div>
 
-          {/* Value or empty state */}
-          <div className={`mt-1 text-sm font-semibold leading-snug ${isDone ? "text-slate-800" : "text-slate-400"}`}>
+          <div className={cn("mt-1 text-sm font-semibold leading-snug", isDone ? "text-foreground" : "text-muted-foreground")}>
             {isDone ? value : (
-              <span className="text-slate-300 text-xs italic">Chưa chọn</span>
+              <span className="text-xs italic text-muted-foreground">Chưa chọn</span>
             )}
           </div>
         </div>
 
-        {/* Icon + change button */}
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className={`${isDone ? "text-emerald-400" : isActive ? "text-slate-600" : "text-slate-200"}`}>
+          <span className={cn(isDone || isActive ? "text-foreground" : "text-muted-foreground")}>
             {icon}
           </span>
           {isAccessible && !isActive && (
-            <button
+            <Button
               type="button"
               onClick={() => goTo(step)}
-              className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-blue-500 transition hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+              variant="ghost"
+              size="xs"
+              className="h-6 px-1.5 text-[10px]"
             >
               Sửa
-              <ChevronRight size={10} />
-            </button>
+              <ChevronRight data-icon="inline-end" />
+            </Button>
           )}
         </div>
       </div>
@@ -105,7 +97,7 @@ function SummaryRow({ icon, label, value, isDone, step, currentStep, goTo }: Sum
  * Cho phép khách hàng bấm "Sửa" để quay lại bước tương ứng ngay lập tức.
  */
 export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProps) {
-  const { selectedBranch, selectedVehicle, selectedDate, selectedSlot, appliedVoucher, currentStep } = state;
+  const { selectedBranch, selectedVehicle, selectedDate, selectedSlot, currentStep } = state;
 
   const isStep1Done = selectedBranch !== null;
   const isStep2Done = selectedVehicle !== null;
@@ -115,23 +107,27 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
   const hasAnyProgress = isStep1Done || isStep2Done || isStep3Done || currentStep >= 4;
 
   return (
-    <aside aria-label="Tóm tắt quy trình đặt lịch" className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="border-b border-slate-100 bg-gradient-to-r from-slate-950 to-slate-800 px-4 py-3.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quy trình</p>
-        <p className="mt-0.5 text-sm font-black text-white">Tóm tắt đặt lịch</p>
-      </div>
+    <aside aria-label="Tóm tắt quy trình đặt lịch">
+      <Card>
+        <CardHeader className="border-b">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Quy trình</p>
+              <CardTitle className="mt-1">Tóm tắt đặt lịch</CardTitle>
+            </div>
+            <Badge variant="secondary">Bước {currentStep}/6</Badge>
+          </div>
+        </CardHeader>
 
-      <div className="space-y-2 p-3">
-        {/* Step 1 – Chi nhánh */}
+      <CardContent className="flex flex-col gap-2">
         <SummaryRow
-          icon={<Building2 size={15} />}
+          icon={<Building2 />}
           label="Chi nhánh"
           value={
             selectedBranch ? (
               <div>
-                <p className="text-slate-800 font-bold leading-tight">{selectedBranch.name}</p>
-                <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{selectedBranch.address}</p>
+                <p className="font-semibold leading-tight text-foreground">{selectedBranch.name}</p>
+                <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{selectedBranch.address}</p>
               </div>
             ) : null
           }
@@ -141,15 +137,14 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
           goTo={goTo}
         />
 
-        {/* Step 2 – Xe */}
         <SummaryRow
-          icon={<Car size={15} />}
+          icon={<Car />}
           label="Phương tiện"
           value={
             selectedVehicle ? (
               <div>
-                <p className="font-bold text-slate-800">{selectedVehicle.licensePlate}</p>
-                <p className="text-[11px] text-slate-400">{selectedVehicle.brand} {selectedVehicle.model}</p>
+                <p className="font-semibold text-foreground tabular-nums">{selectedVehicle.licensePlate}</p>
+                <p className="text-[11px] text-muted-foreground">{selectedVehicle.brand} {selectedVehicle.model}</p>
               </div>
             ) : null
           }
@@ -159,15 +154,14 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
           goTo={goTo}
         />
 
-        {/* Step 3 – Khung giờ */}
         <SummaryRow
-          icon={<CalendarClock size={15} />}
+          icon={<CalendarClock />}
           label="Khung giờ"
           value={
             selectedDate && selectedSlot ? (
               <div>
-                <p className="font-bold text-slate-800">{selectedSlot}</p>
-                <p className="text-[11px] text-slate-400">{formatDate(selectedDate)}</p>
+                <p className="font-semibold text-foreground tabular-nums">{selectedSlot}</p>
+                <p className="text-[11px] text-muted-foreground">{formatDate(selectedDate)}</p>
               </div>
             ) : null
           }
@@ -177,38 +171,29 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
           goTo={goTo}
         />
 
-        {/* Step 4 – Voucher */}
         <SummaryRow
-          icon={<Tag size={15} />}
-          label="Voucher"
+          icon={<ReceiptText />}
+          label="Bảng giá"
           value={
-            appliedVoucher ? (
-              <div>
-                <p className="font-bold text-emerald-700">{appliedVoucher.code}</p>
-                <p className="text-[11px] text-emerald-600">-{formatVND(appliedVoucher.discountAmount)}</p>
-              </div>
-            ) : (
-              <span className="text-[11px] text-slate-400 italic">Không dùng voucher</span>
-            )
+            <span className="text-[11px] text-muted-foreground">Đã xem chi tiết phí</span>
           }
           isDone={isStep4Done}
           step={4}
           currentStep={currentStep}
           goTo={goTo}
         />
-      </div>
+        <Separator className="my-1" />
 
-      {/* Ghi chú: Chi tiết tính tiền và đặt cọc được hiển thị ở bước Xác nhận thanh toán */}
-
-      {/* Empty state khi mới vào trang */}
-      {!hasAnyProgress && (
-        <div className="px-4 pb-5 pt-1 text-center">
-          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-            <CalendarClock size={18} className="text-slate-400" />
+        {!hasAnyProgress && (
+          <div className="pb-2 pt-1 text-center">
+            <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-muted">
+              <CalendarClock className="text-muted-foreground" />
+            </div>
+            <p className="text-xs font-medium text-muted-foreground">Các lựa chọn của bạn<br />sẽ hiện ra ở đây</p>
           </div>
-          <p className="text-xs font-semibold text-slate-400">Các lựa chọn của bạn<br />sẽ hiện ra ở đây</p>
-        </div>
-      )}
+        )}
+      </CardContent>
+      </Card>
     </aside>
   );
 }

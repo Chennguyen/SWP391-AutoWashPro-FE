@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { LogIn } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api-error";
 import { getBranches } from "@/features/booking/public-read-service";
 import { getLoyaltyInfo } from "@/features/loyalty/loyalty-service";
 import { resolveRankTier } from "@/features/loyalty/utils";
-import type { BookingResult, Branch, WizardState } from "@/features/booking/types/booking-types";
+import type { BookingResult, WizardState } from "@/features/booking/types/booking-types";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import { BranchStep } from "./branch-step";
 import { BookingCustomerSummary } from "./booking-customer-summary";
@@ -17,7 +21,6 @@ import { ReviewPaymentStep } from "./review-payment-step";
 import { SlotStep } from "./slot-step";
 import { StepIndicator } from "./step-indicator";
 import { VehicleStep } from "./vehicle-step";
-import { VoucherStep } from "./voucher-step";
 import { PriceTableStep } from "./price-table-step";
 
 const INITIAL_STATE: WizardState = {
@@ -175,32 +178,32 @@ export function BookingWizard() {
 
   if (authChecked && !token) {
     return (
-      <div className="flex min-h-80 items-center justify-center text-center">
-        <div>
-          <p className="font-semibold text-slate-800">
+      <Card className="mx-auto max-w-lg">
+        <CardContent className="flex min-h-72 flex-col items-center justify-center text-center">
+          <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted">
+            <LogIn aria-hidden />
+          </div>
+          <p className="font-semibold text-foreground">
             {sessionExpired
               ? "Phiên đăng nhập đã hết hạn."
               : "Bạn cần đăng nhập để đặt lịch."}
           </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             Đăng nhập lại để chọn xe, chọn slot và xác nhận booking.
           </p>
-          <Link
-            href="/sign-in"
-            className="mt-5 inline-flex rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
+          <Button className="mt-5" render={<Link href="/sign-in" />}>
             Đăng nhập lại
-          </Link>
-        </div>
-      </div>
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   const wizardContent = (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <StepIndicator currentStep={currentStep} />
 
-      <div className="min-h-[460px]">
+      <section className="min-h-[460px]" aria-live="polite">
         {currentStep === 1 ? (
           <BranchStep
             branches={branches}
@@ -283,28 +286,46 @@ export function BookingWizard() {
         {currentStep === 6 && state.bookingResult ? (
           <BookingSuccessStep result={state.bookingResult} />
         ) : null}
-      </div>
+      </section>
     </div>
   );
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      {/* Cột trái: Thông tin tài khoản */}
-      <div className="w-full lg:w-56 xl:w-60 lg:shrink-0 lg:sticky lg:top-20">
-        <BookingCustomerSummary />
-      </div>
-
-      {/* Cột giữa: Nội dung đặt lịch chính */}
-      <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        {wizardContent}
-      </div>
-
-      {/* Cột phải: Tóm tắt tiến trình – ẩn khi bước 6 */}
-      {currentStep < 6 && (
-        <div className="w-full lg:w-56 xl:w-60 lg:shrink-0 lg:sticky lg:top-20">
-          <BookingProcessSummary state={state} goTo={goTo} />
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6">
+      <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Customer booking</p>
+          <h1 className="mt-1 text-3xl font-semibold leading-tight text-foreground md:text-4xl">
+            Đặt lịch rửa xe
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Chọn chi nhánh, xe và khung giờ phù hợp. Thông tin cọc, ưu đãi và ví sẽ được kiểm tra trước khi xác nhận.
+          </p>
         </div>
-      )}
+        {slotNotice ? (
+          <Alert>
+            <AlertTitle>Slot vừa thay đổi</AlertTitle>
+            <AlertDescription>{slotNotice}</AlertDescription>
+          </Alert>
+        ) : null}
+      </header>
+
+      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_300px] xl:items-start">
+        <BookingCustomerSummary className="xl:sticky xl:top-20" />
+
+        <Card className="min-w-0">
+          <CardHeader className="border-b">
+            <CardTitle>Quy trình đặt lịch</CardTitle>
+          </CardHeader>
+          <CardContent>{wizardContent}</CardContent>
+        </Card>
+
+        {currentStep < 6 ? (
+          <div className="w-full xl:sticky xl:top-20">
+            <BookingProcessSummary state={state} goTo={goTo} />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

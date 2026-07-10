@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "@/styles/globals.css";
 import QueryProvider from "@/shared/providers/query-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const utmForum = localFont({
+  src: "../shared/font/UTM-Forum.ttf",
+  variable: "--font-utm-forum",
+  weight: "400",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -32,7 +29,7 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${utmForum.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
       <body className="min-h-full flex flex-col">

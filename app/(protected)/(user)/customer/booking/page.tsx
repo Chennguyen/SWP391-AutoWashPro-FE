@@ -20,16 +20,8 @@ export default function CustomerBookingPage() {
   }, [router]);
 
   return (
-    <main className="w-full px-4 py-6 md:px-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-950">Đặt lịch rửa xe</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Làm theo các bước để hoàn tất đặt lịch của bạn.
-        </p>
-      </div>
-
+    <main className="booking-brand-surface min-h-[calc(100dvh-3.5rem)] w-full bg-background px-4 py-5 text-foreground md:px-6 lg:py-8">
       <BookingWizard />
     </main>
   );
 }
-

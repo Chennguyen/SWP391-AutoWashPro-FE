@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Star, WalletCards } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getLoyaltyInfo, type LoyaltyInfo } from "@/features/loyalty/loyalty-service";
 import { getWallet, type Wallet } from "@/features/users/wallet-service";
 import { getCustomerProfile } from "@/features/users/customer-service";
 import { resolveRankTier } from "@/features/loyalty/utils";
+import { cn } from "@/lib/utils";
 
 function normalizeStoredToken(value: string): string {
   return value.replace(/^Bearer\s+/i, "").replace(/^"|"$/g, "").trim();
@@ -41,6 +46,30 @@ function formatPoints(value: number): string {
   return new Intl.NumberFormat("vi-VN").format(value);
 }
 
+type BookingCustomerSummaryProps = {
+  className?: string;
+};
+
+function SummaryValue({
+  loading,
+  children,
+  skeletonClassName,
+}: {
+  loading: boolean;
+  children: ReactNode;
+  skeletonClassName?: string;
+}) {
+  if (loading) {
+    return <Skeleton className={cn("mt-1 h-6 w-24", skeletonClassName)} />;
+  }
+
+  return (
+    <p className="mt-1 truncate text-lg font-semibold text-foreground tabular-nums">
+      {children}
+    </p>
+  );
+}
+
 /**
  * Thành phần (Component) BookingCustomerSummary
  *
@@ -48,7 +77,7 @@ function formatPoints(value: number): string {
  * Bao gồm: Tên khách hàng, Hạng thành viên, Điểm tích lũy và Số dư ví.
  * Lắng nghe sự kiện storage, autowash-auth và autowash-wallet-updated để đồng bộ thời gian thực.
  */
-export function BookingCustomerSummary() {
+export function BookingCustomerSummary({ className }: BookingCustomerSummaryProps) {
   const [name, setName] = useState("Khách hàng");
   const [token, setToken] = useState("");
   const [loyaltyInfo, setLoyaltyInfo] = useState<LoyaltyInfo | null>(null);
@@ -143,67 +172,70 @@ export function BookingCustomerSummary() {
   return (
     <aside
       aria-label="Thông tin tài khoản"
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      className={cn("booking-brand-surface w-full", className)}
     >
-      {/* Avatar + Tên */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-950 text-lg font-black text-white select-none">
-          {name.charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Khách hàng
-          </p>
-          <p className="truncate text-base font-black text-slate-950">{name}</p>
-        </div>
-      </div>
+      <Card size="sm" className="h-full">
+        <CardHeader className="border-b">
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 shrink-0 select-none items-center justify-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
+              {name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Khách hàng
+              </p>
+              <CardTitle className="truncate text-base">{name}</CardTitle>
+            </div>
+          </div>
+        </CardHeader>
 
-      <hr className="my-4 border-slate-100" />
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Hạng thành viên
+              </p>
+              <SummaryValue loading={loyaltyLoading && !loyaltyInfo} skeletonClassName="w-32">
+                {loyaltyLoading && !loyaltyInfo
+                  ? null
+                  : rank.name === "Member"
+                    ? "Member"
+                    : `${rank.name} Member`}
+              </SummaryValue>
+            </div>
+            <Badge variant="secondary">
+              <Star data-icon="inline-start" aria-hidden />
+              Rank
+            </Badge>
+          </div>
 
-      {/* Hạng thành viên */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Hạng thành viên
-          </p>
-          <Star size={14} className="shrink-0 fill-amber-400 text-amber-400" aria-hidden />
-        </div>
-        <p className="text-xl font-black text-slate-950">
-          {loyaltyLoading && !loyaltyInfo
-            ? "Đang tải..."
-            : rank.name === "Member"
-              ? "Member"
-              : `${rank.name} Member`}
-        </p>
-      </div>
+          <Separator />
 
-      <hr className="my-4 border-slate-100" />
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Điểm tích lũy
+            </p>
+            <SummaryValue loading={loyaltyLoading && !loyaltyInfo}>
+              {formatPoints(points)}
+              <span className="ml-1.5 text-sm font-medium text-muted-foreground">pts</span>
+            </SummaryValue>
+          </div>
 
-      {/* Điểm tích lũy */}
-      <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-          Điểm tích lũy
-        </p>
-        <p className="text-xl font-black text-slate-950">
-          {loyaltyLoading && !loyaltyInfo ? "..." : formatPoints(points)}
-          <span className="ml-1.5 text-sm font-semibold text-slate-400">pts</span>
-        </p>
-      </div>
+          <Separator />
 
-      <hr className="my-4 border-slate-100" />
-
-      {/* Số dư ví */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-1.5">
-          <WalletCards size={13} className="text-slate-400" aria-hidden />
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Số dư ví
-          </p>
-        </div>
-        <p className="text-xl font-black text-slate-950">
-          {walletLoading && !wallet ? "..." : formatVND(walletBalance)}
-        </p>
-      </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <WalletCards className="text-muted-foreground" aria-hidden />
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Số dư ví
+              </p>
+            </div>
+            <SummaryValue loading={walletLoading && !wallet} skeletonClassName="w-36">
+              {formatVND(walletBalance)}
+            </SummaryValue>
+          </div>
+        </CardContent>
+      </Card>
     </aside>
   );
 }
