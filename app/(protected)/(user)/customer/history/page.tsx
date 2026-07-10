@@ -173,9 +173,7 @@ function BookingHistoryPageContent() {
     <main className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8 items-start">
         {/* Cột trái: Khung thông tin cá nhân */}
-        <div className="lg:col-span-1 lg:sticky lg:top-6">
-          <BookingCustomerSummary />
-        </div>
+        <BookingCustomerSummary className="lg:col-span-1 lg:sticky lg:top-20" />
 
         {/* Cột phải: Nội dung lịch sử */}
         <div className="lg:col-span-3 space-y-6">

@@ -6,24 +6,24 @@
 
 @theme {
   --color-background: #050505;
-  --color-foreground: #F5F5F2;
-  --color-soft-white: #F5F5F2;
-  --color-text-gray: #D1D5DB;
+  --color-foreground: #f5f5f2;
+  --color-soft-white: #f5f5f2;
+  --color-text-gray: #d1d5db;
   --color-border-gray: rgba(255, 255, 255, 0.14);
   --color-charcoal: #171717;
   --color-charcoal-light: #262626;
 
   /* Custom Luxury Theme Definitions */
-  --color-background-outer: #0E0E10;
+  --color-background-outer: #0e0e10;
   --color-background-main: #161619;
   --color-background-secondary: #222226;
 
-  --color-gold-primary: #BCA374;
-  --color-gold-light: #D8C49F;
-  --color-gold-deep: #8E744A;
+  --color-gold-primary: #bca374;
+  --color-gold-light: #d8c49f;
+  --color-gold-deep: #8e744a;
 
-  --color-border-box: #2E2D2B;
-  --color-border-step: #3E3B36;
+  --color-border-box: #2e2d2b;
+  --color-border-step: #3e3b36;
 }
 
 :root {
@@ -34,21 +34,21 @@
   --soft: #171717;
 
   /* AutoWash Pro Luxury Dark Premium Color Palette */
-  --background-outer: #0E0E10;         /* Deepest dark charcoal black */
-  --background-main: #161619;          /* Main panel background */
-  --background-secondary: #222226;     /* Secondary fields/inputs background */
+  --background-outer: #0e0e10; /* Deepest dark charcoal black */
+  --background-main: #161619; /* Main panel background */
+  --background-secondary: #222226; /* Secondary fields/inputs background */
 
-  --gold-primary: #BCA374;             /* Bronze Luxury Gold */
-  --gold-light: #D8C49F;               /* Light Accent Gold */
-  --gold-deep: #8E744A;                /* Deep Gold Hover */
+  --gold-primary: #bca374; /* Bronze Luxury Gold */
+  --gold-light: #d8c49f; /* Light Accent Gold */
+  --gold-deep: #8e744a; /* Deep Gold Hover */
 
-  --text-light: #FFFDF9;               /* Warm Soft White for high contrast headers */
-  --text-body: #C4C0B6;                /* Comfortable silver-gray body text for eye-safety */
-  --text-secondary: #A09C94;           /* Comfortable muted warm text for descriptions */
+  --text-light: #fffdf9; /* Warm Soft White for high contrast headers */
+  --text-body: #c4c0b6; /* Comfortable silver-gray body text for eye-safety */
+  --text-secondary: #a09c94; /* Comfortable muted warm text for descriptions */
 
-  --border-box: #2E2D2B;               /* Subtle warm border */
-  --border-step: #3E3B36;              /* Darker border for detail blocks */
-  --border-heading: #BCA374;
+  --border-box: #2e2d2b; /* Subtle warm border */
+  --border-step: #3e3b36; /* Darker border for detail blocks */
+  --border-heading: #bca374;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -87,12 +87,14 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 20px;
 }
 
 body {
   margin: 0;
   background-color: var(--background);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-utm-forum), Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
 }
 
 a {
@@ -107,9 +109,82 @@ textarea {
   font: inherit;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-heading,
+.font-sans,
+.font-mono {
+  font-family: var(--font-utm-forum), Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
 ::selection {
-  background: #F5F5F2;
+  background: #f5f5f2;
   color: #050505;
+}
+
+/* ==========================================================================
+   AutoWash Pro Booking shadcn Token Scope
+   Keeps the booking flow synchronized with the customer/admin dark luxury shell.
+   ========================================================================== */
+
+.booking-brand-surface,
+.booking-brand-dialog {
+  --background: #0e0e10;
+  --foreground: #fffdf9;
+  --card: #161619;
+  --card-foreground: #fffdf9;
+  --popover: #161619;
+  --popover-foreground: #fffdf9;
+  --primary: #bca374;
+  --primary-foreground: #ffffff;
+  --secondary: #222226;
+  --secondary-foreground: #fffdf9;
+  --muted: #222226;
+  --muted-foreground: #a09c94;
+  --accent: #26241f;
+  --accent-foreground: #d8c49f;
+  --destructive: #ef4444;
+  --border: #2e2d2b;
+  --input: #3e3b36;
+  --ring: #bca374;
+  --sidebar: #161619;
+  --sidebar-foreground: #fffdf9;
+  --sidebar-primary: #bca374;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #222226;
+  --sidebar-accent-foreground: #d8c49f;
+  --sidebar-border: #2e2d2b;
+  --sidebar-ring: #bca374;
+}
+
+.booking-brand-surface [data-slot="card"],
+.booking-brand-dialog {
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.booking-brand-surface [data-slot="card"],
+.booking-brand-surface [data-slot="alert"],
+.booking-brand-dialog {
+  border-color: var(--border-box);
+}
+
+.booking-brand-surface [data-slot="badge"][data-variant="secondary"],
+.booking-brand-dialog [data-slot="badge"][data-variant="secondary"] {
+  border: 1px solid rgba(188, 163, 116, 0.28);
+}
+
+.booking-brand-surface input[type="date"] {
+  color-scheme: dark;
+}
+
+.booking-brand-surface [data-slot="skeleton"],
+.booking-brand-dialog [data-slot="skeleton"] {
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ==========================================================================
@@ -155,7 +230,7 @@ main.bg-background-outer {
 
 .bg-background-outer input::placeholder,
 .bg-background-outer textarea::placeholder {
-  color: #52525B !important; /* Zinc-600 soft placeholder for eye comfort */
+  color: #52525b !important; /* Zinc-600 soft placeholder for eye comfort */
 }
 
 .bg-background-outer input:focus,
@@ -240,7 +315,7 @@ main.bg-background-outer {
 /* Eye-friendly placeholder text and password view icons */
 .bg-background-outer .text-gray-400,
 .bg-background-outer svg.text-gray-400 {
-  color: #69645B !important;
+  color: #69645b !important;
 }
 
 /* Primary links / Active highlights: Luxury Gold */
@@ -282,7 +357,7 @@ main.bg-background-outer {
 .bg-background-outer button.bg-blue-600 *,
 .bg-background-outer input[type="submit"] {
   background-color: var(--gold-primary) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   border-color: var(--gold-primary) !important;
   font-weight: 700 !important;
 }
@@ -301,7 +376,7 @@ main.bg-background-outer {
 .bg-background-outer button.bg-blue-600 *,
 .bg-background-outer .bg-blue-600.text-white * {
   background-color: var(--gold-primary) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
 /* Inactive Sidebar navigation items hover */
@@ -331,7 +406,12 @@ main.bg-background-outer {
 .bg-background-outer div[class*="from-slate-400"],
 .bg-background-outer div[class*="from-yellow-500"],
 .bg-background-outer div[class*="from-purple-700"] {
-  background: linear-gradient(135deg, #1C1C1F 0%, #2A2A2E 50%, #121214 100%) !important;
+  background: linear-gradient(
+    135deg,
+    #1c1c1f 0%,
+    #2a2a2e 50%,
+    #121214 100%
+  ) !important;
   border: 1px solid var(--gold-primary) !important;
   color: var(--text-light) !important;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35) !important;
@@ -375,7 +455,7 @@ main.bg-background-outer {
 .bg-background-outer .text-red-800,
 .bg-background-outer span[class*="text-red-"],
 .bg-background-outer div[class*="text-red-"] {
-  color: #EF4444 !important; /* Soft bright red */
+  color: #ef4444 !important; /* Soft bright red */
 }
 .bg-background-outer .bg-red-50,
 .bg-background-outer .bg-red-100,
@@ -395,7 +475,7 @@ main.bg-background-outer {
 .bg-background-outer span[class*="text-green-"],
 .bg-background-outer div[class*="text-emerald-"],
 .bg-background-outer div[class*="text-green-"] {
-  color: #10B981 !important; /* Soft bright green */
+  color: #10b981 !important; /* Soft bright green */
 }
 .bg-background-outer .bg-emerald-50,
 .bg-background-outer .bg-emerald-100,
@@ -418,7 +498,7 @@ main.bg-background-outer {
 .bg-background-outer span[class*="text-yellow-"],
 .bg-background-outer div[class*="text-amber-"],
 .bg-background-outer div[class*="text-yellow-"] {
-  color: #F59E0B !important; /* Soft amber/yellow */
+  color: #f59e0b !important; /* Soft amber/yellow */
 }
 .bg-background-outer .bg-amber-50,
 .bg-background-outer .bg-amber-100,
@@ -439,38 +519,38 @@ main.bg-background-outer {
 
 .bg-background-outer .rank-tier-card-reached {
   background-color: #222226 !important;
-  border-color: #BCA374 !important;
+  border-color: #bca374 !important;
 }
 
 .bg-background-outer .rank-tier-card-locked {
   background-color: #161619 !important;
-  border-color: #2E2D2B !important;
+  border-color: #2e2d2b !important;
 }
 
 .bg-background-outer .rank-tier-card-reached h3,
 .bg-background-outer .rank-tier-card-reached p,
 .bg-background-outer .rank-tier-card-reached span {
-  color: #FFFDF9 !important;
+  color: #fffdf9 !important;
 }
 
 .bg-background-outer .rank-tier-card-locked h3,
 .bg-background-outer .rank-tier-card-locked p,
 .bg-background-outer .rank-tier-card-locked span {
-  color: #C4C0B6 !important;
+  color: #c4c0b6 !important;
 }
 
 .bg-background-outer .rank-tier-card-reached svg {
-  color: #BCA374 !important;
+  color: #bca374 !important;
 }
 
 .bg-background-outer .rank-tier-card-locked svg {
-  color: #8E887E !important;
+  color: #8e887e !important;
 }
 
 .bg-background-outer .rank-tier-card-reached span.inline-flex {
   background-color: rgba(188, 163, 116, 0.14) !important;
   border: 1px solid rgba(188, 163, 116, 0.36) !important;
-  color: #D8C49F !important;
+  color: #d8c49f !important;
 }
 
 /* ==========================================================================
@@ -500,7 +580,9 @@ main.bg-background-outer {
 .bg-background-outer .notif-dropdown-panel {
   background-color: var(--background-main) !important;
   border: 1px solid var(--border-box) !important;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 8px 15px -6px rgba(0, 0, 0, 0.4) !important;
+  box-shadow:
+    0 10px 30px -5px rgba(0, 0, 0, 0.5),
+    0 8px 15px -6px rgba(0, 0, 0, 0.4) !important;
   color: var(--text-body) !important;
 }
 
@@ -584,7 +666,9 @@ main.bg-background-outer {
 .notif-toast-card {
   background-color: var(--background-main) !important;
   border: 1px solid var(--border-box) !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.4),
+    0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
   color: var(--text-body) !important;
   border-radius: 0.75rem !important;
   padding: 1rem !important;
@@ -675,8 +759,10 @@ main.bg-background-outer {
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-utm-forum);
+  --font-heading: var(--font-utm-forum);
+  --font-display: var(--font-utm-forum);
+  --font-mono: var(--font-utm-forum);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

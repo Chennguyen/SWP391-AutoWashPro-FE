@@ -1,19 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
 import { AuthInput } from "@/features/auth/components/auth-input";
 import { ApiError } from "@/lib/api-error";
-import { loginSchema, LoginFields } from "../validation/auth-validation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useLogin } from "../hooks/useLogin";
-import { Button } from "@/components/ui/button";
+import { LoginFields, loginSchema } from "../validation/auth-validation";
 
 /**
  * Thành phần (Component) LoginForm
- * 
+ *
  * Chức năng: Đăng nhập hệ thống AutoWash Pro sử dụng React Hook Form + Zod & Zustand.
  */
 export function LoginForm() {
@@ -74,10 +74,13 @@ export function LoginForm() {
         return;
       }
 
-      setGlobalError(error instanceof Error ? error.message : "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+      setGlobalError(
+        error instanceof Error
+          ? error.message
+          : "Không thể kết nối đến máy chủ. Vui lòng thử lại.",
+      );
     }
   }
-
 
   return (
     <>
@@ -104,8 +107,13 @@ export function LoginForm() {
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        className="flex flex-col gap-4"
+      >
         <AuthInput
+          className="py-1"
           id="login-email"
           label="Email"
           type="email"
@@ -116,6 +124,7 @@ export function LoginForm() {
         />
 
         <AuthInput
+          className="py-1"
           id="login-password"
           label="Mật khẩu"
           type="password"
@@ -157,7 +166,7 @@ export function LoginForm() {
           id="login-submit-btn"
           type="submit"
           disabled={isSubmitting}
-          className="mt-1 w-full rounded-xl bg-[#CDB390] hover:bg-[#BCA27F] py-6 text-sm font-semibold tracking-wide text-white transition-all duration-200 active:scale-[0.98]"
+          className="mt-1 w-full py-3 rounded-xl bg-[#CDB390] hover:bg-[#BCA27F] text-sm font-semibold tracking-wide text-white transition-all duration-200 active:scale-[0.98]"
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">

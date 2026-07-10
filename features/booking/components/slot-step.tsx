@@ -1,8 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Clock3, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api-error";
+import { cn } from "@/lib/utils";
 import { getBookings, getSlots } from "@/features/booking/booking-service";
 import type { BookingSlot, CustomerBooking } from "@/features/booking/types/booking-types";
 
@@ -330,70 +337,90 @@ export function SlotStep({
   const hasAnyAvailable = slotsToRender.some((slot) => !isDisabled(slot));
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-xl font-bold text-slate-950">Ngày và khung giờ</h2>
+        <h2 className="text-xl font-semibold text-foreground">Ngày và khung giờ</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Chọn ngày hợp lệ và một slot còn trống tại {branchName}.
+        </p>
       </div>
 
-      <div>
-        <label htmlFor="booking-date" className="mb-2 block text-sm font-semibold text-slate-700">
-          Ngày đặt hẹn <span className="text-orange-500">*</span>
-        </label>
-        <div className="relative">
-          <input
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar aria-hidden />
+            Ngày đặt hẹn
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Input
             id="booking-date"
             type="date"
             min={today}
             max={maxDate ?? undefined}
             value={effectiveDate}
             onChange={(event) => handleDateChange(event.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            className="h-11"
           />
-          <Calendar size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">Từ {today}</Badge>
+            <Badge variant="outline">
+              {openTime} - {closeTime}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
         {maxDate ? (
-          <p className="mt-1.5 text-xs text-slate-500">
-            ⚠️ Hạng thành viên của bạn chỉ được đặt trước tối đa{" "}
-            <span className="font-semibold text-orange-600">{priorityBookingDays} ngày</span>
+        <Alert>
+          <Info aria-hidden />
+          <AlertTitle>Giới hạn đặt trước theo hạng</AlertTitle>
+          <AlertDescription>
+            Hạng thành viên của bạn chỉ được đặt trước tối đa{" "}
+            <span className="font-semibold text-foreground">{priorityBookingDays} ngày</span>
             {" "}(tới hết ngày{" "}
             <span className="font-semibold">
               {new Date(maxDate + "T00:00:00").toLocaleDateString("vi-VN")}
             </span>
             ).
-          </p>
+          </AlertDescription>
+        </Alert>
         ) : null}
-      </div>
 
-      <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
-        Mỗi slot chỉ nhận 1 xe. Các slot màu xám là đã kín hoặc đã qua.
-      </div>
+      <Alert>
+        <Clock3 aria-hidden />
+        <AlertDescription>
+          Mỗi slot chỉ nhận 1 xe. Slot không khả dụng sẽ bị khóa và không thể chọn.
+        </AlertDescription>
+      </Alert>
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 12 }).map((_, index) => (
-            <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />
+            <Skeleton key={index} className="h-14 rounded-xl" />
           ))}
         </div>
       ) : null}
 
       {error ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       {notice && !error ? (
-        <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {notice}
-        </div>
+        <Alert>
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
       ) : null}
 
       {!loading && !error ? (
-        <div>
-          <p className="mb-3 text-sm font-semibold text-slate-800">
-            Chọn slot trống <span className="text-orange-500">*</span>
-          </p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Chọn slot trống</CardTitle>
+          </CardHeader>
+          <CardContent>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {slotsToRender.map((slot) => {
               const disabled = isDisabled(slot);
               const selected = selectedSlot === slot;
@@ -407,13 +434,12 @@ export function SlotStep({
                   aria-disabled={disabled}
                   aria-pressed={selected}
                   title={disabled ? "Slot này không khả dụng" : undefined}
-                  className={`h-14 rounded-lg border text-base font-bold transition ${
-                    selected
-                      ? "border-slate-950 bg-slate-950 text-white shadow-sm"
-                      : disabled
-                        ? "pointer-events-none cursor-not-allowed border-[#3A3A40] bg-[#2B2B30] text-[#817D76] opacity-60"
-                        : "border-slate-200 bg-white text-slate-950 hover:border-slate-400"
-                  }`}
+                  className={cn(
+                    "h-14 rounded-xl border text-sm font-semibold tabular-nums transition focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
+                    selected && "border-primary bg-primary text-primary-foreground shadow-sm",
+                    disabled && "pointer-events-none cursor-not-allowed border-border bg-muted text-muted-foreground opacity-55",
+                    !selected && !disabled && "border-border bg-background text-foreground hover:border-foreground/30 hover:bg-muted/60",
+                  )}
                 >
                   {formatSlotRange(slot, serverSlots)}
                 </button>
@@ -421,32 +447,35 @@ export function SlotStep({
             })}
           </div>
           {!hasAnyAvailable ? (
-            <p className="mt-4 text-center text-sm text-slate-500">
+            <p className="mt-4 text-center text-sm text-muted-foreground">
               Không còn slot trống cho ngày này. Vui lòng chọn ngày khác.
             </p>
           ) : null}
-          <p className="mt-4 text-sm text-slate-500">
+          <p className="mt-4 text-sm text-muted-foreground">
             Những slot màu xám là đã kín hoặc không đủ khoảng trống.
           </p>
-        </div>
+          </CardContent>
+        </Card>
       ) : null}
 
-      <div className="flex justify-between pt-2">
-        <button
+      <div className="flex justify-between gap-3 pt-2">
+        <Button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          variant="outline"
+          size="lg"
         >
           Quay lại
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={handleNext}
           disabled={!selectedSlot}
-          className="rounded-lg bg-slate-950 px-8 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          size="lg"
+          className="min-w-32"
         >
           Tiếp tục
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Info } from "lucide-react";
+import { Car, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
 
@@ -70,80 +76,84 @@ export function PriceTableStep({ token, vehicle, onNext, onBack }: PriceTableSte
   const totalPrice = configs.basePrice + surcharge;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-950">Bảng giá dịch vụ</h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <h2 className="text-xl font-semibold text-foreground">Bảng giá dịch vụ</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Chi tiết biểu phí và số tiền cần cọc trước cho xe của bạn.
         </p>
       </div>
 
       {loading ? (
-        <div className="space-y-3 py-6">
-          <div className="h-6 w-1/3 animate-pulse rounded bg-slate-100" />
-          <div className="h-24 animate-pulse rounded-lg bg-slate-100" />
+        <div className="flex flex-col gap-3 py-6">
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="h-36 rounded-xl" />
         </div>
       ) : (
-        <div className="space-y-5">
-          {/* Card bảng giá */}
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="bg-slate-50 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-              <span className="text-sm font-bold text-slate-800">Thông tin xe đang chọn:</span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+        <div className="flex flex-col gap-5">
+          <Card>
+            <CardHeader className="border-b">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Car aria-hidden />
+                  Xe đang chọn
+                </CardTitle>
+                <Badge variant="secondary">
                 {vehicle?.licensePlate} ({vehicleTypeLabel})
-              </span>
-            </div>
+                </Badge>
+              </div>
+            </CardHeader>
 
-            <div className="p-5 space-y-4">
-              {/* Dòng giá cơ bản */}
+            <CardContent className="flex flex-col gap-4">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Giá dịch vụ cơ bản</span>
-                <span className="font-semibold text-slate-800">{formatVND(configs.basePrice)}</span>
+                <span className="text-muted-foreground">Giá dịch vụ cơ bản</span>
+                <span className="font-semibold text-foreground">{formatVND(configs.basePrice)}</span>
               </div>
 
-              {/* Dòng phụ phí động */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">
+                <span className="text-muted-foreground">
                   Phụ phí dòng xe ({vehicleTypeLabel})
                 </span>
-                <span className="font-normal text-slate-700">
+                <span className="font-medium text-foreground">
                   +{formatVND(surcharge)}
                 </span>
               </div>
 
-              <div className="border-t border-slate-100 my-2 pt-3 flex items-center justify-between">
-                <span className="font-bold text-slate-900">Tổng cộng giá dịch vụ</span>
-                <span className="text-lg font-black text-blue-600">{formatVND(totalPrice)}</span>
-              </div>
-            </div>
-          </div>
+              <Separator />
 
-          {/* Alert thông tin */}
-          <div className="flex gap-2.5 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-xs text-amber-800 leading-relaxed">
-            <Info size={16} className="shrink-0 text-amber-600 mt-0.5" />
-            <p>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground">Tổng cộng giá dịch vụ</span>
+                <span className="text-2xl font-semibold tabular-nums text-foreground">{formatVND(totalPrice)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Alert>
+            <Info aria-hidden />
+            <AlertDescription>
               <strong>Lưu ý:</strong> Mức phụ phí và tỷ lệ đặt cọc được cấu hình trực tiếp từ hệ thống AutoWash Pro để đảm bảo công bằng dựa trên kích thước xe. SUV cần lượng nước, hóa chất tẩy rửa lớn hơn và thời gian xử lý lâu hơn so với dòng xe Sedan.
-            </p>
-          </div>
+            </AlertDescription>
+          </Alert>
         </div>
       )}
 
-      {/* Điều hướng */}
-      <div className="flex justify-between pt-2">
-        <button
+      <div className="flex justify-between gap-3 pt-2">
+        <Button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          variant="outline"
+          size="lg"
         >
           Quay lại
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onNext}
-          className="rounded-lg bg-slate-950 px-8 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          size="lg"
+          className="min-w-32"
         >
           Tiếp tục
-        </button>
+        </Button>
       </div>
     </div>
   );

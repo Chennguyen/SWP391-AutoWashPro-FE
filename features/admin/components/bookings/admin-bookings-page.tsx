@@ -81,7 +81,10 @@ function BookingDetailModal({
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-slate-500">Chi tiết lịch đặt</p>
-            <h3 className="mt-1 font-mono text-lg font-bold text-slate-950">{booking.id || "-"}</h3>
+            <h3 className="mt-1 text-lg font-bold text-slate-950">{booking.customerName || "Khách hàng"}</h3>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {booking.branchName || "-"} · {booking.vehiclePlate || "-"}
+            </p>
           </div>
           <button
             type="button"

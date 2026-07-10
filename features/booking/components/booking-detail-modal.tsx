@@ -1,7 +1,7 @@
 "use client";
 
-import { X, CalendarDays, Car, MapPin, Clock, Tag, Hash, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { X, CalendarDays, Car, MapPin, Clock, Tag, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
+import { useState, useEffect } from "react";
 import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import { getVehicles } from "@/features/booking/vehicle-service";
@@ -173,12 +173,9 @@ export function BookingDetailModal({
           <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-4 shrink-0">
             <div>
               <h2 className="text-lg font-bold text-slate-950">Chi tiết đặt lịch</h2>
-              {booking.id ? (
-                <p className="mt-0.5 flex items-center gap-1 font-mono text-xs text-slate-400">
-                  <Hash size={11} aria-hidden />
-                  {booking.id}
-                </p>
-              ) : null}
+              <p className="mt-0.5 text-xs font-medium text-slate-500">
+                {booking.branchName || "Chi nhánh"} · {formatDateOnly(booking)}
+              </p>
             </div>
             <button
               type="button"
@@ -437,7 +434,6 @@ export function BookingDetailModal({
 
       {showCancelModal && (
         <CancelModal
-          bookingId={booking.id}
           onConfirm={handleConfirmCancel}
           onClose={() => {
             setShowCancelModal(false);

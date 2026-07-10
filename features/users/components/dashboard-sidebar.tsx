@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutDashboard,
@@ -14,6 +14,8 @@ import {
   Lock,
 } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 
@@ -36,6 +38,32 @@ function clearAuthSession() {
   window.dispatchEvent(new Event("autowash-auth"));
 }
 
+function subscribeAuthState(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener("autowash-auth", onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener("autowash-auth", onStoreChange);
+  };
+}
+
+function getIsUnverifiedSnapshot() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem("is_unverified") === "true";
+}
+
+function getServerIsUnverifiedSnapshot() {
+  return false;
+}
+
 /**
  * Thành phần (Component) DashboardSidebar
  * 
@@ -48,13 +76,11 @@ export function DashboardSidebar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("tab") || "active";
-  const [isUnverified, setIsUnverified] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
-    }
-  }, []);
+  const isUnverified = useSyncExternalStore(
+    subscribeAuthState,
+    getIsUnverifiedSnapshot,
+    getServerIsUnverifiedSnapshot
+  );
 
   function handleLogout() {
     clearAuthSession();
@@ -96,36 +122,41 @@ export function DashboardSidebar() {
               const isLocked = isUnverified && (href.startsWith("/customer/booking") || href.startsWith("/customer/history"));
               if (isLocked) {
                 return (
-                  <div
+                  <Button
                     key={href}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed select-none bg-white/5 text-white/50"
+                    type="button"
+                    variant="ghost"
+                    className="h-10 gap-2 bg-white/5 px-3 leading-none text-white/50 opacity-40 select-none"
+                    disabled
                     title="Tài khoản chưa xác thực FaceID"
                   >
-                    <Icon size={15} style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
-                    <span>{label}</span>
-                    <Lock size={12} className="ml-1 text-white/40" />
-                  </div>
+                    <Icon data-icon="inline-start" style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
+                    <span className="block leading-none">{label}</span>
+                    <Lock data-icon="inline-end" className="ml-1 text-white/40" />
+                  </Button>
                 );
               }
 
               return (
-                <Link
+                <Button
                   key={href}
-                  href={href}
+                  nativeButton={false}
+                  render={<Link href={href} />}
+                  variant="ghost"
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
+                    "h-10 gap-2 px-3 leading-none duration-150",
                     active ? "bg-[#CDB390]" : "hover:bg-white/10"
                   )}
                   style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
                   aria-current={active ? "page" : undefined}
                 >
                   <Icon
-                    size={15}
+                    data-icon="inline-start"
                     style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.6)" }}
                     aria-hidden
                   />
-                  {label}
-                </Link>
+                  <span className="block leading-none">{label}</span>
+                </Button>
               );
             })}
           </nav>
@@ -133,23 +164,27 @@ export function DashboardSidebar() {
           {/* Right: logout + hamburger */}
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={handleLogout}
-              className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-500/10 transition-all duration-150"
+              className="hidden h-10 gap-2 px-3 leading-none text-red-400 duration-150 hover:bg-red-500/10 hover:text-red-300 lg:flex"
               style={{ color: "#f87171" }}
             >
-              <LogOut size={15} aria-hidden />
-              Đăng xuất
-            </button>
+              <LogOut data-icon="inline-start" aria-hidden />
+              <span className="block leading-none">Đăng xuất</span>
+            </Button>
 
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
               aria-label="Mở menu"
             >
-              <Menu size={20} />
-            </button>
+              <Menu aria-hidden />
+            </Button>
           </div>
         </div>
       </header>
@@ -171,20 +206,24 @@ export function DashboardSidebar() {
         )}
         aria-label="Sidebar"
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-5">
           <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase text-white">
             AUTOWASH <span style={{ color: "#CDB390" }}>PRO</span>
           </Link>
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setMobileOpen(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="text-slate-400 hover:bg-white/10 hover:text-white"
             aria-label="Đóng menu"
           >
-            <X size={18} />
-          </button>
+            <X aria-hidden />
+          </Button>
         </div>
+        <Separator className="bg-white/10" />
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Điều hướng chính">
+        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4" aria-label="Điều hướng chính">
           {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
             let active = false;
             if (href.includes("?")) {
@@ -201,52 +240,59 @@ export function DashboardSidebar() {
             const isLocked = isUnverified && (href.startsWith("/customer/booking") || href.startsWith("/customer/history"));
             if (isLocked) {
               return (
-                <div
+                <Button
                   key={href}
-                  className="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium opacity-40 cursor-not-allowed select-none bg-white/5 text-white/50"
+                  type="button"
+                  variant="ghost"
+                  className="h-10 justify-between gap-3 bg-white/5 px-3 leading-none text-white/50 opacity-40 select-none"
+                  disabled
                   title="Tài khoản chưa xác thực FaceID"
                 >
-                  <span className="flex items-center gap-3">
-                    <Icon size={16} style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
-                    {label}
+                  <span className="flex items-center gap-3 leading-none">
+                    <Icon data-icon="inline-start" style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
+                    <span className="block leading-none">{label}</span>
                   </span>
-                  <Lock size={13} className="text-white/40" />
-                </div>
+                  <Lock data-icon="inline-end" className="text-white/40" />
+                </Button>
               );
             }
 
             return (
-              <Link
+              <Button
                 key={href}
-                href={href}
+                nativeButton={false}
+                render={<Link href={href} />}
+                variant="ghost"
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                  "h-10 justify-start gap-3 px-3 leading-none duration-150",
                   active ? "bg-[#CDB390]" : "hover:bg-white/10"
                 )}
                 style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
                 aria-current={active ? "page" : undefined}
               >
                 <Icon
-                  size={16}
+                  data-icon="inline-start"
                   style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.6)" }}
                   aria-hidden
                 />
-                {label}
-              </Link>
+                <span className="block leading-none">{label}</span>
+              </Button>
             );
           })}
         </nav>
 
-        <div className="px-3 py-4 border-t border-white/10">
-          <button
+        <Separator className="bg-white/10" />
+        <div className="px-3 py-4">
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => { setMobileOpen(false); handleLogout(); }}
-            className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-150"
+            className="h-10 w-full justify-start gap-3 px-3 leading-none text-red-400 duration-150 hover:bg-red-500/10 hover:text-red-300"
           >
-            <LogOut size={16} aria-hidden />
-            Đăng xuất
-          </button>
+            <LogOut data-icon="inline-start" aria-hidden />
+            <span className="block leading-none">Đăng xuất</span>
+          </Button>
         </div>
       </aside>
     </>

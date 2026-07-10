@@ -56,12 +56,10 @@ const CANCEL_CUTOFF_MINUTES = 30;
 // ─── Cancel Modal ───────────────────────────────────────────────────────────────
 
 export function CancelModal({
-  bookingId,
   onConfirm,
   onClose,
   loading,
 }: {
-  bookingId: string;
   onConfirm: (reason: string) => void;
   onClose: () => void;
   loading: boolean;
@@ -78,10 +76,7 @@ export function CancelModal({
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-bold text-slate-900">Hủy lịch đặt</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Mã lịch:{" "}
-          <span className="font-mono font-semibold text-slate-700">
-            {bookingId}
-          </span>
+          Lịch hẹn sẽ được hủy sau khi bạn xác nhận lý do.
         </p>
 
         <div className="mt-4">
@@ -595,12 +590,14 @@ function BookingDetailPanel({
 
         <div className="rounded-lg bg-slate-50 p-2.5 sm:col-span-2">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            <MapPin size={13} aria-hidden />
-            Mã lịch
+            <CheckCircle2 size={13} aria-hidden />
+            Trạng thái
           </div>
-          <p className="mt-1 font-mono text-sm font-bold text-slate-950">
-            {booking.id}
-          </p>
+          <span
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(booking.status)}`}
+          >
+            {booking.status}
+          </span>
         </div>
       </div>
 
@@ -811,7 +808,6 @@ function BookingDetailPanel({
 
       {showCancelModal && (
         <CancelModal
-          bookingId={booking.id}
           onConfirm={handleConfirmCancel}
           onClose={() => {
             setShowCancelModal(false);

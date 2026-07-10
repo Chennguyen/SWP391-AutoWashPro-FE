@@ -29,9 +29,9 @@ export function BookingCard({ booking, onClick, static: isStatic }: BookingCardP
             <span>{booking.vehicleLicensePlate || "Xe đã chọn"}</span>
           </div>
         </div>
-        {booking.id ? (
-          <p className="mt-1 font-mono text-[11px] text-slate-400 truncate">#{booking.id}</p>
-        ) : null}
+        <p className="mt-1 text-[11px] font-medium text-slate-400">
+          Nhấn để xem chi tiết lịch hẹn
+        </p>
       </div>
       <span
         className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyle(booking.status)}`}

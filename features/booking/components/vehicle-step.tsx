@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Car, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api-error";
+import { cn } from "@/lib/utils";
 import { getVehicles } from "@/features/booking/vehicle-service";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
 
@@ -67,10 +73,10 @@ export function VehicleStep({
   }, [loadData]);
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-xl font-bold text-slate-950">Chọn xe của bạn</h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <h2 className="text-xl font-semibold text-foreground">Chọn xe của bạn</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Chọn phương tiện bạn muốn đặt lịch.
         </p>
       </div>
@@ -78,35 +84,43 @@ export function VehicleStep({
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-28 animate-pulse rounded-lg bg-slate-100" />
+            <Skeleton key={item} className="h-32 rounded-xl" />
           ))}
         </div>
       ) : null}
 
       {error ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       {!loading && !error && vehicles.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-center">
-          <Car size={38} className="mb-4 text-slate-200" aria-hidden />
-          <p className="font-semibold text-slate-600">Bạn chưa có xe nào được đăng ký.</p>
-          <p className="mt-1 text-sm text-slate-400">Thêm xe trước khi đặt lịch.</p>
-          <Link
-            href="/customer/profile"
-            className="mt-5 rounded-lg bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            Thêm xe ngay
-          </Link>
-        </div>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center py-16 text-center">
+            <Car className="mb-4 text-muted-foreground" aria-hidden />
+            <p className="font-semibold text-foreground">Bạn chưa có xe nào được đăng ký.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Thêm xe trước khi đặt lịch.</p>
+            <Button
+              className="mt-5"
+              render={<Link href="/customer/profile" />}
+            >
+              Thêm xe ngay
+            </Button>
+          </CardContent>
+        </Card>
       ) : null}
 
       {vehicles.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {vehicles.map((vehicle) => {
             const isSelected = selected?.id === vehicle.id;
+            const vehicleTypeLabel =
+              vehicle.vehicleType === "SEDAN"
+                ? "Sedan"
+                : vehicle.vehicleType === "SUV"
+                  ? "SUV"
+                  : vehicle.vehicleType;
 
             return (
               <button
@@ -114,48 +128,59 @@ export function VehicleStep({
                 type="button"
                 onClick={() => onSelect(vehicle)}
                 aria-pressed={isSelected}
-                className={`rounded-lg border-2 p-5 text-left transition ${
-                  isSelected
-                    ? "border-slate-950 bg-slate-50 shadow-sm"
-                    : "border-slate-200 bg-white hover:border-slate-300"
-                }`}
+                className={cn(
+                  "rounded-xl border bg-card p-0 text-left text-card-foreground transition hover:-translate-y-0.5 hover:ring-2 hover:ring-ring/20 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
+                  isSelected ? "border-primary ring-2 ring-ring/30" : "border-border hover:border-foreground/30",
+                )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <Car size={22} className="mb-2 text-blue-600" aria-hidden />
-                    <p className="font-bold text-slate-950">
-                      {vehicle.licensePlate}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {vehicle.brand} {vehicle.model} - {vehicle.color} ({vehicle.vehicleType === "SEDAN" ? "Sedan" : vehicle.vehicleType === "SUV" ? "SUV" : vehicle.vehicleType})
-                    </p>
-                  </div>
-                  {isSelected ? (
-                    <CheckCircle2 size={20} className="shrink-0 text-emerald-500" aria-hidden />
-                  ) : null}
-                </div>
+                <Card className="h-full border-0 bg-transparent py-0 ring-0">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-muted">
+                          <Car aria-hidden />
+                        </div>
+                        <CardTitle className="text-base tabular-nums">{vehicle.licensePlate}</CardTitle>
+                        <CardDescription className="truncate">
+                          {vehicle.brand} {vehicle.model}
+                        </CardDescription>
+                      </div>
+                      {isSelected ? (
+                        <CheckCircle2 className="shrink-0 text-primary" aria-hidden />
+                      ) : (
+                        <Badge variant="secondary">{vehicleTypeLabel}</Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2 pb-5">
+                    <Badge variant="outline">{vehicle.color || "Chưa có màu"}</Badge>
+                    <Badge variant="outline">{vehicleTypeLabel}</Badge>
+                  </CardContent>
+                </Card>
               </button>
             );
           })}
         </div>
       ) : null}
 
-      <div className="flex justify-between pt-2">
-        <button
+      <div className="flex justify-between gap-3 pt-2">
+        <Button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+          variant="outline"
+          size="lg"
         >
           Quay lại
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={onNext}
           disabled={!selected}
-          className="rounded-lg bg-slate-950 px-8 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          size="lg"
+          className="min-w-32"
         >
           Tiếp tục
-        </button>
+        </Button>
       </div>
     </div>
   );
