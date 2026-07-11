@@ -256,8 +256,7 @@ export function BookingDetailModal({
               const voucherDiscount = booking.discountAmount ?? 0;
               const promotionDiscount = Math.max(0, totalDiscount - voucherDiscount);
 
-              const depPct = configs?.paymentDeposite ?? 30;
-              const depositAmount = Math.round(finalPrice * (depPct / 100));
+              const depositAmount = Math.round(finalPrice * 0.3);
               const remainingAmount = finalPrice - depositAmount;
 
               return (
@@ -272,7 +271,7 @@ export function BookingDetailModal({
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-600">Giá dịch vụ gốc</span>
                       <span className="font-medium text-slate-700">
-                        {basePrice.toLocaleString("vi-VN")}₫
+                        {basePrice.toLocaleString("vi-VN")} ₫
                       </span>
                     </div>
 
@@ -281,7 +280,7 @@ export function BookingDetailModal({
                       <span className="text-slate-600">
                         Phụ phí dòng xe ({isSUV ? "SUV" : isSedan ? "Sedan" : "Khác"})
                       </span>
-                      <span className="font-medium text-slate-700">
+                      <span className="font-normal text-slate-700">
                         +{surcharge.toLocaleString("vi-VN")}₫
                       </span>
                     </div>
@@ -290,7 +289,7 @@ export function BookingDetailModal({
                     <div className="flex justify-between text-sm">
                       <div>
                         <span className="text-slate-600">Ưu đãi giảm giá</span>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-400 font-normal">
                           (Khuyến mãi từ hệ thống)
                         </p>
                       </div>
@@ -307,7 +306,7 @@ export function BookingDetailModal({
                     <div className="flex justify-between text-sm">
                       <div>
                         <span className="text-slate-600">Voucher</span>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-xs text-slate-400 font-normal">
                           (Mã giảm giá đã áp dụng)
                         </p>
                       </div>
@@ -323,9 +322,9 @@ export function BookingDetailModal({
                     {/* Số tiền phải cọc */}
                     <div className="flex justify-between text-sm">
                       <div>
-                        <span className="text-slate-600">Số tiền phải cọc ({depPct}%)</span>
+                        <span className="text-slate-600">Số tiền phải cọc (30%)</span>
                         <p className="text-xs text-slate-400">
-                          Bạn phải cọc trước {depPct}% để giữ slot
+                          Bạn phải cọc trước 30% để giữ slot
                         </p>
                       </div>
                       <span className="font-medium text-slate-700">
@@ -430,7 +429,6 @@ export function BookingDetailModal({
           }}
           loading={checkingIn}
           token={token}
-          configs={configs}
         />
       )}
 

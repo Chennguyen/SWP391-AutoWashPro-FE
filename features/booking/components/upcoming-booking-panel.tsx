@@ -128,18 +128,15 @@ export function CheckInConfirmModal({
   onClose,
   loading,
   token,
-  configs,
 }: {
   booking: CustomerBooking;
   onConfirm: () => void;
   onClose: () => void;
   loading: boolean;
   token: string;
-  configs?: LoyaltyPointsConfig | null;
 }) {
   const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100000;
-  const depPct = configs?.paymentDeposite ?? 30;
-  const depositAmount = Math.round(finalPrice * (depPct / 100));
+  const depositAmount = Math.round(finalPrice * 0.3);
   const remainingAmount = finalPrice - depositAmount;
 
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -240,7 +237,7 @@ export function CheckInConfirmModal({
             </span>
           </div>
           <div className="flex justify-between text-sm text-emerald-600">
-            <span>Đã đặt cọc ({depPct}%):</span>
+            <span>Đã đặt cọc (30%):</span>
             <span className="font-semibold">
               -{depositAmount.toLocaleString("vi-VN")}₫
             </span>
@@ -656,8 +653,7 @@ function BookingDetailPanel({
         const voucherDiscount = booking.discountAmount ?? 0;
         const promotionDiscount = Math.max(0, totalDiscount - voucherDiscount);
 
-        const depPct = configs?.paymentDeposite ?? 30;
-        const depositAmount = Math.round(finalPrice * (depPct / 100));
+        const depositAmount = Math.round(finalPrice * 0.3);
         const remainingAmount = finalPrice - depositAmount;
 
         return (
@@ -720,12 +716,12 @@ function BookingDetailPanel({
                 )}
               </div>
 
-              {/* Số tiền phải cọc */}
+              {/* Số tiền phải cọc (30%) */}
               <div className="flex justify-between text-sm">
                 <div>
-                  <span className="text-slate-600">Số tiền phải cọc ({depPct}%)</span>
+                  <span className="text-slate-600">Số tiền phải cọc (30%)</span>
                   <p className="text-xs text-slate-400">
-                    Bạn phải cọc trước {depPct}% để giữ slot
+                    Bạn phải cọc trước 30% để giữ slot
                   </p>
                 </div>
                 <span className="font-medium text-slate-700">
@@ -807,7 +803,6 @@ function BookingDetailPanel({
           }}
           loading={checkingIn}
           token={token}
-          configs={configs}
         />
       )}
 

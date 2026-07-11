@@ -56,7 +56,7 @@ function getTransactionBadge(type: number | string) {
 
   if (isDeposit) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Đặt cọc</Badge>;
   if (isFullPayment) return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Thanh toán</Badge>;
- if (isTopup) return <Badge className="bg-blue-200 !text-black hover:bg-blue-200">Nạp tiền</Badge>;
+  if (isTopup) return <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">Nạp tiền</Badge>;
   
   return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">{type}</Badge>;
 }
