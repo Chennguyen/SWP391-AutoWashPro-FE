@@ -4,6 +4,7 @@ import { NotificationProvider } from "@/features/notifications/context";
 import { NotificationToaster } from "@/features/notifications/components/notification-toaster";
 import { RankUpgradeCelebration } from "@/features/loyalty/components/rank-upgrade-celebration";
 import { UnverifiedBanner } from "@/features/users/components/unverified-banner";
+import { CustomerAiChatWidget } from "@/features/chatbot/components/customer-ai-chat-widget";
 
 /**
  * Bố cục (Layout) CustomerLayout
@@ -27,6 +28,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
       </div>
       <NotificationToaster />
       <RankUpgradeCelebration />
+      <CustomerAiChatWidget />
     </NotificationProvider>
   );
 }
