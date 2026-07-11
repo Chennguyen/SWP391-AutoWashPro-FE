@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Car, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api-error";
@@ -101,12 +101,12 @@ export function VehicleStep({
             <Car className="mb-4 text-muted-foreground" aria-hidden />
             <p className="font-semibold text-foreground">Bạn chưa có xe nào được đăng ký.</p>
             <p className="mt-1 text-sm text-muted-foreground">Thêm xe trước khi đặt lịch.</p>
-            <Button
-              className="mt-5"
-              render={<Link href="/customer/profile" />}
+            <Link
+              className={buttonVariants({ className: "mt-5" })}
+              href="/customer/profile"
             >
               Thêm xe ngay
-            </Button>
+            </Link>
           </CardContent>
         </Card>
       ) : null}

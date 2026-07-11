@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { LogIn } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api-error";
 import { getBranches } from "@/features/booking/public-read-service";
@@ -191,9 +191,12 @@ export function BookingWizard() {
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             Đăng nhập lại để chọn xe, chọn slot và xác nhận booking.
           </p>
-          <Button className="mt-5" render={<Link href="/sign-in" />}>
+          <Link
+            className={buttonVariants({ className: "mt-5" })}
+            href="/sign-in"
+          >
             Đăng nhập lại
-          </Button>
+          </Link>
         </CardContent>
       </Card>
     );

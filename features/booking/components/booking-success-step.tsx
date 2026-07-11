@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import type { BookingResult } from "@/features/booking/types/booking-types";
 
 interface BookingSuccessStepProps {
@@ -30,13 +30,12 @@ export function BookingSuccessStep({ result }: BookingSuccessStepProps) {
         sắp tới ở trang chủ.
       </p>
 
-      <Button
-        className="mt-8"
-        size="lg"
-        render={<Link href="/customer#upcoming-booking" />}
+      <Link
+        className={buttonVariants({ className: "mt-8", size: "lg" })}
+        href="/customer#upcoming-booking"
       >
         Xem lịch đặt sắp tới
-      </Button>
+      </Link>
     </div>
   );
 }
