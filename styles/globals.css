@@ -199,6 +199,18 @@ main.bg-background-outer {
   color: var(--text-body) !important;
 }
 
+/* Account Center is one connected surface; cancel the generic aside accent. */
+.bg-background-outer .account-center-shell > div > .account-center-nav {
+  border-top-width: 0 !important;
+  box-shadow: none !important;
+}
+
+.bg-background-outer .account-center-tab[data-active="true"],
+.bg-background-outer .account-center-tab[data-active="true"] span,
+.bg-background-outer .account-center-tab[data-active="true"] svg {
+  color: #17130f !important;
+}
+
 /* Sidebar, Auth Card & Info panels background */
 .bg-background-outer aside,
 .bg-background-outer .bg-white,
