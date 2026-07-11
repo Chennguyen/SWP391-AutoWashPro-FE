@@ -12,12 +12,13 @@ import {
   WalletCards,
   Ticket,
   X,
+  Sparkles,
 } from "lucide-react";
 import { ApiError } from "@/lib/api-error";
 import { createBooking, getSlots } from "@/features/booking/booking-service";
 import { getWallet, topUpWallet, type Wallet } from "@/features/users/wallet-service";
 import { type AdminPromotion, getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
-import { getLoyaltyInfo, getMyVouchers, type LoyaltyInfo } from "@/features/loyalty/loyalty-service";
+import { getLoyaltyInfo, getMyVouchers, getRewards, redeemReward, type LoyaltyInfo, type Reward } from "@/features/loyalty/loyalty-service";
 import { validateVoucher } from "@/features/booking/voucher-service";
 import { cn } from "@/lib/utils";
 import type { BookingResult, Branch, VoucherValidation } from "@/features/booking/types/booking-types";
@@ -171,54 +172,126 @@ export function ReviewPaymentStep({
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [voucherValidationLoading, setVoucherValidationLoading] = useState(false);
   const [redeemPoint, setRedeemPoint] = useState(false);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
 
   // Sync prop changes to local state
   useEffect(() => {
     setLocalAppliedVoucher(appliedVoucher);
   }, [appliedVoucher]);
 
+  // Refresh vouchers and rewards from backend
+  const refreshVouchersAndRewards = useCallback(async () => {
+    if (!token) return;
+    const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
+    if (!userId) return;
+
+    setVouchersLoading(true);
+    setRewardsLoading(true);
+    try {
+      const loyaltyInfo = await getLoyaltyInfo(token);
+      setLoyalty(loyaltyInfo);
+
+      const [vouchersList, rewardsList] = await Promise.all([
+        getMyVouchers(token, userId).catch(() => []),
+        getRewards(token).catch(() => []),
+      ]);
+
+      const now = Date.now();
+      const validVouchers = vouchersList.filter((v) => {
+        if (v.isUsed) return false;
+        if (v.expiresAt) {
+          return new Date(v.expiresAt).getTime() > now;
+        }
+        return true;
+      });
+
+      setMyVouchers(validVouchers);
+      const activeRewards = rewardsList.filter((r) => r.isActive && r.pointsRequired > 0);
+      setRewards(activeRewards);
+    } catch (err) {
+      console.warn("Failed to load loyalty or vouchers:", err);
+    } finally {
+      setVouchersLoading(false);
+      setRewardsLoading(false);
+    }
+  }, [token]);
+
   // Load loyalty info and user's vouchers when token is changed
   useEffect(() => {
-    let active = true;
-    async function loadLoyaltyAndVouchers() {
-      if (!token) return;
-      const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
-      if (!userId) return;
+    if (token) {
+      void refreshVouchersAndRewards();
+    }
+  }, [token, refreshVouchersAndRewards]);
 
-      setVouchersLoading(true);
-      try {
-        const loyaltyInfo = await getLoyaltyInfo(token);
-        if (active) {
-          setLoyalty(loyaltyInfo);
-        }
-
-        const list = await getMyVouchers(token, userId);
-        const now = Date.now();
-        const validVouchers = list.filter((v) => {
-          if (v.isUsed) return false;
-          if (v.expiresAt) {
-            return new Date(v.expiresAt).getTime() > now;
-          }
-          return true;
-        });
-
-        if (active) {
-          setMyVouchers(validVouchers);
-        }
-      } catch (err) {
-        console.warn("Failed to load loyalty or vouchers:", err);
-      } finally {
-        if (active) {
-          setVouchersLoading(false);
-        }
-      }
+  // 1-Click Redeem & Apply Voucher
+  async function handleRedeemAndApply(reward: Reward) {
+    const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
+    if (!userId || !token) {
+      setRedeemError("Không tìm thấy thông tin xác thực.");
+      return;
     }
 
-    void loadLoyaltyAndVouchers();
-    return () => {
-      active = false;
-    };
-  }, [token]);
+    if (loyalty && loyalty.points < reward.pointsRequired) {
+      setRedeemError(`Bạn không đủ điểm để đổi voucher này (Cần ${reward.pointsRequired} điểm, hiện có ${loyalty.points} điểm).`);
+      setTimeout(() => setRedeemError(null), 3000);
+      return;
+    }
+
+    setRedeemError(null);
+    setRedeemingId(reward.id);
+
+    try {
+      await redeemReward(token, reward.id, userId);
+      
+      // Reload lists
+      const loyaltyInfo = await getLoyaltyInfo(token);
+      setLoyalty(loyaltyInfo);
+
+      const [vouchersList, rewardsList] = await Promise.all([
+        getMyVouchers(token, userId).catch(() => []),
+        getRewards(token).catch(() => []),
+      ]);
+
+      const now = Date.now();
+      const validVouchers = vouchersList.filter((v) => {
+        if (v.isUsed) return false;
+        if (v.expiresAt) {
+          return new Date(v.expiresAt).getTime() > now;
+        }
+        return true;
+      });
+
+      setMyVouchers(validVouchers);
+      const activeRewards = rewardsList.filter((r) => r.isActive && r.pointsRequired > 0);
+      setRewards(activeRewards);
+
+      // Find the newly redeemed voucher
+      const newlyAddedVoucher = validVouchers.find(
+        (v) => v.rewardName === reward.name && !myVouchers.some((oldV) => oldV.id === v.id)
+      ) || validVouchers[0];
+
+      if (newlyAddedVoucher) {
+        setSelectedVoucherInModal(newlyAddedVoucher);
+        setLocalAppliedVoucher({
+          id: newlyAddedVoucher.id,
+          voucherId: newlyAddedVoucher.id,
+          code: newlyAddedVoucher.code,
+          discountAmount: newlyAddedVoucher.discountAmount ?? 0,
+          valid: true,
+          message: "",
+        });
+        setIsVoucherModalOpen(false);
+      }
+    } catch (err) {
+      setRedeemError(err instanceof Error ? err.message : "Đổi điểm thất bại, vui lòng thử lại.");
+      setTimeout(() => setRedeemError(null), 3000);
+    } finally {
+      setRedeemingId(null);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -987,7 +1060,7 @@ export function ReviewPaymentStep({
                 </div>
               ) : myVouchers.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 text-sm">
-                  Bạn không có voucher nào chưa sử dụng.
+                  Bạn không có voucher nào chưa sử dụng trong ví.
                 </div>
               ) : (
                 myVouchers.map((v) => {
@@ -1041,6 +1114,86 @@ export function ReviewPaymentStep({
                   );
                 })
               )}
+
+              {/* Đổi Voucher bằng điểm tích lũy */}
+              <div className="pt-4 border-t border-[#2D2D44] mt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="text-amber-500" size={13} />
+                    Đổi điểm lấy Voucher {loyalty?.points !== undefined && `(${loyalty.points} điểm)`}
+                  </p>
+                </div>
+
+                {redeemError && (
+                  <p className="text-xs text-red-500 mb-2 font-semibold flex items-center gap-1">
+                    <span>⚠</span> {redeemError}
+                  </p>
+                )}
+
+                {rewardsLoading ? (
+                  <div className="space-y-3 py-2">
+                    {[1].map((i) => (
+                      <div key={i} className="h-24 animate-pulse rounded-xl bg-[#252538]/50" />
+                    ))}
+                  </div>
+                ) : rewards.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-2">Không có phần thưởng voucher nào bằng điểm.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {rewards.map((r) => {
+                      const points = r.pointsRequired;
+                      const hasEnoughPoints = loyalty ? loyalty.points >= points : false;
+                      const isRedeeming = redeemingId === r.id;
+
+                      return (
+                        <div 
+                          key={r.id}
+                          className="relative flex border border-[#2D2D44] rounded-xl overflow-hidden bg-[#252538]/20"
+                        >
+                          {/* Ticket Cut Left Accent */}
+                          <div className="w-24 shrink-0 flex flex-col items-center justify-center bg-amber-500/5 border-r border-dashed border-[#2D2D44] p-3 relative">
+                            <Ticket className="text-amber-500/60" size={20} />
+                            <span className="text-[10px] text-amber-500 font-extrabold mt-1 text-center w-full uppercase">
+                              {points} Điểm
+                            </span>
+                            
+                            {/* Circular Ticket Cuts */}
+                            <div className="absolute top-0 right-0 w-3 h-1.5 bg-[#1E1E2E] rounded-b-full translate-x-1.5 -translate-y-px" />
+                            <div className="absolute bottom-0 right-0 w-3 h-1.5 bg-[#1E1E2E] rounded-t-full translate-x-1.5 translate-y-px" />
+                          </div>
+
+                          {/* Ticket Details */}
+                          <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                            <div>
+                              <p className="text-sm font-bold text-slate-200 truncate">{r.name}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{r.description || "Đổi điểm nhận ưu đãi đặc biệt"}</p>
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <p className="text-[9px] text-slate-500">
+                                Yêu cầu: {points} điểm
+                              </p>
+                              
+                              <button
+                                type="button"
+                                onClick={() => void handleRedeemAndApply(r)}
+                                disabled={isRedeeming || !hasEnoughPoints}
+                                className={cn(
+                                  "text-[10px] font-bold px-2.5 py-1 rounded transition-all cursor-pointer active:scale-[0.98]",
+                                  hasEnoughPoints
+                                    ? "bg-amber-500 hover:bg-amber-600 text-slate-950"
+                                    : "bg-[#252538] text-slate-500 cursor-not-allowed"
+                                )}
+                              >
+                                {isRedeeming ? "Đang đổi..." : "Đổi & Dùng"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Footer buttons */}

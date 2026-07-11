@@ -270,6 +270,6 @@ export function statusStyle(status: string): string {
   if (s.includes("progress") || s.includes("checkin"))
     return "border-indigo-200 bg-indigo-50 text-indigo-700";
   if (s.includes("confirm"))
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
