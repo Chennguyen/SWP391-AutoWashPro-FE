@@ -14,11 +14,27 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api-error";
 import { createBooking, getSlots } from "@/features/booking/booking-service";
 import { getWallet, topUpWallet, type Wallet } from "@/features/users/wallet-service";
 import { type AdminPromotion, getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
 import { getLoyaltyInfo, getMyVouchers, getRewards, redeemReward, type LoyaltyInfo, type Reward } from "@/features/loyalty/loyalty-service";
+import { getLoyaltyInfo, getMyVouchers, type LoyaltyInfo, type MyVoucher } from "@/features/loyalty/loyalty-service";
 import { validateVoucher } from "@/features/booking/voucher-service";
 import { cn } from "@/lib/utils";
 import type { BookingResult, Branch, VoucherValidation } from "@/features/booking/types/booking-types";
@@ -51,7 +67,11 @@ function addMinutes(time: string, minutes: number) {
   return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
 }
 
-function toBoolean(val: any, fallback = true): boolean {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function toBoolean(val: unknown, fallback = true): boolean {
   if (val === undefined || val === null) return fallback;
   if (typeof val === "boolean") return val;
   const s = String(val).trim().toLowerCase();
@@ -67,19 +87,20 @@ function formatSlotRange(slot: string, duration: number, endTime?: string) {
   return `${slot}-${addMinutes(slot, duration)}`;
 }
 
-function unwrapList(body: any): any[] {
+function unwrapList(body: unknown): Record<string, unknown>[] {
   if (!body) return [];
-  if (Array.isArray(body)) return body;
+  if (Array.isArray(body)) return body.filter(isRecord);
+  if (!isRecord(body)) return [];
 
   const directList = body.items ?? body.Items ?? body.results ?? body.Results;
-  if (Array.isArray(directList)) return directList;
+  if (Array.isArray(directList)) return directList.filter(isRecord);
 
   const dataPayload = body.data ?? body.Data;
-  if (Array.isArray(dataPayload)) return dataPayload;
+  if (Array.isArray(dataPayload)) return dataPayload.filter(isRecord);
 
-  if (dataPayload && typeof dataPayload === "object") {
+  if (isRecord(dataPayload)) {
     const nestedList = dataPayload.items ?? dataPayload.Items ?? dataPayload.results ?? dataPayload.Results;
-    if (Array.isArray(nestedList)) return nestedList;
+    if (Array.isArray(nestedList)) return nestedList.filter(isRecord);
   }
 
   return [];
@@ -161,13 +182,13 @@ export function ReviewPaymentStep({
   const [detectedDuration, setDetectedDuration] = useState(15);
   const [endTime, setEndTime] = useState<string | undefined>(undefined);
   const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
-  const [promotionsLoading, setPromotionsLoading] = useState(false);
+  const [, setPromotionsLoading] = useState(false);
   const [localAppliedVoucher, setLocalAppliedVoucher] = useState<VoucherValidation | null>(appliedVoucher);
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
-  const [myVouchers, setMyVouchers] = useState<any[]>([]);
+  const [myVouchers, setMyVouchers] = useState<MyVoucher[]>([]);
   const [vouchersLoading, setVouchersLoading] = useState(false);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
-  const [selectedVoucherInModal, setSelectedVoucherInModal] = useState<any>(null);
+  const [selectedVoucherInModal, setSelectedVoucherInModal] = useState<MyVoucher | null>(null);
   const [voucherCodeInput, setVoucherCodeInput] = useState("");
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [voucherValidationLoading, setVoucherValidationLoading] = useState(false);
@@ -179,7 +200,11 @@ export function ReviewPaymentStep({
 
   // Sync prop changes to local state
   useEffect(() => {
-    setLocalAppliedVoucher(appliedVoucher);
+    const timeoutId = window.setTimeout(() => {
+      setLocalAppliedVoucher(appliedVoucher);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [appliedVoucher]);
 
   // Refresh vouchers and rewards from backend
@@ -369,7 +394,7 @@ export function ReviewPaymentStep({
           },
         });
         
-        let rawList: any[] = [];
+        let rawList: Record<string, unknown>[] = [];
         if (res.ok) {
           const text = await res.text();
           const body = text ? JSON.parse(text) : null;
@@ -421,18 +446,23 @@ export function ReviewPaymentStep({
           }
         }
 
-        const promotionsList = Array.isArray(rawList) ? rawList.map((p: any) => ({
-          id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
-          name: String(p.name ?? p.Name ?? "Khuyến mãi"),
-          description: String(p.description ?? p.Description ?? ""),
-          discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
-          discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
-          startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
-          endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
-          isGlobal: toBoolean(p.isGlobal ?? p.IsGlobal, !p.tierIds || p.tierIds.length === 0),
-          isActive: toBoolean(p.isActive ?? p.IsActive, true),
-          tierIds: Array.isArray(p.tierIds ?? p.TierIds) ? (p.tierIds ?? p.TierIds) as string[] : [],
-        })) : [];
+        const promotionsList = rawList.map((p) => {
+          const tierIdsRaw = p.tierIds ?? p.TierIds;
+          const tierIds = Array.isArray(tierIdsRaw) ? tierIdsRaw.map(String) : [];
+
+          return {
+            id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
+            name: String(p.name ?? p.Name ?? "Khuyến mãi"),
+            description: String(p.description ?? p.Description ?? ""),
+            discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
+            discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
+            startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
+            endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
+            isGlobal: toBoolean(p.isGlobal ?? p.IsGlobal, tierIds.length === 0),
+            isActive: toBoolean(p.isActive ?? p.IsActive, true),
+            tierIds,
+          };
+        });
 
         if (active) {
           setPromotions(promotionsList);
@@ -712,54 +742,60 @@ export function ReviewPaymentStep({
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-950">Xác nhận đặt lịch</h2>
-          <p className="mt-1 text-sm text-slate-500">
+          <h2 className="text-xl font-semibold text-foreground">Xác nhận đặt lịch</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Kiểm tra thông tin và số tiền cọc trước khi xác nhận.
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right">
-          <div className="flex items-center justify-end gap-1.5 text-xs font-semibold text-slate-500">
-            <WalletCards size={13} aria-hidden />
+        <Card size="sm" className="min-w-44">
+          <CardContent className="text-right">
+          <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-muted-foreground">
+            <WalletCards aria-hidden />
             Ví của bạn
           </div>
-          <p className="mt-0.5 text-sm font-bold text-slate-950">
+          <p className="mt-1 text-base font-semibold text-foreground tabular-nums">
             {walletLoading ? "Đang tải..." : formatVND(walletBalance)}
           </p>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-        <div className="grid gap-3">
+      <Card>
+        <CardHeader>
+          <CardTitle>Thông tin lịch hẹn</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3">
           {rows.map(({ icon: Icon, label, value }) => (
             <div key={label} className="flex items-start gap-3">
-              <Icon size={16} className="mt-0.5 shrink-0 text-slate-400" aria-hidden />
-              <span className="w-20 shrink-0 text-sm text-slate-500">{label}</span>
-              <span className="text-sm font-semibold text-slate-950">{value}</span>
+              <Icon className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="w-20 shrink-0 text-sm text-muted-foreground">{label}</span>
+              <span className="text-sm font-semibold text-foreground">{value}</span>
             </div>
           ))}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ── Voucher Selection Card (Shopee style, between details and checkout) ── */}
-      <div 
+      <button
+        type="button"
         onClick={() => setIsVoucherModalOpen(true)}
-        className="rounded-lg border border-slate-200 bg-slate-50 p-4 flex items-center justify-between cursor-pointer hover:bg-slate-100 transition-colors"
+        className="flex items-center justify-between rounded-xl border bg-card p-4 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
       >
         <div className="flex items-center gap-2.5">
-          <Tag size={16} className="text-amber-500 shrink-0" />
+          <Tag className="shrink-0 text-muted-foreground" aria-hidden />
           <div>
-            <p className="text-sm font-semibold text-slate-900">
+            <p className="text-sm font-semibold text-foreground">
               Voucher của bạn
             </p>
             {localAppliedVoucher ? (
-              <p className="text-xs text-emerald-600 font-medium mt-0.5">
+              <p className="mt-0.5 text-xs font-medium text-muted-foreground">
                 Đã áp dụng mã: {localAppliedVoucher.code} (-{formatVND(localAppliedVoucher.discountAmount)})
               </p>
             ) : (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Chọn hoặc nhập mã giảm giá
               </p>
             )}
@@ -767,68 +803,62 @@ export function ReviewPaymentStep({
         </div>
         <div className="flex items-center gap-1">
           {!localAppliedVoucher && (
-            <span className="text-xs text-slate-500 font-medium mr-1">
+            <span className="mr-1 text-xs font-medium text-muted-foreground">
               Chọn voucher
             </span>
           )}
-          <span className="text-slate-400 font-bold text-sm">&gt;</span>
+          <span className="text-sm font-bold text-muted-foreground">&gt;</span>
         </div>
-      </div>
+      </button>
 
       {/* ── Bảng Chi tiết Thanh toán kiểu Shopee (flat list) ── */}
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        <div className="px-5 py-3 bg-slate-50 border-b border-slate-200">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Chi tiết thanh toán
-          </p>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          {/* Giá dịch vụ gốc */}
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle>Chi tiết thanh toán</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Giá dịch vụ gốc</span>
-            <span className="font-medium text-slate-700">{formatVND(configs.basePrice)}</span>
+            <span className="text-muted-foreground">Giá dịch vụ gốc</span>
+            <span className="font-medium text-foreground">{formatVND(configs.basePrice)}</span>
           </div>
 
-          {/* Phụ phí dòng xe */}
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">
+            <span className="text-muted-foreground">
               Phụ phí dòng xe({vehicle?.vehicleType === "SUV" ? "SUV" : vehicle?.vehicleType === "SEDAN" ? "sedan" : "sedan/SUV"})
             </span>
-            <span className="font-normal text-slate-700">
+            <span className="font-medium text-foreground">
               +{formatVND(surcharge)}
             </span>
           </div>
 
-          {/* Ưu đãi giảm giá */}
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Ưu đãi giảm giá</span>
+            <span className="text-muted-foreground">Ưu đãi giảm giá</span>
             {promotionDiscount > 0 ? (
-              <span className="font-medium" style={{ color: "#EE4D2D" }}>
+              <span className="font-medium text-destructive">
                 -{formatVND(promotionDiscount)}
               </span>
             ) : (
-              <span className="font-medium text-slate-700">0₫</span>
+              <span className="font-medium text-foreground">0₫</span>
             )}
           </div>
 
-          {/* Voucher */}
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">
+            <span className="text-muted-foreground">
               Voucher
             </span>
             {localAppliedVoucher && discount > 0 ? (
-              <span className="font-medium" style={{ color: "#EE4D2D" }}>
+              <span className="font-medium text-destructive">
                 -{formatVND(discount)}
               </span>
             ) : (
-              <span className="font-medium text-slate-700">0₫</span>
+              <span className="font-medium text-foreground">0₫</span>
             )}
           </div>
 
-          <label className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white px-3 py-3">
+          <label className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 px-3 py-3">
             <div>
-              <span className="block text-sm font-semibold text-slate-900">Dùng điểm thưởng</span>
-              <p className="mt-1 text-xs text-slate-500">
+              <span className="block text-sm font-semibold text-foreground">Dùng điểm thưởng</span>
+              <p className="mt-1 text-xs text-muted-foreground">
                 Bạn có {loyaltyPoints.toLocaleString("vi-VN")} điểm
                 {configs.vndPerPoint > 0 ? ` · ước tính giảm tối đa ${formatVND(loyaltyPoints * configs.vndPerPoint)}` : ""}
               </p>
@@ -843,69 +873,66 @@ export function ReviewPaymentStep({
           </label>
 
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Quy đổi điểm thưởng</span>
+            <span className="text-muted-foreground">Quy đổi điểm thưởng</span>
             {redeemValue > 0 ? (
-              <span className="font-medium" style={{ color: "#EE4D2D" }}>
+              <span className="font-medium text-destructive">
                 -{formatVND(redeemValue)}
               </span>
             ) : (
-              <span className="font-medium text-slate-700">0₫</span>
+              <span className="font-medium text-foreground">0₫</span>
             )}
           </div>
 
-          {/* Số tiền phải trả */}
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Số tiền phải trả</span>
-            <span className="font-medium text-slate-700">{formatVND(payableAmount)}</span>
+            <span className="text-muted-foreground">Số tiền phải trả</span>
+            <span className="font-medium text-foreground">{formatVND(payableAmount)}</span>
           </div>
 
-          {/* Đường kẻ dashed phân cách */}
-          <div className="border-t border-dashed border-slate-200" />
+          <Separator />
 
-          {/* Số tiền phải cọc */}
           <div className="flex justify-between text-sm">
             <div>
-              <span className="text-slate-600">Số tiền phải cọc ({configs.paymentDeposite}%)</span>
-              <p className="text-xs text-slate-400">Bạn phải cọc trước {configs.paymentDeposite}% để giữ slot</p>
+              <span className="text-muted-foreground">Số tiền phải cọc ({configs.paymentDeposite}%)</span>
+              <p className="text-xs text-muted-foreground">Bạn phải cọc trước {configs.paymentDeposite}% để giữ slot</p>
             </div>
-            <span className="font-medium text-slate-700">{formatVND(deposit)}</span>
+            <span className="font-medium text-foreground">{formatVND(deposit)}</span>
           </div>
 
-          {/* Đường kẻ dashed phân cách */}
-          <div className="border-t border-dashed border-slate-200" />
+          <Separator />
 
-          {/* Tổng tiền phải trả khi check-in */}
-          <div className="flex justify-between text-sm">
-            <span className="font-semibold text-slate-800">Tổng tiền phải trả khi check-in</span>
-            <span className="font-bold text-slate-950">
+          <div className="flex justify-between gap-4 text-sm">
+            <span className="font-semibold text-foreground">Tổng tiền phải trả khi check-in</span>
+            <span className="font-semibold text-foreground tabular-nums">
               {formatVND(Math.max(0, payableAmount - deposit))}
             </span>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {insufficientBalance ? (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden />
-          <span>Số dư ví không đủ để đặt cọc. Vui lòng nạp thêm tiền.</span>
-        </div>
+        <Alert>
+          <AlertCircle aria-hidden />
+          <AlertDescription>Số dư ví không đủ để đặt cọc. Vui lòng nạp thêm tiền.</AlertDescription>
+        </Alert>
       ) : null}
 
       {insufficientBalance ? (
-        <form onSubmit={handleQuickTopUp} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-start gap-2 text-sm text-amber-800">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden />
+        <form onSubmit={handleQuickTopUp}>
+          <Card>
+            <CardContent className="flex flex-col gap-4">
+          <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
             <span>
               Cần nạp thêm tối thiểu <strong>{formatVND(missingDepositAmount)}</strong> để đủ tiền đặt cọc.
             </span>
           </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <div>
-              <label htmlFor="quick-wallet-top-up" className="mb-1 block text-sm font-semibold text-slate-700">
+              <label htmlFor="quick-wallet-top-up" className="mb-1 block text-sm font-semibold text-foreground">
                 Nạp nhanh vào ví
               </label>
-              <input
+              <Input
                 id="quick-wallet-top-up"
                 type="number"
                 min={1000}
@@ -916,22 +943,22 @@ export function ReviewPaymentStep({
                   setTopUpAmount(Number(event.target.value));
                 }}
                 disabled={topUpLoading}
-                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-10 font-semibold"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={topUpLoading}
-              className="inline-flex justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+              size="lg"
             >
-              <Plus size={16} aria-hidden />
+              <Plus data-icon="inline-start" aria-hidden />
               {topUpLoading ? "Đang nạp..." : "Nạp tiền"}
-            </button>
+            </Button>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {quickTopUpOptions.map((amount, index) => (
-              <button
+              <Button
                 key={`${amount}-${index}`}
                 type="button"
                 onClick={() => {
@@ -939,25 +966,30 @@ export function ReviewPaymentStep({
                   setTopUpAmount(amount);
                 }}
                 disabled={topUpLoading}
-                className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="outline"
+                size="sm"
               >
                 {index === 0 ? "Nạp đủ thiếu " : ""}
                 {formatVND(amount)}
-              </button>
+              </Button>
             ))}
           </div>
 
           {topUpError ? (
-            <div role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {topUpError}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{topUpError}</AlertDescription>
+            </Alert>
           ) : null}
 
           {topUpSuccess ? (
-            <div role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+            <Alert>
+              <AlertDescription>
               {topUpSuccess} Số dư mới: {formatVND(walletBalance)}.
-            </div>
+              </AlertDescription>
+            </Alert>
           ) : null}
+            </CardContent>
+          </Card>
         </form>
       ) : null}
 
@@ -968,146 +1000,140 @@ export function ReviewPaymentStep({
           onChange={(event) => setAgreed(event.target.checked)}
           className="mt-0.5 h-4 w-4 accent-slate-950"
         />
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-muted-foreground">
           Tôi xác nhận thông tin đặt lịch đúng và đồng ý với điều khoản dịch vụ
           của AutoWash Pro.
         </span>
       </label>
 
       {error ? (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden />
-          <span>{error}</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
-      <div className="flex justify-between pt-2">
-        <button
+      <div className="flex justify-between gap-3 pt-2">
+        <Button
           type="button"
           onClick={onBack}
           disabled={loading}
-          className="rounded-lg border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          variant="outline"
+          size="lg"
         >
           Quay lại
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={handleConfirm}
           disabled={!agreed || loading || submitted || insufficientBalance}
-          className="rounded-lg bg-slate-950 px-8 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          size="lg"
+          className="min-w-44"
         >
           {loading ? "Đang xử lý..." : "Xác nhận đặt lịch"}
-        </button>
+        </Button>
       </div>
 
-      {/* ── Voucher Modal (Shopee style, luxury dark edition) ── */}
-      {isVoucherModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-2xl bg-[#1E1E2E] border border-[#2D2D44] p-5 text-slate-100 shadow-2xl flex flex-col max-h-[80vh]">
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#2D2D44]">
-              <h3 className="text-lg font-bold text-slate-50">Chọn Voucher</h3>
-              <button 
+      <Dialog open={isVoucherModalOpen} onOpenChange={setIsVoucherModalOpen}>
+        <DialogContent className="booking-brand-dialog !flex max-h-[86dvh] max-w-2xl flex-col overflow-hidden !p-0">
+          <DialogHeader className="border-b px-4 py-4 pr-12 sm:px-6">
+            <DialogTitle>Chọn voucher</DialogTitle>
+            <DialogDescription className="max-w-xl leading-relaxed">
+              Chọn voucher trong ví hoặc nhập mã thủ công để áp dụng cho lịch đặt này.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem] sm:items-center">
+              <Input
+                type="text"
+                placeholder="Nhập mã voucher của bạn..."
+                value={voucherCodeInput}
+                onChange={(e) => {
+                  setVoucherCodeInput(e.target.value.toUpperCase());
+                  setVoucherError(null);
+                }}
+                className="!h-10 font-mono tracking-wider"
+              />
+              <Button
                 type="button"
-                onClick={() => setIsVoucherModalOpen(false)}
-                className="text-slate-400 hover:text-slate-200 transition-colors"
+                onClick={() => handleApplyVoucherCode()}
+                disabled={voucherValidationLoading || !voucherCodeInput.trim()}
+                className="!h-10 w-full"
               >
-                <X size={20} />
-              </button>
+                {voucherValidationLoading ? "Đang check..." : "Áp dụng"}
+              </Button>
             </div>
 
-            {/* Input Row */}
-            <div className="mt-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Nhập mã voucher của bạn..."
-                  value={voucherCodeInput}
-                  onChange={(e) => {
-                    setVoucherCodeInput(e.target.value.toUpperCase());
-                    setVoucherError(null);
-                  }}
-                  className="flex-1 bg-[#252538] border border-[#3A3A55] rounded-xl px-4 py-2.5 text-sm font-mono tracking-wider focus:outline-none focus:border-amber-500 placeholder-slate-500 text-slate-100"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleApplyVoucherCode()}
-                  disabled={voucherValidationLoading || !voucherCodeInput.trim()}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {voucherValidationLoading ? "Đang check..." : "Áp dụng"}
-                </button>
-              </div>
+            {voucherError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{voucherError}</AlertDescription>
+              </Alert>
+            ) : null}
 
-              {voucherError && (
-                <p className="mt-2 text-xs text-red-500 font-semibold flex items-center gap-1">
-                  <span>⚠</span> {voucherError}
-                </p>
-              )}
-            </div>
-
-            {/* Vouchers List */}
-            <div className="mt-5 flex-1 overflow-y-auto pr-1 space-y-3 scrollbar-thin">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Voucher cho bạn {loyalty?.tier?.name ? `(Hạng ${loyalty.tier.name})` : ""}
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <p className="text-sm font-semibold leading-none text-foreground">
+                Voucher cho bạn
               </p>
+              {loyalty?.tier?.name ? (
+                <Badge variant="secondary" className="max-w-[55%] shrink-0 truncate px-2.5 py-1 text-[11px] leading-none">
+                  Hạng {loyalty.tier.name}
+                </Badge>
+              ) : null}
+            </div>
 
+            <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 py-1">
               {vouchersLoading ? (
-                <div className="space-y-3 py-4">
+                <div className="flex flex-col gap-3 py-1">
                   {[1, 2].map((i) => (
-                    <div key={i} className="h-24 animate-pulse rounded-xl bg-[#252538]/50" />
+                    <Skeleton key={i} className="h-20 rounded-xl" />
                   ))}
                 </div>
               ) : myVouchers.length === 0 ? (
                 <div className="py-8 text-center text-slate-500 text-sm">
                   Bạn không có voucher nào chưa sử dụng trong ví.
                 </div>
+                <Card className="border border-dashed border-border bg-card/70 !ring-0">
+                  <CardContent className="flex min-h-28 items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
+                    Bạn không có voucher nào chưa sử dụng.
+                  </CardContent>
+                </Card>
               ) : (
-                myVouchers.map((v) => {
-                  const isSelected = selectedVoucherInModal?.id === v.id;
-                  const discountValueText = v.discountAmount 
-                    ? `${v.discountAmount.toLocaleString("vi-VN")}đ`
-                    : "Freeship / Free";
-                  return (
-                    <div 
-                      key={v.id}
-                      onClick={() => setSelectedVoucherInModal(v)}
-                      className="relative flex border border-[#2D2D44] rounded-xl overflow-hidden bg-[#252538]/40 hover:bg-[#252538]/70 transition-colors cursor-pointer select-none"
-                    >
-                      {/* Ticket Cut Left Accent */}
-                      <div className="w-24 shrink-0 flex flex-col items-center justify-center bg-amber-500/10 border-r border-dashed border-[#2D2D44] p-3 relative">
-                        <Ticket className="text-amber-500" size={20} />
-                        <span className="text-[9px] text-amber-500 font-extrabold mt-1.5 text-center truncate w-full uppercase">
-                          {loyalty?.tier?.name ? `Hạng ${loyalty.tier.name}` : "Voucher"}
-                        </span>
-                        
-                        {/* Circular Ticket Cuts */}
-                        <div className="absolute top-0 right-0 w-3 h-1.5 bg-[#1E1E2E] rounded-b-full translate-x-1.5 -translate-y-px" />
-                        <div className="absolute bottom-0 right-0 w-3 h-1.5 bg-[#1E1E2E] rounded-t-full translate-x-1.5 translate-y-px" />
-                      </div>
-
-                      {/* Ticket Details */}
-                      <div className="flex-1 p-3.5 flex flex-col justify-between min-w-0">
-                        <div>
-                          <p className="text-sm font-black text-slate-100 truncate">{v.rewardName}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">Giảm {discountValueText} • Đơn tối thiểu 0đ</p>
-                        </div>
-                        <div className="flex items-center justify-between mt-2.5">
-                          <p className="text-[10px] text-slate-500">
-                            Hạn dùng: {v.expiresAt ? new Date(v.expiresAt).toLocaleDateString("vi-VN") : "Vô thời hạn"}
-                          </p>
-                          <span className="text-[10px] font-mono text-amber-500 font-black px-1.5 py-0.5 bg-amber-500/15 rounded">
-                            {v.code}
+                <div className="flex flex-col gap-3">
+                  {myVouchers.map((v) => {
+                    const isSelected = selectedVoucherInModal?.id === v.id;
+                    const discountValueText = v.discountAmount
+                      ? `${v.discountAmount.toLocaleString("vi-VN")}đ`
+                      : "Freeship / Free";
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVoucherInModal(v)}
+                        aria-pressed={isSelected}
+                        className={cn(
+                          "grid grid-cols-[88px_minmax(0,1fr)_36px] overflow-hidden rounded-xl border bg-card text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
+                          isSelected ? "border-primary ring-2 ring-ring/30" : "border-border",
+                        )}
+                      >
+                        <div className="flex flex-col items-center justify-center border-r border-dashed bg-muted/40 p-3">
+                          <Ticket className="text-muted-foreground" aria-hidden />
+                          <span className="mt-1.5 w-full truncate text-center text-[10px] font-semibold text-muted-foreground">
+                            Voucher
                           </span>
                         </div>
-                      </div>
 
-                      {/* Selection Circle */}
-                      <div className="flex items-center px-4 shrink-0 bg-slate-900/20 border-l border-[#2D2D44]/50">
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
-                          isSelected ? "border-amber-500 bg-amber-500" : "border-slate-500"
-                        }`}>
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                        <div className="min-w-0 p-3.5">
+                          <p className="truncate text-sm font-semibold text-foreground">{v.rewardName}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">Giảm {discountValueText} - Đơn tối thiểu 0đ</p>
+                          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              Hạn dùng: {v.expiresAt ? new Date(v.expiresAt).toLocaleDateString("vi-VN") : "Vô thời hạn"}
+                            </p>
+                            <Badge variant="outline" className="font-mono">
+                              {v.code}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1196,42 +1222,60 @@ export function ReviewPaymentStep({
               </div>
             </div>
 
-            {/* Footer buttons */}
-            <div className="mt-5 pt-3 border-t border-[#2D2D44] flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  handleRemoveVoucher();
-                  setIsVoucherModalOpen(false);
-                }}
-                className="flex-1 py-2.5 rounded-xl border border-[#2D2D44] text-xs font-semibold text-slate-400 hover:bg-[#252538] transition"
-              >
-                Bỏ áp dụng
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedVoucherInModal) {
-                    setLocalAppliedVoucher({
-                      id: selectedVoucherInModal.id,
-                      voucherId: selectedVoucherInModal.id,
-                      code: selectedVoucherInModal.code,
-                      discountAmount: selectedVoucherInModal.discountAmount ?? 0,
-                      valid: true,
-                      message: "",
-                    });
-                  }
-                  setIsVoucherModalOpen(false);
-                }}
-                disabled={!selectedVoucherInModal}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Đồng ý
-              </button>
+                        <div className="flex items-center justify-center border-l bg-muted/20">
+                          <span
+                            className={cn(
+                              "size-4 rounded-full border",
+                              isSelected && "border-primary bg-primary",
+                            )}
+                            aria-hidden
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="!mx-0 !mb-0 mt-0 flex-col-reverse gap-2 rounded-t-none border-t bg-muted/40 !px-4 !py-3 sm:flex-row sm:items-center sm:justify-end sm:!px-6">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="!h-10 w-full sm:w-28"
+              onClick={() => {
+                handleRemoveVoucher();
+                setIsVoucherModalOpen(false);
+              }}
+            >
+              Bỏ áp dụng
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="!h-10 w-full sm:w-28"
+              onClick={() => {
+                if (selectedVoucherInModal) {
+                  setLocalAppliedVoucher({
+                    id: selectedVoucherInModal.id,
+                    voucherId: selectedVoucherInModal.id,
+                    code: selectedVoucherInModal.code,
+                    discountAmount: selectedVoucherInModal.discountAmount ?? 0,
+                    valid: true,
+                    message: "",
+                  });
+                }
+                setIsVoucherModalOpen(false);
+              }}
+              disabled={!selectedVoucherInModal}
+            >
+              Đồng ý
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

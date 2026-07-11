@@ -14,11 +14,14 @@ export const metadata: Metadata = {
  */
 export default function CustomerInfoPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl p-4 md:p-6 lg:p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-normal text-slate-950">Thông tin cá nhân</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Quản lý thông tin xe và ví của bạn.
+    <main className="mx-auto w-full max-w-[1440px] px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pt-8">
+      <div className="mb-6 max-w-2xl">
+        <p className="text-sm font-medium text-[#bca374]">Tài khoản AutoWash Pro</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+          Trung tâm tài khoản
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 sm:text-base">
+          Quản lý hồ sơ, phương tiện, ví và quyền lợi thành viên của bạn.
         </p>
       </div>
 

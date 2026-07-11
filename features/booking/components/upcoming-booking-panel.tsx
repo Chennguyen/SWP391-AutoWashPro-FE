@@ -19,7 +19,6 @@ import {
   isCancelledStatus,
   isCompletedStatus,
   isUpcomingStatus,
-  minutesUntilBooking,
   statusStyle,
   subscribeToToken,
   toISODate,
@@ -51,17 +50,14 @@ import {
 } from "react";
 
 const UPCOMING_PREVIEW_COUNT = 3;
-const CANCEL_CUTOFF_MINUTES = 30;
 
 // ─── Cancel Modal ───────────────────────────────────────────────────────────────
 
 export function CancelModal({
-  bookingId,
   onConfirm,
   onClose,
   loading,
 }: {
-  bookingId: string;
   onConfirm: (reason: string) => void;
   onClose: () => void;
   loading: boolean;
@@ -78,10 +74,7 @@ export function CancelModal({
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-bold text-slate-900">Hủy lịch đặt</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Mã lịch:{" "}
-          <span className="font-mono font-semibold text-slate-700">
-            {bookingId}
-          </span>
+          Lịch hẹn sẽ được hủy sau khi bạn xác nhận lý do.
         </p>
 
         <div className="mt-4">
@@ -173,13 +166,15 @@ export function CheckInConfirmModal({
   }, [token]);
 
   useEffect(() => {
-    void fetchWallet();
+    const id = window.setTimeout(() => void fetchWallet(), 0);
+    return () => window.clearTimeout(id);
   }, [fetchWallet]);
 
   // Set default top-up amount to missing amount when wallet balance loads and is insufficient
   useEffect(() => {
     if (!walletLoading && insufficientBalance && topUpAmount === 0) {
-      setTopUpAmount(missingAmount);
+      const id = window.setTimeout(() => setTopUpAmount(missingAmount), 0);
+      return () => window.clearTimeout(id);
     }
   }, [walletLoading, insufficientBalance, missingAmount, topUpAmount]);
 
@@ -598,12 +593,14 @@ function BookingDetailPanel({
 
         <div className="rounded-lg bg-slate-50 p-2.5 sm:col-span-2">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            <MapPin size={13} aria-hidden />
-            Mã lịch
+            <CheckCircle2 size={13} aria-hidden />
+            Trạng thái
           </div>
-          <p className="mt-1 font-mono text-sm font-bold text-slate-950">
-            {booking.id}
-          </p>
+          <span
+            className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(booking.status)}`}
+          >
+            {booking.status}
+          </span>
         </div>
       </div>
 
@@ -816,7 +813,6 @@ function BookingDetailPanel({
 
       {showCancelModal && (
         <CancelModal
-          bookingId={booking.id}
           onConfirm={handleConfirmCancel}
           onClose={() => {
             setShowCancelModal(false);
@@ -852,21 +848,22 @@ export function UpcomingBookingPanel() {
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isUnverified, setIsUnverified] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
-    }
-  }, []);
+  const isUnverified = useSyncExternalStore(
+    subscribeToToken,
+    () => window.localStorage.getItem("is_unverified") === "true",
+    () => false,
+  );
 
   // ⚡ FIX: Clear stale data immediately when token changes (account switch / logout)
   useEffect(() => {
-    setBookings([]);
-    setStatus(null);
-    setSelectedId(null);
-    setShowDetail(false);
-    setError(null);
+    const id = window.setTimeout(() => {
+      setBookings([]);
+      setStatus(null);
+      setSelectedId(null);
+      setShowDetail(false);
+      setError(null);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [token]);
 
 
@@ -926,7 +923,7 @@ export function UpcomingBookingPanel() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [isUnverified, token]);
 
   useEffect(() => {
     if (!authChecked || !token || isUnverified) return;
@@ -968,13 +965,13 @@ export function UpcomingBookingPanel() {
   return (
     <section
       id="upcoming-booking"
-      className="rounded-2xl border border-slate-200 bg-white p-6"
+      className="rounded-2xl border border-[#bca374]/20 bg-[radial-gradient(circle_at_top_right,rgba(188,163,116,0.12),transparent_36%),#161619] p-4 shadow-[0_22px_60px_rgba(8,8,10,0.24)] sm:p-6"
       aria-label="Lịch đặt sắp tới"
     >
       {/* Header */}
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-950">Lịch đặt sắp tới</h2>
+          <h2 className="text-xl font-semibold text-slate-950">Lịch đặt sắp tới</h2>
           <p className="mt-1 text-sm text-slate-500">
             {showDetail
               ? "Chi tiết lịch đặt."
@@ -1027,8 +1024,19 @@ export function UpcomingBookingPanel() {
 
       {/* Empty */}
       {authChecked && token && !loading && !error && bookings.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-200 py-12 text-center text-sm text-slate-500">
-          Chưa có lịch đặt sắp tới.
+        <div className="rounded-xl border border-dashed border-[#bca374]/25 bg-white/[0.025] px-5 py-10 text-center">
+          <CalendarDays className="mx-auto size-9 text-[#bca374]/75" strokeWidth={1.4} aria-hidden />
+          <p className="mt-3 text-sm font-semibold text-slate-950">Chưa có lịch đặt sắp tới</p>
+          <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-slate-500">
+            Chọn chi nhánh và khung giờ phù hợp để bắt đầu chăm sóc xe.
+          </p>
+          <Link
+            href="/customer/booking"
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#bca374] px-4 py-2.5 text-sm font-semibold text-[#17130f] transition hover:bg-[#d8c49f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161619] active:translate-y-px"
+          >
+            <Plus size={16} aria-hidden />
+            Đặt lịch ngay
+          </Link>
         </div>
       ) : null}
 

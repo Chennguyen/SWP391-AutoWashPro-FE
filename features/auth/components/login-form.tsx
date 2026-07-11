@@ -1,19 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
 import { AuthInput } from "@/features/auth/components/auth-input";
 import { ApiError } from "@/lib/api-error";
-import { loginSchema, LoginFields } from "../validation/auth-validation";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useLogin } from "../hooks/useLogin";
-import { Button } from "@/components/ui/button";
+import { LoginFields, loginSchema } from "../validation/auth-validation";
 
 /**
  * Thành phần (Component) LoginForm
- * 
+ *
  * Chức năng: Đăng nhập hệ thống AutoWash Pro sử dụng React Hook Form + Zod & Zustand.
  */
 export function LoginForm() {
@@ -74,17 +75,20 @@ export function LoginForm() {
         return;
       }
 
-      setGlobalError(error instanceof Error ? error.message : "Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+      setGlobalError(
+        error instanceof Error
+          ? error.message
+          : "Không thể kết nối đến máy chủ. Vui lòng thử lại.",
+      );
     }
   }
-
 
   return (
     <>
       {justRegistered ? (
         <div
           role="status"
-          className="mb-4 flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+          className="mb-5 flex items-start gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200"
         >
           <svg
             className="mt-0.5 h-4 w-4 shrink-0"
@@ -104,8 +108,13 @@ export function LoginForm() {
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        className="flex flex-col gap-6"
+      >
         <AuthInput
+          className="h-10"
           id="login-email"
           label="Email"
           type="email"
@@ -116,10 +125,11 @@ export function LoginForm() {
         />
 
         <AuthInput
+          className="h-10"
           id="login-password"
           label="Mật khẩu"
           type="password"
-          placeholder="••••••••"
+          placeholder="Nhập mật khẩu"
           autoComplete="current-password"
           error={errors.password?.message}
           rightLabel={
@@ -133,7 +143,7 @@ export function LoginForm() {
         {globalError ? (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="flex items-start gap-2 rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-200"
           >
             <svg
               className="mt-0.5 h-4 w-4 shrink-0"
@@ -157,10 +167,10 @@ export function LoginForm() {
           id="login-submit-btn"
           type="submit"
           disabled={isSubmitting}
-          className="mt-1 w-full rounded-xl bg-[#CDB390] hover:bg-[#BCA27F] py-6 text-sm font-semibold tracking-wide text-white transition-all duration-200 active:scale-[0.98]"
+          className="h-12 w-full rounded-full bg-[#d8bd84] !text-[#0e0e10] transition-colors hover:bg-[#f0d89f]"
         >
           {isSubmitting ? (
-            <span className="flex items-center justify-center gap-2">
+            <span className="flex items-center justify-center gap-2 !text-[#0e0e10]">
               <svg
                 className="h-4 w-4 animate-spin"
                 viewBox="0 0 24 24"
@@ -184,9 +194,22 @@ export function LoginForm() {
               Đang đăng nhập...
             </span>
           ) : (
-            "Đăng nhập"
+            <span className="flex items-center justify-center gap-5 !text-[#0e0e10]">
+              Đăng nhập
+              <ArrowRight size={22} aria-hidden />
+            </span>
           )}
         </Button>
+        <p className="mt-2 text-center text-xs text-[#9b9488]">
+          Chưa có tài khoản?{" "}
+          <Button
+            variant="link"
+            onClick={() => router.push("/sign-up")}
+            className="text-[#d8bd84] underline underline-offset-4 transition-colors hover:text-[#f0d89f]"
+          >
+            Đăng kí
+          </Button>
+        </p>
       </form>
     </>
   );
