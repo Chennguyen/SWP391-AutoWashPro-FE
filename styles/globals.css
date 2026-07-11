@@ -758,6 +758,41 @@ main.bg-background-outer {
   border-color: rgba(251, 146, 60, 0.2) !important;
 }
 
+/* Auth template reset: keeps the cinematic login/sign-up shell independent from
+   broad dashboard dark-theme form overrides above. */
+.auth-template input {
+  background-color: transparent !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #fffaf0 !important;
+  caret-color: #fffaf0 !important;
+}
+
+.auth-template input[type="password"] {
+  font-family: Arial, Helvetica, sans-serif !important;
+  line-height: 1.2 !important;
+}
+
+.auth-template input::placeholder {
+  color: #777168 !important;
+}
+
+.auth-template input:hover {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.auth-template input:focus {
+  border-color: #d8bd84 !important;
+  box-shadow: 0 0 0 2px rgba(216, 189, 132, 0.2) !important;
+}
+
+.auth-template label {
+  color: #f3eadc !important;
+}
+
+.auth-template button span {
+  color: inherit !important;
+}
+
 @theme inline {
   --font-sans: var(--font-utm-forum);
   --font-heading: var(--font-utm-forum);
