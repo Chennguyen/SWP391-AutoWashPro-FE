@@ -352,7 +352,8 @@ export async function getPointTransactions(
  * @returns Một promise giải quyết thành danh sách các phần thưởng Reward.
  */
 export async function getRewards(token: string): Promise<Reward[]> {
-  const url = `${rewardsEndpoint()}?status=active`;
+  const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
+  const url = `${apiBase()}/Reward/admin/rewards?${params.toString()}`;
   const res = await fetch(url, {
     cache: "no-store",
     headers: authHeaders(token),
