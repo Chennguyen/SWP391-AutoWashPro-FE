@@ -23,12 +23,12 @@ export function Header() {
           <Link
             key={label}
             href={href}
-            className="relative text-[11px] font-semibold tracking-[0.2em] uppercase text-white/60 hover:text-white transition-colors duration-300 group"
+            className="relative text-[11px] font-semibold tracking-[0.2em] uppercase text-white/80 hover:text-white transition-colors duration-300 group"
           >
             {label}
             <span
               aria-hidden="true"
-              className="absolute -bottom-1.5 left-0 w-0 h-[1px] bg-white/70 transition-all duration-300 group-hover:w-full"
+              className="absolute -bottom-1.5 left-0 w-0 h-[1px] bg-white/90 transition-all duration-300 group-hover:w-full"
             />
           </Link>
         ))}
