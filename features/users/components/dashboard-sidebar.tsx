@@ -1,30 +1,38 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  LayoutDashboard,
-  CalendarPlus,
-  History,
-  Info,
-  Menu,
-  X,
-  LogOut,
-  Clock,
-  Lock,
-} from "lucide-react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
+import { cn } from "@/lib/utils";
+import {
+  CalendarPlus,
+  Clock,
+  History,
+  Info,
+  LayoutDashboard,
+  Lock,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useState, useSyncExternalStore } from "react";
 
 const NAV_ITEMS = [
-  { label: "Trang chủ",         icon: LayoutDashboard, href: "/customer" },
-  { label: "Thông tin cá nhân", icon: Info,             href: "/customer/profile" },
-  { label: "Đặt lịch",          icon: CalendarPlus,    href: "/customer/booking" },
-  { label: "Lịch đang hoạt động", icon: Clock,          href: "/customer/history?tab=active" },
-  { label: "Lịch sử rửa xe",    icon: History,         href: "/customer/history?tab=history" },
+  { label: "Trang chủ", icon: LayoutDashboard, href: "/customer" },
+  { label: "Thông tin cá nhân", icon: Info, href: "/customer/profile" },
+  { label: "Đặt lịch", icon: CalendarPlus, href: "/customer/booking" },
+  {
+    label: "Lịch đang hoạt động",
+    icon: Clock,
+    href: "/customer/history?tab=active",
+  },
+  {
+    label: "Lịch sử rửa xe",
+    icon: History,
+    href: "/customer/history?tab=history",
+  },
 ];
 
 /**
@@ -33,7 +41,7 @@ const NAV_ITEMS = [
  */
 function clearAuthSession() {
   ["token", "role", "userId", "email", "firstName", "lastName"].forEach((k) =>
-    window.localStorage.removeItem(k)
+    window.localStorage.removeItem(k),
   );
   window.dispatchEvent(new Event("autowash-auth"));
 }
@@ -66,7 +74,7 @@ function getServerIsUnverifiedSnapshot() {
 
 /**
  * Thành phần (Component) DashboardSidebar
- * 
+ *
  * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
@@ -79,7 +87,7 @@ export function DashboardSidebar() {
   const isUnverified = useSyncExternalStore(
     subscribeAuthState,
     getIsUnverifiedSnapshot,
-    getServerIsUnverifiedSnapshot
+    getServerIsUnverifiedSnapshot,
   );
 
   function handleLogout() {
@@ -105,7 +113,10 @@ export function DashboardSidebar() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-1" aria-label="Điều hướng chính">
+          <nav
+            className="hidden lg:flex items-center gap-1"
+            aria-label="Điều hướng chính"
+          >
             {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
               let active = false;
               if (href.includes("?")) {
@@ -119,7 +130,10 @@ export function DashboardSidebar() {
                     : pathname === href || pathname.startsWith(href + "/");
               }
 
-              const isLocked = isUnverified && (href.startsWith("/customer/booking") || href.startsWith("/customer/history"));
+              const isLocked =
+                isUnverified &&
+                (href.startsWith("/customer/booking") ||
+                  href.startsWith("/customer/history"));
               if (isLocked) {
                 return (
                   <Button
@@ -130,9 +144,16 @@ export function DashboardSidebar() {
                     disabled
                     title="Tài khoản chưa xác thực FaceID"
                   >
-                    <Icon data-icon="inline-start" style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
+                    <Icon
+                      data-icon="inline-start"
+                      style={{ color: "rgba(255,255,255,0.4)" }}
+                      aria-hidden
+                    />
                     <span className="block leading-none">{label}</span>
-                    <Lock data-icon="inline-end" className="ml-1 text-white/40" />
+                    <Lock
+                      data-icon="inline-end"
+                      className="ml-1 text-white/40"
+                    />
                   </Button>
                 );
               }
@@ -145,14 +166,16 @@ export function DashboardSidebar() {
                   variant="ghost"
                   className={cn(
                     "h-10 gap-2 px-3 leading-none duration-150",
-                    active ? "bg-[#CDB390]" : "hover:bg-white/10"
+                    active ? "bg-[#CDB390]" : "hover:bg-white/10",
                   )}
-                  style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
+                  style={{ color: active ? "#17130f" : "#ffffff" }}
                   aria-current={active ? "page" : undefined}
                 >
                   <Icon
                     data-icon="inline-start"
-                    style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.6)" }}
+                    style={{
+                      color: active ? "#17130f" : "rgba(255,255,255,0.78)",
+                    }}
                     aria-hidden
                   />
                   <span className="block leading-none">{label}</span>
@@ -202,12 +225,15 @@ export function DashboardSidebar() {
       <aside
         className={cn(
           "lg:hidden fixed top-0 left-0 z-50 h-full w-64 bg-[#050505] border-r border-white/10 shadow-xl transition-transform duration-300 flex flex-col",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
         aria-label="Sidebar"
       >
         <div className="flex items-center justify-between px-6 py-5">
-          <Link href="/" className="text-sm font-bold tracking-[0.2em] uppercase text-white">
+          <Link
+            href="/"
+            className="text-sm font-bold tracking-[0.2em] uppercase text-white"
+          >
             AUTOWASH <span style={{ color: "#CDB390" }}>PRO</span>
           </Link>
           <Button
@@ -223,7 +249,10 @@ export function DashboardSidebar() {
         </div>
         <Separator className="bg-white/10" />
 
-        <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4" aria-label="Điều hướng chính">
+        <nav
+          className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4"
+          aria-label="Điều hướng chính"
+        >
           {NAV_ITEMS.map(({ label, icon: Icon, href }) => {
             let active = false;
             if (href.includes("?")) {
@@ -237,7 +266,10 @@ export function DashboardSidebar() {
                   : pathname === href || pathname.startsWith(href + "/");
             }
 
-            const isLocked = isUnverified && (href.startsWith("/customer/booking") || href.startsWith("/customer/history"));
+            const isLocked =
+              isUnverified &&
+              (href.startsWith("/customer/booking") ||
+                href.startsWith("/customer/history"));
             if (isLocked) {
               return (
                 <Button
@@ -249,7 +281,11 @@ export function DashboardSidebar() {
                   title="Tài khoản chưa xác thực FaceID"
                 >
                   <span className="flex items-center gap-3 leading-none">
-                    <Icon data-icon="inline-start" style={{ color: "rgba(255,255,255,0.4)" }} aria-hidden />
+                    <Icon
+                      data-icon="inline-start"
+                      style={{ color: "rgba(255,255,255,0.4)" }}
+                      aria-hidden
+                    />
                     <span className="block leading-none">{label}</span>
                   </span>
                   <Lock data-icon="inline-end" className="text-white/40" />
@@ -266,14 +302,16 @@ export function DashboardSidebar() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "h-10 justify-start gap-3 px-3 leading-none duration-150",
-                  active ? "bg-[#CDB390]" : "hover:bg-white/10"
+                  active ? "bg-[#CDB390]" : "hover:bg-white/10",
                 )}
-                style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.85)" }}
+                style={{ color: active ? "#17130f" : "#ffffff" }}
                 aria-current={active ? "page" : undefined}
               >
                 <Icon
                   data-icon="inline-start"
-                  style={{ color: active ? "#ffffff" : "rgba(255,255,255,0.6)" }}
+                  style={{
+                    color: active ? "#17130f" : "rgba(255,255,255,0.78)",
+                  }}
                   aria-hidden
                 />
                 <span className="block leading-none">{label}</span>
@@ -287,7 +325,10 @@ export function DashboardSidebar() {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => { setMobileOpen(false); handleLogout(); }}
+            onClick={() => {
+              setMobileOpen(false);
+              handleLogout();
+            }}
             className="h-10 w-full justify-start gap-3 px-3 leading-none text-red-400 duration-150 hover:bg-red-500/10 hover:text-red-300"
           >
             <LogOut data-icon="inline-start" aria-hidden />
