@@ -154,7 +154,7 @@ export function DashboardHeader() {
   }, []);
 
   return (
-    <header className="mb-8">
+    <header className="mb-6">
       {verificationStatus === "Pending" ? (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Info size={20} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
@@ -186,12 +186,18 @@ export function DashboardHeader() {
           </span>
         </div>
       ) : null}
-      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-        Chào mừng trở lại, <span className="text-[#2563EB]">{name}</span>
-      </h1>
-      <p className="text-sm text-slate-500 mt-0.5">
-        Đây là tổng quan chăm sóc xe của bạn.
-      </p>
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_88%_20%,rgba(188,163,116,0.18),transparent_30%),linear-gradient(120deg,#19191c_0%,#111113_100%)] px-5 py-7 shadow-[0_22px_60px_rgba(8,8,10,0.22)] sm:px-7 sm:py-8">
+        <div className="pointer-events-none absolute inset-y-0 right-[12%] w-px bg-gradient-to-b from-transparent via-[#bca374]/20 to-transparent" />
+        <div className="relative max-w-2xl">
+          <p className="text-sm font-medium text-[#bca374]">Không gian chăm sóc xe của bạn</p>
+          <h1 className="mt-2 text-balance text-3xl font-semibold leading-tight tracking-tight text-[#fffdf9] sm:text-4xl">
+            Chào mừng trở lại, <span className="text-[#d8c49f]">{name}</span>
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-[#a09c94] sm:text-base">
+            Theo dõi lịch hẹn, phương tiện, ví và quyền lợi thành viên tại một nơi.
+          </p>
+        </div>
+      </div>
     </header>
   );
 }
