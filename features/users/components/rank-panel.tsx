@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Award, CheckCircle2, RefreshCw, ShieldCheck, Sparkles, TrendingUp, Star, Info } from "lucide-react";
 import { useGetLoyaltyInfoQuery, useGetAllTiersQuery } from "@/features/loyalty/hooks/useLoyalty";
-import { getNextRankTier, getRankProgress, resolveRankTier } from "@/features/loyalty/utils";
+import { getNextRankTier, getRankProgress, resolveRankTier, RANK_TIERS } from "@/features/loyalty/utils";
 import type { LoyaltyTier } from "@/features/loyalty/types/loyalty-types";
 import { cn } from "@/lib/utils";
 
@@ -166,10 +166,11 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            {tiers.map((tierData) => {
+            {(tiers.length > 0 ? tiers : (RANK_TIERS as unknown as LoyaltyTier[])).map((tierData, index) => {
               // Map dynamic tiers to styled rank UI
               const tierLevel = tierData.level;
               const reached = currentRank.level >= tierLevel;
+              const styleTier = RANK_TIERS[index] || RANK_TIERS[0]; // fallback to first style if out of bounds
 
               return (
                 <article
