@@ -2,9 +2,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BadgeCheck, CalendarCheck, RefreshCw, Users, WalletCards, XCircle } from "lucide-react";
-import { getDashboardStats, getBranches, type DashboardStats, type AdminBranch } from "@/features/admin/services";
+import {
+  getDashboardStats,
+  getBranches,
+  getRevenueReport,
+  type DashboardStats,
+  type AdminBranch,
+  type RevenueReport,
+} from "@/features/admin/services";
 import { AdminError, AdminLoading, AdminPageHeader, AdminShell, MetricCard } from "@/features/admin/components/admin-ui";
 import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
+import {
+  AreaSimple,
+  type RevenueChartPoint,
+} from "@/components/charts/area-simple";
 
 function monthRange() {
   const now = new Date();
@@ -24,6 +35,33 @@ function formatVND(value: number) {
   }).format(value);
 }
 
+function toRevenueChartData(report: RevenueReport | null): RevenueChartPoint[] {
+  if (!report) return [];
+
+  return report.details
+    .flatMap((item) => {
+      const rawDate = item.date ?? item.Date;
+      const rawRevenue = item.revenue ?? item.Revenue;
+
+      if (typeof rawDate !== "string" || !rawDate.trim()) return [];
+
+      const revenue =
+        typeof rawRevenue === "number" ? rawRevenue : Number(rawRevenue ?? 0);
+
+      return [
+        {
+          date: rawDate,
+          revenue: Number.isFinite(revenue) ? revenue : 0,
+        },
+      ];
+    })
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 /**
  * Thành phần (Component) AdminDashboardPage
  * 
@@ -38,8 +76,11 @@ export function AdminDashboardPage() {
   const [branchId, setBranchId] = useState("");
   const [branches, setBranches] = useState<AdminBranch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chartLoading, setChartLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chartError, setChartError] = useState<string | null>(null);
 
   const loadBranches = useCallback(async () => {
     if (!token) return;
@@ -54,21 +95,48 @@ export function AdminDashboardPage() {
     }
   }, [token, branchId]);
 
-  const loadStats = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     if (!token || !fromDate || !toDate) return;
     setLoading(true);
+    setChartLoading(true);
     setError(null);
+    setChartError(null);
+
+    const params = {
+      FromDate: fromDate,
+      ToDate: toDate,
+      BranchId: branchId || undefined,
+    };
+
     try {
-      const nextStats = await getDashboardStats(token, {
-        FromDate: fromDate,
-        ToDate: toDate,
-        BranchId: branchId || undefined,
-      });
-      setStats(nextStats);
+      const [statsResult, revenueResult] = await Promise.allSettled([
+        getDashboardStats(token, params),
+        getRevenueReport(token, params),
+      ]);
+
+      if (statsResult.status === "fulfilled") {
+        setStats(statsResult.value);
+      } else {
+        setStats(null);
+        setError(errorMessage(statsResult.reason, "Không thể tải tổng quan."));
+      }
+
+      if (revenueResult.status === "fulfilled") {
+        setRevenue(revenueResult.value);
+      } else {
+        setRevenue(null);
+        setChartError(
+          errorMessage(revenueResult.reason, "Không thể tải dữ liệu doanh thu."),
+        );
+      }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Không thể tải tổng quan.");
+      setStats(null);
+      setRevenue(null);
+      setError(errorMessage(loadError, "Không thể tải tổng quan."));
+      setChartError(errorMessage(loadError, "Không thể tải dữ liệu doanh thu."));
     } finally {
       setLoading(false);
+      setChartLoading(false);
     }
   }, [fromDate, toDate, token, branchId]);
 
@@ -78,9 +146,9 @@ export function AdminDashboardPage() {
   }, [loadBranches]);
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadStats(), 0);
+    const timeoutId = window.setTimeout(() => void loadDashboard(), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [loadStats]);
+  }, [loadDashboard]);
 
   return (
     <AdminShell>
@@ -115,7 +183,7 @@ export function AdminDashboardPage() {
             </select>
             <button
               type="button"
-              onClick={loadStats}
+              onClick={loadDashboard}
               disabled={loading}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
               title="Tải lại"
@@ -127,7 +195,7 @@ export function AdminDashboardPage() {
       />
 
       {loading && !stats ? <AdminLoading /> : null}
-      {error ? <AdminError message={error} onRetry={loadStats} /> : null}
+      {error ? <AdminError message={error} onRetry={loadDashboard} /> : null}
 
       {stats && !error ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -139,6 +207,17 @@ export function AdminDashboardPage() {
           <MetricCard label="Người dùng mới" value={stats.newUsers} icon={Users} tone="text-amber-600" />
         </div>
       ) : null}
+
+      <div className="mt-4">
+        <AreaSimple
+          data={toRevenueChartData(revenue)}
+          error={chartError}
+          fromDate={fromDate}
+          loading={chartLoading}
+          toDate={toDate}
+          totalRevenue={revenue?.totalRevenue ?? stats?.totalRevenue ?? 0}
+        />
+      </div>
     </AdminShell>
   );
 }

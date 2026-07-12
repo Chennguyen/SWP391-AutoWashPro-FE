@@ -1,12 +1,29 @@
 "use client";
 
-import { FormEvent, useState, useEffect } from "react";
-import { Plus, RefreshCw, WalletCards, Lock, ChevronLeft, ChevronRight } from "lucide-react";
-import { useTopUpWalletMutation, useGetWalletTransactionsQuery } from "../hooks/useUserWallet";
-import { type Wallet } from "../types/user-types";
-import { ApiError } from "@/lib/api-error";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ApiError } from "@/lib/api-error";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  Plus,
+  RefreshCw,
+  WalletCards,
+} from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  useGetWalletTransactionsQuery,
+  useTopUpWalletMutation,
+} from "../hooks/useUserWallet";
+import { type Wallet } from "../types/user-types";
 
 interface WalletPanelProps {
   token: string;
@@ -51,26 +68,47 @@ function formatTxTime(isoString: string): string {
 function getTransactionBadge(type: number | string) {
   const t = Number(type);
   const isDeposit = t === 0 || String(type).trim().toLowerCase() === "deposit";
-  const isFullPayment = t === 1 || String(type).trim().toLowerCase() === "fullpayment";
-  const isTopup = t === 2 || String(type).trim().toLowerCase() === "wallettopup";
+  const isFullPayment =
+    t === 1 || String(type).trim().toLowerCase() === "fullpayment";
+  const isTopup =
+    t === 2 || String(type).trim().toLowerCase() === "wallettopup";
 
-  if (isDeposit) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Đặt cọc</Badge>;
-  if (isFullPayment) return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Thanh toán</Badge>;
-  if (isTopup) return <Badge className="!bg-[#bae6fd] !text-black hover:!bg-[#bae6fd] !border-transparent font-semibold">Nạp tiền</Badge>;
-  
-  return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">{type}</Badge>;
+  if (isDeposit)
+    return (
+      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+        Đặt cọc
+      </Badge>
+    );
+  if (isFullPayment)
+    return (
+      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+        Thanh toán
+      </Badge>
+    );
+  if (isTopup)
+    return (
+      <Badge className="!bg-[#16362F] !text-[#34D399] !border-[#245B4B] hover:!bg-[#16362F] font-semibold">
+        Nạp tiền
+      </Badge>
+    );
+  return (
+    <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">
+      {type}
+    </Badge>
+  );
 }
 
 function getAmountClassAndPrefix(type: number | string) {
   const t = Number(type);
-  const isTopup = t === 2 || String(type).trim().toLowerCase() === "wallettopup";
+  const isTopup =
+    t === 2 || String(type).trim().toLowerCase() === "wallettopup";
   if (isTopup) return { className: "text-emerald-600 font-bold", prefix: "+" };
   return { className: "text-red-600 font-bold", prefix: "-" };
 }
 
 /**
  * Thành phần (Component) WalletPanel
- * 
+ *
  * Chức năng: Quản lý số dư, nạp ví và hiển thị lịch sử giao dịch ví của khách hàng.
  */
 export function WalletPanel({
@@ -98,7 +136,7 @@ export function WalletPanel({
   const topUpMutation = useTopUpWalletMutation(token);
   const txQuery = useGetWalletTransactionsQuery(
     { pageIndex, pageSize: 5 },
-    { enabled: mounted && !!token && !isUnverified }
+    { enabled: mounted && !!token && !isUnverified },
   );
 
   const transactions = txQuery.data?.transactions || [];
@@ -135,19 +173,22 @@ export function WalletPanel({
     }
   }
 
-
-
   return (
     <section aria-label="Thông tin ví" className="space-y-6">
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-950">Thông tin ví</h2>
-          <p className="mt-1 text-sm text-slate-500">Xem số dư và nạp tiền vào ví AutoWash Pro.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Xem số dư và nạp tiền vào ví AutoWash Pro.
+          </p>
         </div>
       </div>
 
       {error ? (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {error}
         </div>
       ) : null}
@@ -158,9 +199,12 @@ export function WalletPanel({
             <div className="rounded-full bg-slate-100 p-3 text-slate-500 shadow-sm border border-slate-200/50 mb-3 animate-pulse">
               <Lock size={24} className="text-amber-500" />
             </div>
-            <p className="text-sm font-semibold text-slate-800">Ví tạm thời khóa do tài khoản chưa được xác thực</p>
+            <p className="text-sm font-semibold text-slate-800">
+              Ví tạm thời khóa do tài khoản chưa được xác thực
+            </p>
             <p className="mt-1 text-xs text-slate-500 max-w-xs leading-relaxed">
-              Tính năng ví sẽ tự động mở khóa sau khi quản trị viên phê duyệt tài khoản của bạn.
+              Tính năng ví sẽ tự động mở khóa sau khi quản trị viên phê duyệt
+              tài khoản của bạn.
             </p>
           </div>
         )}
@@ -168,7 +212,9 @@ export function WalletPanel({
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="rounded-xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(188,163,116,0.16),transparent_68%),#121214] p-5 text-white">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-[#a09c94]">Số dư hiện tại</span>
+              <span className="text-sm font-medium text-[#a09c94]">
+                Số dư hiện tại
+              </span>
               <WalletCards size={22} className="text-[#bca374]" aria-hidden />
             </div>
             {loading && !wallet ? (
@@ -185,10 +231,16 @@ export function WalletPanel({
             ) : null}
           </div>
 
-          <form onSubmit={handleTopUp} className="rounded-lg border border-slate-200 bg-white p-5">
+          <form
+            onSubmit={handleTopUp}
+            className="rounded-lg border border-slate-200 bg-white p-5"
+          >
             <h3 className="text-sm font-semibold text-slate-800">Nạp tiền</h3>
             <div className="mt-4">
-              <label htmlFor="wallet-top-up" className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="wallet-top-up"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 Số tiền
               </label>
               <input
@@ -216,7 +268,10 @@ export function WalletPanel({
             </div>
 
             {topUpError ? (
-              <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
                 {topUpError}
               </div>
             ) : null}
@@ -236,7 +291,9 @@ export function WalletPanel({
       {/* ─── Lịch sử giao dịch ví ─── */}
       <div className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900">Lịch sử giao dịch ví</h3>
+          <h3 className="text-base font-bold text-slate-900">
+            Lịch sử giao dịch ví
+          </h3>
           <button
             type="button"
             onClick={() => void txQuery.refetch()}
@@ -249,7 +306,10 @@ export function WalletPanel({
         </div>
 
         {txError ? (
-          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4"
+          >
             {txError}
           </div>
         ) : null}
@@ -258,24 +318,43 @@ export function WalletPanel({
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead className="w-[120px] text-xs font-bold uppercase text-slate-500">Ngày</TableHead>
-                <TableHead className="w-[80px] text-xs font-bold uppercase text-slate-500">Giờ</TableHead>
-                <TableHead className="w-[100px] text-xs font-bold uppercase text-slate-500">Loại</TableHead>
-                <TableHead className="w-[140px] text-right text-xs font-bold uppercase text-slate-500">Số tiền</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Mô tả</TableHead>
+                <TableHead className="w-[120px] text-xs font-bold uppercase text-slate-500">
+                  Ngày
+                </TableHead>
+                <TableHead className="w-[80px] text-xs font-bold uppercase text-slate-500">
+                  Giờ
+                </TableHead>
+                <TableHead className="w-[100px] text-xs font-bold uppercase text-slate-500">
+                  Loại
+                </TableHead>
+                <TableHead className="w-[140px] text-right text-xs font-bold uppercase text-slate-500">
+                  Số tiền
+                </TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500">
+                  Mô tả
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {txLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-sm text-slate-500">
-                    <RefreshCw className="mx-auto mb-1 animate-spin text-blue-600" size={18} />
+                  <TableCell
+                    colSpan={5}
+                    className="h-24 text-center text-sm text-slate-500"
+                  >
+                    <RefreshCw
+                      className="mx-auto mb-1 animate-spin text-blue-600"
+                      size={18}
+                    />
                     Đang tải giao dịch...
                   </TableCell>
                 </TableRow>
               ) : transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-sm text-slate-500">
+                  <TableCell
+                    colSpan={5}
+                    className="h-24 text-center text-sm text-slate-500"
+                  >
                     Chưa có giao dịch nào được ghi nhận.
                   </TableCell>
                 </TableRow>
@@ -283,7 +362,10 @@ export function WalletPanel({
                 transactions.map((tx) => {
                   const style = getAmountClassAndPrefix(tx.type);
                   return (
-                    <TableRow key={tx.transactionId} className="hover:bg-slate-50/50">
+                    <TableRow
+                      key={tx.transactionId}
+                      className="hover:bg-slate-50/50"
+                    >
                       <TableCell className="text-xs text-slate-600 font-medium">
                         {formatTxDate(tx.transactionDate || tx.createdAt)}
                       </TableCell>
@@ -293,10 +375,13 @@ export function WalletPanel({
                       <TableCell>{getTransactionBadge(tx.type)}</TableCell>
                       <TableCell className="text-right">
                         <span className={style.className}>
-                          {style.prefix}{formatCurrency(tx.amount)}
+                          {style.prefix}
+                          {formatCurrency(tx.amount)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm text-slate-600">{tx.description || "-"}</TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {tx.description || "-"}
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -308,7 +393,9 @@ export function WalletPanel({
         {/* Phân trang */}
         {totalPages > 1 && (
           <div className="mt-4 flex items-center justify-between">
-            <span className="text-xs text-slate-500">Trang {pageIndex} / {totalPages}</span>
+            <span className="text-xs text-slate-500">
+              Trang {pageIndex} / {totalPages}
+            </span>
             <div className="flex gap-2">
               <button
                 type="button"

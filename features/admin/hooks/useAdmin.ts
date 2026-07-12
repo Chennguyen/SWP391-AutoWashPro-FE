@@ -1,44 +1,43 @@
+import type { ApiError } from "@/lib/api-error";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getBranches,
+  cancelAdminBooking,
+  checkInAdminBooking,
+  completeBooking,
   createBranch,
-  updateBranch,
   deleteBranch,
-  getUsers,
-  getPendingUsers,
-  getUser,
-  verifyUser,
-  rejectUser,
-  updateUserStatus,
-  getUserStatus,
   getAdminBookings,
   getBookingSlots,
-  completeBooking,
-  checkInAdminBooking,
-  cancelAdminBooking,
+  getBranches,
   getDashboardStats,
-  getRevenueReport,
   getLoyaltyReport,
+  getPendingUsers,
+  getRevenueReport,
+  getUser,
+  getUsers,
+  rejectUser,
+  updateBranch,
+  updateUserStatus,
+  verifyUser,
 } from "../services";
 import type {
-  AdminBranch,
-  AdminUser,
+  AccountStatus,
   AdminBooking,
   AdminBookingSlot,
+  AdminBranch,
+  AdminUser,
   DashboardStats,
-  RevenueReport,
   LoyaltyReport,
   PageResult,
-  AccountStatus,
+  RevenueReport,
 } from "../types/admin-types";
-import type { ApiError } from "@/lib/api-error";
 
 // ─── Branches Hooks ───────────────────────────────────────────────────────────
 
 export function useGetAdminBranchesQuery(
   token: string,
   params: Parameters<typeof getBranches>[1] = {},
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<AdminBranch[], ApiError>({
     queryKey: ["admin-branches", token, params],
@@ -59,7 +58,9 @@ export function useCreateBranchMutation(token: string) {
       await createBranch(token, data);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-branches", token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-branches", token],
+      });
     },
   });
 }
@@ -67,13 +68,19 @@ export function useCreateBranchMutation(token: string) {
 export function useUpdateBranchMutation(token: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ApiError, { id: string; data: Parameters<typeof updateBranch>[2] }>({
+  return useMutation<
+    void,
+    ApiError,
+    { id: string; data: Parameters<typeof updateBranch>[2] }
+  >({
     mutationFn: async ({ id, data }) => {
       if (!token) throw new Error("No token provided");
       await updateBranch(token, id, data);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-branches", token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-branches", token],
+      });
     },
   });
 }
@@ -87,7 +94,9 @@ export function useDeleteBranchMutation(token: string) {
       await deleteBranch(token, id);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-branches", token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-branches", token],
+      });
     },
   });
 }
@@ -97,7 +106,7 @@ export function useDeleteBranchMutation(token: string) {
 export function useGetUsersQuery(
   token: string,
   params: Parameters<typeof getUsers>[1] = {},
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<PageResult<AdminUser>, ApiError>({
     queryKey: ["admin-users", token, params],
@@ -112,7 +121,7 @@ export function useGetUsersQuery(
 export function useGetPendingUsersQuery(
   token: string,
   params: Parameters<typeof getPendingUsers>[1] = {},
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<PageResult<AdminUser>, ApiError>({
     queryKey: ["admin-pending-users", token, params],
@@ -124,7 +133,11 @@ export function useGetPendingUsersQuery(
   });
 }
 
-export function useGetAdminUserQuery(token: string, id: string, options?: { enabled?: boolean }) {
+export function useGetAdminUserQuery(
+  token: string,
+  id: string,
+  options?: { enabled?: boolean },
+) {
   return useQuery<AdminUser, ApiError>({
     queryKey: ["admin-user-detail", id, token],
     queryFn: async () => {
@@ -145,8 +158,12 @@ export function useVerifyUserMutation(token: string) {
     },
     onSuccess: (_, id) => {
       void queryClient.invalidateQueries({ queryKey: ["admin-users", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-pending-users", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-user-detail", id, token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-pending-users", token],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", id, token],
+      });
     },
   });
 }
@@ -161,8 +178,12 @@ export function useRejectUserMutation(token: string) {
     },
     onSuccess: (_, { id }) => {
       void queryClient.invalidateQueries({ queryKey: ["admin-users", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-pending-users", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-user-detail", id, token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-pending-users", token],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", id, token],
+      });
     },
   });
 }
@@ -177,7 +198,9 @@ export function useUpdateUserStatusMutation(token: string) {
     },
     onSuccess: (_, { id }) => {
       void queryClient.invalidateQueries({ queryKey: ["admin-users", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-user-detail", id, token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-user-detail", id, token],
+      });
     },
   });
 }
@@ -187,7 +210,7 @@ export function useUpdateUserStatusMutation(token: string) {
 export function useGetAdminBookingsQuery(
   token: string,
   params: Parameters<typeof getAdminBookings>[1] = {},
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<PageResult<AdminBooking>, ApiError>({
     queryKey: ["admin-bookings", token, params],
@@ -202,7 +225,7 @@ export function useGetAdminBookingsQuery(
 export function useGetBookingSlotsQuery(
   token: string,
   params: Parameters<typeof getBookingSlots>[1],
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<PageResult<AdminBookingSlot>, ApiError>({
     queryKey: ["admin-booking-slots", token, params],
@@ -210,7 +233,11 @@ export function useGetBookingSlotsQuery(
       if (!token) throw new Error("No token provided");
       return await getBookingSlots(token, params);
     },
-    enabled: options?.enabled !== false && !!token && !!params?.Date && !!params?.BranchId,
+    enabled:
+      options?.enabled !== false &&
+      !!token &&
+      !!params?.Date &&
+      !!params?.BranchId,
   });
 }
 
@@ -223,8 +250,12 @@ export function useCompleteBookingMutation(token: string) {
       await completeBooking(token, id, note);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-bookings", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats", token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-bookings", token],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-dashboard-stats", token],
+      });
     },
   });
 }
@@ -238,8 +269,12 @@ export function useCheckInAdminBookingMutation(token: string) {
       await checkInAdminBooking(token, id);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-bookings", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats", token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-bookings", token],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-dashboard-stats", token],
+      });
     },
   });
 }
@@ -253,8 +288,12 @@ export function useCancelAdminBookingMutation(token: string) {
       await cancelAdminBooking(token, id, reason);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin-bookings", token] });
-      void queryClient.invalidateQueries({ queryKey: ["admin-dashboard-stats", token] });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-bookings", token],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-dashboard-stats", token],
+      });
     },
   });
 }
@@ -264,7 +303,7 @@ export function useCancelAdminBookingMutation(token: string) {
 export function useGetDashboardStatsQuery(
   token: string,
   params: Parameters<typeof getDashboardStats>[1],
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<DashboardStats, ApiError>({
     queryKey: ["admin-dashboard-stats", token, params],
@@ -272,14 +311,18 @@ export function useGetDashboardStatsQuery(
       if (!token) throw new Error("No token provided");
       return await getDashboardStats(token, params);
     },
-    enabled: options?.enabled !== false && !!token && !!params?.FromDate && !!params?.ToDate,
+    enabled:
+      options?.enabled !== false &&
+      !!token &&
+      !!params?.FromDate &&
+      !!params?.ToDate,
   });
 }
 
 export function useGetRevenueReportQuery(
   token: string,
   params: Parameters<typeof getRevenueReport>[1],
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<RevenueReport, ApiError>({
     queryKey: ["admin-revenue-report", token, params],
@@ -287,14 +330,18 @@ export function useGetRevenueReportQuery(
       if (!token) throw new Error("No token provided");
       return await getRevenueReport(token, params);
     },
-    enabled: options?.enabled !== false && !!token && !!params?.FromDate && !!params?.ToDate,
+    enabled:
+      options?.enabled !== false &&
+      !!token &&
+      !!params?.FromDate &&
+      !!params?.ToDate,
   });
 }
 
 export function useGetLoyaltyReportQuery(
   token: string,
   params: Parameters<typeof getLoyaltyReport>[1],
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
 ) {
   return useQuery<LoyaltyReport, ApiError>({
     queryKey: ["admin-loyalty-report", token, params],
@@ -302,6 +349,10 @@ export function useGetLoyaltyReportQuery(
       if (!token) throw new Error("No token provided");
       return await getLoyaltyReport(token, params);
     },
-    enabled: options?.enabled !== false && !!token && !!params?.FromDate && !!params?.ToDate,
+    enabled:
+      options?.enabled !== false &&
+      !!token &&
+      !!params?.FromDate &&
+      !!params?.ToDate,
   });
 }
