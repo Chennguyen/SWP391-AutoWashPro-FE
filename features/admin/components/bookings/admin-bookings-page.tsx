@@ -53,7 +53,7 @@ const STATUS_LABEL: Record<string, string> = {
 function statusBadge(status: string) {
   const colors: Record<string, string> = {
     Pending: "border-amber-200 bg-amber-50 text-amber-700",
-    Confirmed: "border-blue-200 bg-blue-50 text-blue-700",
+    Confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
     CheckIn: "border-indigo-200 bg-indigo-50 text-indigo-700",
     InProgress: "border-violet-200 bg-violet-50 text-violet-700",
     Completed: "border-emerald-200 bg-emerald-50 text-emerald-700",

@@ -247,12 +247,18 @@ export function isUpcomingStatus(status: string): boolean {
 
 /**
  * Kiểm tra xem trạng thái lịch đặt hiện tại có cho phép khách hàng thực hiện check-in hay không.
+ * Điều kiện: Trạng thái là "confirmed" và thời gian hiện tại đã đến hoặc vượt quá thời gian bắt đầu lịch đặt.
  * 
- * @param status Từ khóa trạng thái.
+ * @param booking Đối tượng lịch đặt.
  * @returns Có thể check-in hay không.
  */
-export function canCheckIn(status: string): boolean {
-  return normalizeStatus(status) === "confirmed";
+export function canCheckIn(booking: CustomerBooking): boolean {
+  if (normalizeStatus(booking.status) !== "confirmed") {
+    return false;
+  }
+  const startDate = getBookingStartDate(booking);
+  if (!startDate) return false;
+  return Date.now() >= startDate.getTime();
 }
 
 /**
@@ -270,6 +276,6 @@ export function statusStyle(status: string): string {
   if (s.includes("progress") || s.includes("checkin"))
     return "border-indigo-200 bg-indigo-50 text-indigo-700";
   if (s.includes("confirm"))
-    return "border-blue-200 bg-blue-50 text-blue-700";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
   return "border-amber-200 bg-amber-50 text-amber-700";
 }

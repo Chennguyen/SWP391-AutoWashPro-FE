@@ -1,7 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { BarChart3, RefreshCw, Trophy, WalletCards } from "lucide-react";
+import {
+  AdminError,
+  AdminPageHeader,
+  AdminShell,
+  MetricCard,
+} from "@/features/admin/components/admin-ui";
+import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
 import {
   getBranches,
   getLoyaltyReport,
@@ -10,8 +15,8 @@ import {
   type LoyaltyReport,
   type RevenueReport,
 } from "@/features/admin/services";
-import { AdminError, AdminPageHeader, AdminShell, MetricCard } from "@/features/admin/components/admin-ui";
-import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
+import { BarChart3, RefreshCw, Trophy, WalletCards } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 function monthRange() {
   const now = new Date();
@@ -33,7 +38,7 @@ function formatVND(value: number) {
 
 /**
  * Thành phần (Component) AdminReportsPage
- * 
+ *
  * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
@@ -78,7 +83,11 @@ export function AdminReportsPage() {
       setRevenue(nextRevenue);
       setLoyalty(nextLoyalty);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Không thể tải báo cáo.");
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Không thể tải báo cáo.",
+      );
     } finally {
       setLoading(false);
     }
@@ -101,15 +110,41 @@ export function AdminReportsPage() {
         description="Xem báo cáo doanh thu và loyalty theo khoảng ngày."
         actions={
           <>
-            <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-            <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-            <select value={branchId} onChange={(event) => setBranchId(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <select
+              value={branchId}
+              onChange={(event) => setBranchId(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
               {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>{branch.name}</option>
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
               ))}
             </select>
-            <button type="button" onClick={loadReports} disabled={loading || !branchId} className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50" title="Tải lại">
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden />
+            <button
+              type="button"
+              onClick={loadReports}
+              disabled={loading || !branchId}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              title="Tải lại"
+            >
+              <RefreshCw
+                size={16}
+                className={loading ? "animate-spin" : ""}
+                aria-hidden
+              />
             </button>
           </>
         }
@@ -118,33 +153,67 @@ export function AdminReportsPage() {
       {error ? <AdminError message={error} onRetry={loadReports} /> : null}
 
       <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Doanh thu" value={formatVND(revenue?.totalRevenue ?? 0)} icon={WalletCards} tone="text-violet-600" />
-        <MetricCard label="Tổng booking" value={revenue?.totalBookings ?? 0} icon={BarChart3} tone="text-blue-600" />
-        <MetricCard label="Điểm loyalty" value={loyalty?.totalPoints ?? 0} icon={Trophy} tone="text-amber-600" />
+        <MetricCard
+          label="Doanh thu"
+          value={formatVND(revenue?.totalRevenue ?? 0)}
+          icon={WalletCards}
+          tone="text-violet-600"
+        />
+        <MetricCard
+          label="Tổng booking"
+          value={revenue?.totalBookings ?? 0}
+          icon={BarChart3}
+          tone="text-blue-600"
+        />
+        <MetricCard
+          label="Điểm loyalty"
+          value={loyalty?.totalPoints ?? 0}
+          icon={Trophy}
+          tone="text-amber-600"
+        />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-bold text-slate-950">Chi tiết doanh thu</h2>
-          {revenue && Array.isArray(revenue.details) && revenue.details.length > 0 ? (
+          {revenue &&
+          Array.isArray(revenue.details) &&
+          revenue.details.length > 0 ? (
             <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-200">
               <table className="w-full text-left text-sm text-slate-500 border-collapse">
                 <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider sticky top-0 border-b border-slate-200">
                   <tr>
-                    <th scope="col" className="px-4 py-3">Ngày</th>
-                    <th scope="col" className="px-4 py-3 text-center">Tổng đặt</th>
-                    <th scope="col" className="px-4 py-3 text-center">Hoàn thành</th>
-                    <th scope="col" className="px-4 py-3 text-right">Doanh thu</th>
+                    <th scope="col" className="px-4 py-3">
+                      Ngày
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-center">
+                      Tổng đặt
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-center">
+                      Hoàn thành
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right">
+                      Doanh thu
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {revenue.details.map((item: any, idx: number) => (
-                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={idx}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
                       <td className="px-4 py-2.5 font-medium text-slate-900">
-                        {item.date ? item.date.split("-").reverse().join("/") : "-"}
+                        {item.date
+                          ? item.date.split("-").reverse().join("/")
+                          : "-"}
                       </td>
-                      <td className="px-4 py-2.5 text-center text-slate-700">{item.bookingCount ?? 0}</td>
-                      <td className="px-4 py-2.5 text-center text-slate-700">{item.completedBookingCount ?? 0}</td>
+                      <td className="px-4 py-2.5 text-center text-slate-700">
+                        {item.bookingCount ?? 0}
+                      </td>
+                      <td className="px-4 py-2.5 text-center text-slate-700">
+                        {item.completedBookingCount ?? 0}
+                      </td>
                       <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">
                         {formatVND(item.revenue ?? 0)}
                       </td>
@@ -167,25 +236,33 @@ export function AdminReportsPage() {
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                  <span className="block text-xs font-medium text-slate-500">Điểm tích lũy</span>
+                  <span className="block text-xs font-medium text-slate-500">
+                    Điểm tích lũy
+                  </span>
                   <span className="text-lg font-bold text-slate-800">
                     {(loyalty as any).summary?.totalPointsEarned ?? 0}
                   </span>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                  <span className="block text-xs font-medium text-slate-500">Điểm đã đổi</span>
+                  <span className="block text-xs font-medium text-slate-500">
+                    Điểm đã đổi
+                  </span>
                   <span className="text-lg font-bold text-slate-800">
                     {(loyalty as any).summary?.totalPointsRedeemed ?? 0}
                   </span>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                  <span className="block text-xs font-medium text-slate-500">Quà đã nhận</span>
+                  <span className="block text-xs font-medium text-slate-500">
+                    Quà đã nhận
+                  </span>
                   <span className="text-lg font-bold text-slate-800">
                     {(loyalty as any).summary?.totalRewardsRedeemed ?? 0}
                   </span>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                  <span className="block text-xs font-medium text-slate-500">Lượt nâng hạng</span>
+                  <span className="block text-xs font-medium text-slate-500">
+                    Lượt nâng hạng
+                  </span>
                   <span className="text-lg font-bold text-slate-800">
                     {(loyalty as any).summary?.tierUpgradeCount ?? 0}
                   </span>
@@ -193,24 +270,40 @@ export function AdminReportsPage() {
               </div>
 
               {/* Tier Distribution Table */}
-              {Array.isArray((loyalty as any).tierDistribution) && ((loyalty as any).tierDistribution as any[]).length > 0 ? (
+              {Array.isArray((loyalty as any).tierDistribution) &&
+              ((loyalty as any).tierDistribution as any[]).length > 0 ? (
                 <div className="mt-4">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Phân bố hạng thành viên</h3>
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Phân bố hạng thành viên
+                  </h3>
                   <div className="overflow-hidden rounded-lg border border-slate-200">
                     <table className="w-full text-left text-sm text-slate-500 border-collapse">
                       <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider border-b border-slate-200">
                         <tr>
-                          <th scope="col" className="px-4 py-2">Hạng</th>
-                          <th scope="col" className="px-4 py-2 text-right">Số lượng khách hàng</th>
+                          <th scope="col" className="px-4 py-2">
+                            Hạng
+                          </th>
+                          <th scope="col" className="px-4 py-2 text-right">
+                            Số lượng khách hàng
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {((loyalty as any).tierDistribution as any[]).map((tier: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-2 font-medium text-slate-900">{tier.tierName ?? "Chưa rõ"}</td>
-                            <td className="px-4 py-2 text-right text-slate-700 font-semibold">{tier.customerCount ?? 0}</td>
-                          </tr>
-                        ))}
+                        {((loyalty as any).tierDistribution as any[]).map(
+                          (tier: any, idx: number) => (
+                            <tr
+                              key={idx}
+                              className="hover:bg-slate-50 transition-colors"
+                            >
+                              <td className="px-4 py-2 font-medium text-slate-900">
+                                {tier.tierName ?? "Chưa rõ"}
+                              </td>
+                              <td className="px-4 py-2 text-right text-slate-700 font-semibold">
+                                {tier.customerCount ?? 0}
+                              </td>
+                            </tr>
+                          ),
+                        )}
                       </tbody>
                     </table>
                   </div>
