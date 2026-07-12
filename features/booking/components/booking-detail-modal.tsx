@@ -94,7 +94,7 @@ export function BookingDetailModal({
     !isCancelledStatus(booking.status) &&
     !isCompletedStatus(booking.status);
 
-  const showCheckInBtn = canCheckIn(booking.status);
+  const showCheckInBtn = canCheckIn(booking);
 
   async function handleCheckIn() {
     if (!token) return;

@@ -460,7 +460,7 @@ function BookingDetailPanel({
     canCancelByTime &&
     !isCancelledStatus(booking.status) &&
     !isCompletedStatus(booking.status);
-  const showCheckInBtn = canCheckIn(booking.status);
+  const showCheckInBtn = canCheckIn(booking);
 
   async function handleCheckIn() {
     setCheckingIn(true);

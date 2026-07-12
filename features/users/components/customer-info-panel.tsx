@@ -163,8 +163,10 @@ function CustomerInfoPanelContent() {
             aria-current={active ? "page" : undefined}
           >
             <Icon className="size-[18px] shrink-0" strokeWidth={1.7} aria-hidden />
-            <span>{label}</span>
-            <ChevronRight className={cn("ml-auto hidden size-4 lg:block", active ? "text-[#17130f]/60" : "text-white/20 group-hover:text-[#d8c49f]")} aria-hidden />
+            <span className={cn(active ? "!text-[#17130f]" : "!text-[#a09c94] group-hover:!text-[#fffdf9]")}>
+              {label}
+            </span>
+            <ChevronRight className={cn("ml-auto hidden size-4 lg:block", active ? "!text-[#17130f]/60" : "!text-white/20 group-hover:!text-[#d8c49f]")} aria-hidden />
           </button>
         );
       })}
