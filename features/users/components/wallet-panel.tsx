@@ -56,7 +56,7 @@ function getTransactionBadge(type: number | string) {
 
   if (isDeposit) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Đặt cọc</Badge>;
   if (isFullPayment) return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Thanh toán</Badge>;
-  if (isTopup) return <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">Nạp tiền</Badge>;
+  if (isTopup) return <Badge className="!bg-[#bae6fd] !text-black hover:!bg-[#bae6fd] !border-transparent font-semibold">Nạp tiền</Badge>;
   
   return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">{type}</Badge>;
 }
@@ -166,20 +166,20 @@ export function WalletPanel({
         )}
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="rounded-lg border border-slate-200 bg-slate-950 p-5 text-white">
+          <div className="rounded-xl border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(188,163,116,0.16),transparent_68%),#121214] p-5 text-white">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-white/70">Số dư hiện tại</span>
-              <WalletCards size={22} className="text-blue-300" aria-hidden />
+              <span className="text-sm font-medium text-[#a09c94]">Số dư hiện tại</span>
+              <WalletCards size={22} className="text-[#bca374]" aria-hidden />
             </div>
             {loading && !wallet ? (
               <div className="mt-8 h-10 w-40 animate-pulse rounded bg-white/15" />
             ) : (
-              <p className="mt-6 text-3xl font-black tracking-normal">
+              <p className="mt-6 text-3xl font-black tracking-normal text-[#fffdf9]">
                 {formatCurrency(wallet?.balance ?? 0)}
               </p>
             )}
             {wallet?.updatedAt ? (
-              <p className="mt-3 text-xs text-white/55">
+              <p className="mt-3 text-xs text-[#8f8b84]">
                 Cập nhật: {new Date(wallet.updatedAt).toLocaleString("vi-VN")}
               </p>
             ) : null}

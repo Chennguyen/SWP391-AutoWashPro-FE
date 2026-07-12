@@ -779,7 +779,7 @@ main.bg-background-outer {
   caret-color: #fffaf0 !important;
 }
 
-.auth-template input[type="password"] {
+input[type="password"] {
   font-family: Arial, Helvetica, sans-serif !important;
   line-height: 1.2 !important;
 }

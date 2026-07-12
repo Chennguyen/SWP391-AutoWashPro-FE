@@ -178,7 +178,9 @@ export function DashboardSidebar() {
                     }}
                     aria-hidden
                   />
-                  <span className="block leading-none">{label}</span>
+                  <span className={cn("block leading-none", active ? "!text-[#17130f]" : "!text-white")}>
+                    {label}
+                  </span>
                 </Button>
               );
             })}
@@ -314,7 +316,9 @@ export function DashboardSidebar() {
                   }}
                   aria-hidden
                 />
-                <span className="block leading-none">{label}</span>
+                <span className={cn("block leading-none", active ? "!text-[#17130f]" : "!text-white")}>
+                  {label}
+                </span>
               </Button>
             );
           })}
