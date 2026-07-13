@@ -11,6 +11,7 @@ import {
 } from "@/features/admin/services";
 import { AdminError, AdminPageHeader, AdminShell } from "@/features/admin/components/admin-ui";
 import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
 
@@ -55,7 +56,7 @@ function statusBadge(status: string) {
     Pending: "border-amber-200 bg-amber-50 text-amber-700",
     Confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
     CheckIn: "border-indigo-200 bg-indigo-50 text-indigo-700",
-    InProgress: "border-violet-200 bg-violet-50 text-violet-700",
+    InProgress: "border-emerald-200 bg-emerald-50 text-emerald-700",
     Completed: "border-emerald-200 bg-emerald-50 text-emerald-700",
     Cancelled: "border-red-200 bg-red-50 text-red-600",
   };
@@ -143,9 +144,7 @@ function BookingDetailModal({
 }
 
 const BOOKING_STATUS_OPTIONS: BookingStatus[] = [
-  "Pending",
   "Confirmed",
-  "CheckIn",
   "InProgress",
   "Completed",
   "Cancelled",
@@ -189,6 +188,15 @@ export function AdminBookingsPage() {
   }, [bookings, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  function getPageNumbers(): number[] {
+    const delta = 2;
+    const start = Math.max(1, pageIndex - delta);
+    const end = Math.min(totalPages, pageIndex + delta);
+    const pages: number[] = [];
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  }
 
   const loadBranches = useCallback(async () => {
     if (!token) return;
@@ -383,32 +391,53 @@ export function AdminBookingsPage() {
         </div>
 
         {/* Pagination */}
-        {totalCount > PAGE_SIZE && (
-          <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
-            <p className="text-xs text-slate-500">
-              Trang {pageIndex} / {totalPages}
-            </p>
-            <div className="flex items-center gap-2">
+        {(pageIndex > 1 || bookings.length > 0) && (
+          <nav
+            className="mt-6 mb-4 flex items-center justify-center gap-1"
+            aria-label="Phân trang lịch đặt"
+          >
+            {/* Prev */}
+            <button
+              type="button"
+              onClick={() => goToPage(pageIndex - 1)}
+              disabled={pageIndex === 1 || loading}
+              aria-label="Trang trước"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Page numbers */}
+            {getPageNumbers().map((page) => (
               <button
+                key={page}
                 type="button"
-                onClick={() => goToPage(pageIndex - 1)}
-                disabled={pageIndex <= 1 || loading}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => goToPage(page)}
+                disabled={loading}
+                aria-label={`Trang ${page}`}
+                aria-current={page === pageIndex ? "page" : undefined}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-medium transition",
+                  page === pageIndex
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                )}
               >
-                <ChevronLeft size={15} aria-hidden />
-                Trước
+                {page}
               </button>
-              <button
-                type="button"
-                onClick={() => goToPage(pageIndex + 1)}
-                disabled={pageIndex >= totalPages || loading}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Sau
-                <ChevronRight size={15} aria-hidden />
-              </button>
-            </div>
-          </div>
+            ))}
+
+            {/* Next */}
+            <button
+              type="button"
+              onClick={() => goToPage(pageIndex + 1)}
+              disabled={pageIndex >= totalPages || loading}
+              aria-label="Trang sau"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </nav>
         )}
       </section>
 
