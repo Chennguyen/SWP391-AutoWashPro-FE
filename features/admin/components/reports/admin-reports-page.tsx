@@ -17,6 +17,7 @@ import {
 } from "@/features/admin/services";
 import { BarChart3, RefreshCw, Trophy, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { AreaSimple, type RevenueChartPoint } from "@/components/charts/area-simple";
 
 function monthRange() {
   const now = new Date();
@@ -36,6 +37,46 @@ function formatVND(value: number) {
   }).format(value);
 }
 
+function toRevenueChartData(report: RevenueReport | null): RevenueChartPoint[] {
+  if (!report || !Array.isArray(report.details)) return [];
+
+  return report.details
+    .flatMap((item) => {
+      const rawDate =
+        item.date ??
+        item.Date ??
+        item.bookingDate ??
+        item.BookingDate ??
+        item.time ??
+        item.Time ??
+        item.day ??
+        item.Day;
+      const rawRevenue =
+        item.revenue ??
+        item.Revenue ??
+        item.totalRevenue ??
+        item.TotalRevenue ??
+        item.amount ??
+        item.Amount;
+
+      if (!rawDate) return [];
+
+      const dateStr = typeof rawDate === "string" ? rawDate : String(rawDate);
+      if (!dateStr.trim()) return [];
+
+      const revenue =
+        typeof rawRevenue === "number" ? rawRevenue : Number(rawRevenue ?? 0);
+
+      return [
+        {
+          date: dateStr,
+          revenue: Number.isFinite(revenue) ? revenue : 0,
+        },
+      ];
+    })
+    .sort((left, right) => left.date.localeCompare(right.date));
+}
+
 /**
  * Thành phần (Component) AdminReportsPage
  *
@@ -47,28 +88,13 @@ export function AdminReportsPage() {
   const initialRange = monthRange();
   const [fromDate, setFromDate] = useState(initialRange.from);
   const [toDate, setToDate] = useState(initialRange.to);
-  const [branchId, setBranchId] = useState("");
-  const [branches, setBranches] = useState<AdminBranch[]>([]);
   const [revenue, setRevenue] = useState<RevenueReport | null>(null);
   const [loyalty, setLoyalty] = useState<LoyaltyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadBranches = useCallback(async () => {
-    if (!token) return;
-    try {
-      const result = await getBranches(token, { isActive: true });
-      setBranches(result);
-      if (result.length > 0 && !branchId) {
-        setBranchId(result[0].id);
-      }
-    } catch {
-      setBranches([]);
-    }
-  }, [token, branchId]);
-
   const loadReports = useCallback(async () => {
-    if (!token || !fromDate || !toDate || !branchId) return;
+    if (!token || !fromDate || !toDate) return;
     setLoading(true);
     setError(null);
     try {
@@ -76,7 +102,6 @@ export function AdminReportsPage() {
         getRevenueReport(token, {
           FromDate: fromDate,
           ToDate: toDate,
-          BranchId: branchId || undefined,
         }),
         getLoyaltyReport(token, { FromDate: fromDate, ToDate: toDate }),
       ]);
@@ -91,12 +116,7 @@ export function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [branchId, fromDate, toDate, token]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadBranches(), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [loadBranches]);
+  }, [fromDate, toDate, token]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadReports(), 0);
@@ -122,21 +142,10 @@ export function AdminReportsPage() {
               onChange={(event) => setToDate(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
-            <select
-              value={branchId}
-              onChange={(event) => setBranchId(event.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
             <button
               type="button"
               onClick={loadReports}
-              disabled={loading || !branchId}
+              disabled={loading}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               title="Tải lại"
             >
@@ -169,65 +178,18 @@ export function AdminReportsPage() {
           label="Điểm loyalty"
           value={loyalty?.totalPoints ?? 0}
           icon={Trophy}
-          tone="text-amber-600"
+          tone="text-amber-500"
         />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="font-bold text-slate-950">Chi tiết doanh thu</h2>
-          {revenue &&
-          Array.isArray(revenue.details) &&
-          revenue.details.length > 0 ? (
-            <div className="mt-3 max-h-96 overflow-auto rounded-lg border border-slate-200">
-              <table className="w-full text-left text-sm text-slate-500 border-collapse">
-                <thead className="bg-slate-50 text-xs font-semibold text-slate-700 uppercase tracking-wider sticky top-0 border-b border-slate-200">
-                  <tr>
-                    <th scope="col" className="px-4 py-3">
-                      Ngày
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-center">
-                      Tổng đặt
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-center">
-                      Hoàn thành
-                    </th>
-                    <th scope="col" className="px-4 py-3 text-right">
-                      Doanh thu
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {revenue.details.map((item: any, idx: number) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
-                        {item.date
-                          ? item.date.split("-").reverse().join("/")
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-2.5 text-center text-slate-700">
-                        {item.bookingCount ?? 0}
-                      </td>
-                      <td className="px-4 py-2.5 text-center text-slate-700">
-                        {item.completedBookingCount ?? 0}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-semibold text-emerald-600">
-                        {formatVND(item.revenue ?? 0)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="mt-3 rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-400">
-              Không có dữ liệu doanh thu chi tiết.
-            </div>
-          )}
-        </section>
+        <AreaSimple
+          data={toRevenueChartData(revenue)}
+          fromDate={fromDate}
+          toDate={toDate}
+          totalRevenue={revenue?.totalRevenue ?? 0}
+          loading={loading}
+        />
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-bold text-slate-950">Chi tiết loyalty</h2>

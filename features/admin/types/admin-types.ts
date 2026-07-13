@@ -72,6 +72,10 @@ export type DashboardStats = {
   totalRevenue: number;
   totalUsers: number;
   newUsers: number;
+  activeCustomers?: number;
+  lockedCustomers?: number;
+  totalBranches?: number;
+  activeBranches?: number;
   [key: string]: unknown;
 };
 

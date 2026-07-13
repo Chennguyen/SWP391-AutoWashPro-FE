@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGetBookingsQuery } from "@/features/booking/hooks/useBookings";
 import { UpcomingBookingPanel } from "@/features/booking/components/upcoming-booking-panel";
+import { useGetBookingsQuery } from "@/features/booking/hooks/useBookings";
 import {
   getServerTokenSnapshot,
   getTokenSnapshot,
@@ -23,6 +23,7 @@ import {
   useGetWalletQuery,
   useGetWalletTransactionsQuery,
 } from "@/features/users/hooks/useUserWallet";
+import { RewardRedeemSection } from "@/features/voucher/components/reward-redeem-section";
 import { cn } from "@/lib/utils";
 import type { TransactionItem } from "@/types/transaction";
 import {
@@ -44,7 +45,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { type ReactNode, useMemo, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 type ActivityItem = {
   id: string;
@@ -142,9 +150,12 @@ function formatActivityDate(value: string) {
 
 function transactionTitle(transaction: TransactionItem) {
   const normalized = String(transaction.type).trim().toLowerCase();
-  if (normalized === "2" || normalized === "wallettopup") return "Đã nạp tiền vào ví";
-  if (normalized === "0" || normalized === "deposit") return "Đã thanh toán tiền cọc";
-  if (normalized === "1" || normalized === "fullpayment") return "Đã thanh toán dịch vụ";
+  if (normalized === "2" || normalized === "wallettopup")
+    return "Đã nạp tiền vào ví";
+  if (normalized === "0" || normalized === "deposit")
+    return "Đã thanh toán tiền cọc";
+  if (normalized === "1" || normalized === "fullpayment")
+    return "Đã thanh toán dịch vụ";
   return "Giao dịch ví";
 }
 
@@ -190,7 +201,8 @@ function SummaryMetric({
     <div
       className={cn(
         "min-w-0 bg-[#161619] px-4 py-4 sm:px-5",
-        emphasized && "col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(188,163,116,0.16),transparent_68%)] sm:col-span-1",
+        emphasized &&
+          "col-span-2 bg-[radial-gradient(circle_at_top_left,rgba(188,163,116,0.16),transparent_68%)] sm:col-span-1",
       )}
     >
       <div className="flex items-center gap-2 text-xs font-medium text-[#a09c94]">
@@ -210,15 +222,27 @@ function SummaryMetric({
 
 function QuickActions() {
   return (
-    <section aria-labelledby="quick-actions-title" className="rounded-2xl border border-white/10 bg-[#161619] p-4 shadow-[0_18px_50px_rgba(8,8,10,0.2)] sm:p-5">
+    <section
+      aria-labelledby="quick-actions-title"
+      className="rounded-2xl border border-white/10 bg-[#161619] p-4 shadow-[0_18px_50px_rgba(8,8,10,0.2)] sm:p-5"
+    >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 id="quick-actions-title" className="text-lg font-semibold text-[#fffdf9]">
+          <h2
+            id="quick-actions-title"
+            className="text-lg font-semibold text-[#fffdf9]"
+          >
             Truy cập nhanh
           </h2>
-          <p className="mt-1 text-sm text-[#a09c94]">Những việc bạn thường cần.</p>
+          <p className="mt-1 text-sm text-[#a09c94]">
+            Những việc bạn thường cần.
+          </p>
         </div>
-        <Sparkles className="size-5 text-[#bca374]" strokeWidth={1.6} aria-hidden />
+        <Sparkles
+          className="size-5 text-[#bca374]"
+          strokeWidth={1.6}
+          aria-hidden
+        />
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
@@ -232,10 +256,17 @@ function QuickActions() {
               <Icon className="size-[18px]" strokeWidth={1.7} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-[#fffdf9]">{label}</span>
-              <span className="mt-0.5 block truncate text-xs text-[#8f8b84]">{description}</span>
+              <span className="block text-sm font-bold text-[#fffdf9]">
+                {label}
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-[#8f8b84]">
+                {description}
+              </span>
             </span>
-            <ChevronRight className="size-4 shrink-0 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-[#d8c49f]" aria-hidden />
+            <ChevronRight
+              className="size-4 shrink-0 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-[#d8c49f]"
+              aria-hidden
+            />
           </Link>
         ))}
       </div>
@@ -251,6 +282,11 @@ function openAiAssistant() {
 }
 
 export function CustomerDashboardOverview() {
+  const [dashboardView, setDashboardView] = useState<"overview" | "rewards">(
+    "overview",
+  );
+  const rewardTriggerRef = useRef<HTMLButtonElement>(null);
+  const shouldRestoreRewardTriggerFocusRef = useRef(false);
   const tokenSnapshot = useSyncExternalStore(
     subscribeToToken,
     getTokenSnapshot,
@@ -275,7 +311,12 @@ export function CustomerDashboardOverview() {
     from.setDate(from.getDate() - 1);
     const to = new Date();
     to.setDate(to.getDate() + 60);
-    return { fromDate: toISODate(from), toDate: toISODate(to), page: 1, pageSize: 50 };
+    return {
+      fromDate: toISODate(from),
+      toDate: toISODate(to),
+      page: 1,
+      pageSize: 50,
+    };
   }, []);
   const transactionParams = useMemo(() => ({ pageIndex: 1, pageSize: 6 }), []);
   const pointParams = useMemo(() => ({ page: 1, pageSize: 6 }), []);
@@ -285,8 +326,15 @@ export function CustomerDashboardOverview() {
   const bookingsQuery = useGetBookingsQuery(token, dateRange, { enabled });
   const loyaltyQuery = useGetLoyaltyInfoQuery(token, { enabled });
   const tiersQuery = useGetAllTiersQuery(token, { enabled });
-  const pointTransactionsQuery = useGetPointTransactionsQuery(token, pointParams, { enabled });
-  const walletTransactionsQuery = useGetWalletTransactionsQuery(transactionParams, { enabled });
+  const pointTransactionsQuery = useGetPointTransactionsQuery(
+    token,
+    pointParams,
+    { enabled },
+  );
+  const walletTransactionsQuery = useGetWalletTransactionsQuery(
+    transactionParams,
+    { enabled },
+  );
   const vouchersQuery = useGetMyVouchersQuery(token, userId, {
     enabled: enabled && Boolean(userId),
   });
@@ -296,11 +344,19 @@ export function CustomerDashboardOverview() {
   );
   const loyalty = loyaltyQuery.data;
   const currentTier = loyalty?.tier;
-  const sortedTiers = [...(tiersQuery.data ?? [])].sort((a, b) => a.level - b.level);
-  const nextTier = sortedTiers.find((tier) => tier.level > (currentTier?.level ?? 0));
-  const nextRequiredWashes = loyalty?.nextTierRequiredWashes ?? nextTier?.requiredWashes ?? null;
+  const sortedTiers = [...(tiersQuery.data ?? [])].sort(
+    (a, b) => a.level - b.level,
+  );
+  const nextTier = sortedTiers.find(
+    (tier) => tier.level > (currentTier?.level ?? 0),
+  );
+  const nextRequiredWashes =
+    loyalty?.nextTierRequiredWashes ?? nextTier?.requiredWashes ?? null;
   const currentRequiredWashes = currentTier?.requiredWashes ?? 0;
-  const washesInTier = Math.max(0, (loyalty?.totalWashes ?? 0) - currentRequiredWashes);
+  const washesInTier = Math.max(
+    0,
+    (loyalty?.totalWashes ?? 0) - currentRequiredWashes,
+  );
   const washesNeededInTier = nextRequiredWashes
     ? Math.max(1, nextRequiredWashes - currentRequiredWashes)
     : 1;
@@ -313,7 +369,9 @@ export function CustomerDashboardOverview() {
 
   const activities = useMemo(() => {
     const pointItems = (pointTransactionsQuery.data ?? []).map(pointActivity);
-    const transactions = Array.isArray(walletTransactionsQuery.data?.transactions)
+    const transactions = Array.isArray(
+      walletTransactionsQuery.data?.transactions,
+    )
       ? walletTransactionsQuery.data.transactions
       : [];
     const walletItems = transactions.map(walletActivity);
@@ -321,15 +379,48 @@ export function CustomerDashboardOverview() {
       .sort((a, b) => {
         const aTime = new Date(a.date).getTime();
         const bTime = new Date(b.date).getTime();
-        return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+        return (
+          (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime)
+        );
       })
       .slice(0, 6);
   }, [pointTransactionsQuery.data, walletTransactionsQuery.data]);
 
-  const availableVouchers = (vouchersQuery.data ?? []).filter((voucher) => !voucher.isUsed);
+  const availableVouchers = (vouchersQuery.data ?? []).filter(
+    (voucher) => !voucher.isUsed,
+  );
   const featuredVoucher = availableVouchers[0];
-  const activityLoading = pointTransactionsQuery.isLoading || walletTransactionsQuery.isLoading;
-  const activityError = pointTransactionsQuery.isError && walletTransactionsQuery.isError;
+  const activityLoading =
+    pointTransactionsQuery.isLoading || walletTransactionsQuery.isLoading;
+  const activityError =
+    pointTransactionsQuery.isError && walletTransactionsQuery.isError;
+
+  useEffect(() => {
+    if (
+      dashboardView === "overview" &&
+      shouldRestoreRewardTriggerFocusRef.current
+    ) {
+      rewardTriggerRef.current?.focus();
+      shouldRestoreRewardTriggerFocusRef.current = false;
+    }
+  }, [dashboardView]);
+
+  if (dashboardView === "rewards") {
+    return (
+      <RewardRedeemSection
+        token={token}
+        userId={userId}
+        customerId={loyalty?.customerId ?? ""}
+        currentPoints={loyalty?.points ?? 0}
+        pointsLoading={loyaltyQuery.isLoading}
+        enabled={enabled}
+        onBack={() => {
+          shouldRestoreRewardTriggerFocusRef.current = true;
+          setDashboardView("overview");
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -341,32 +432,61 @@ export function CustomerDashboardOverview() {
           <SummaryMetric
             icon={Award}
             label="Hạng thành viên"
-            value={!enabled ? unavailableText : currentTier?.name ?? (loyaltyQuery.isError ? "Chưa tải được" : "Member")}
+            value={
+              !enabled
+                ? unavailableText
+                : (currentTier?.name ??
+                  (loyaltyQuery.isError ? "Chưa tải được" : "Member"))
+            }
             loading={enabled && loyaltyQuery.isLoading}
             emphasized
           />
           <SummaryMetric
             icon={Star}
             label="Điểm thưởng"
-            value={!enabled ? unavailableText : loyaltyQuery.isError ? "Chưa tải được" : formatNumber(loyalty?.points ?? 0)}
+            value={
+              !enabled
+                ? unavailableText
+                : loyaltyQuery.isError
+                  ? "Chưa tải được"
+                  : formatNumber(loyalty?.points ?? 0)
+            }
             loading={enabled && loyaltyQuery.isLoading}
           />
           <SummaryMetric
             icon={WalletCards}
             label="Số dư ví"
-            value={!enabled ? unavailableText : walletQuery.isError ? "Chưa tải được" : formatCurrency(walletQuery.data?.balance ?? 0)}
+            value={
+              !enabled
+                ? unavailableText
+                : walletQuery.isError
+                  ? "Chưa tải được"
+                  : formatCurrency(walletQuery.data?.balance ?? 0)
+            }
             loading={enabled && walletQuery.isLoading}
           />
           <SummaryMetric
             icon={CalendarClock}
             label="Lịch đang hoạt động"
-            value={!enabled ? unavailableText : bookingsQuery.isError ? "Chưa tải được" : formatNumber(activeBookings.length)}
+            value={
+              !enabled
+                ? unavailableText
+                : bookingsQuery.isError
+                  ? "Chưa tải được"
+                  : formatNumber(activeBookings.length)
+            }
             loading={enabled && bookingsQuery.isLoading}
           />
           <SummaryMetric
             icon={CarFront}
             label="Phương tiện"
-            value={!enabled ? unavailableText : vehiclesQuery.isError ? "Chưa tải được" : formatNumber(vehiclesQuery.data?.length ?? 0)}
+            value={
+              !enabled
+                ? unavailableText
+                : vehiclesQuery.isError
+                  ? "Chưa tải được"
+                  : formatNumber(vehiclesQuery.data?.length ?? 0)
+            }
             loading={enabled && vehiclesQuery.isLoading}
           />
         </div>
@@ -378,13 +498,27 @@ export function CustomerDashboardOverview() {
             <UpcomingBookingPanel />
           </div>
 
-          <section aria-labelledby="activity-title" className="overflow-hidden rounded-2xl border border-white/10 bg-[#161619] shadow-[0_18px_50px_rgba(8,8,10,0.2)]">
+          <section
+            aria-labelledby="activity-title"
+            className="overflow-hidden rounded-2xl border border-white/10 bg-[#161619] shadow-[0_18px_50px_rgba(8,8,10,0.2)]"
+          >
             <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4 sm:px-5">
               <div>
-                <h2 id="activity-title" className="text-lg font-semibold text-[#fffdf9]">Hoạt động gần đây</h2>
-                <p className="mt-1 text-sm text-[#a09c94]">Giao dịch ví và điểm thành viên mới nhất.</p>
+                <h2
+                  id="activity-title"
+                  className="text-lg font-semibold text-[#fffdf9]"
+                >
+                  Hoạt động gần đây
+                </h2>
+                <p className="mt-1 text-sm text-[#a09c94]">
+                  Giao dịch ví và điểm thành viên mới nhất.
+                </p>
               </div>
-              <Clock3 className="size-5 text-[#bca374]" strokeWidth={1.6} aria-hidden />
+              <Clock3
+                className="size-5 text-[#bca374]"
+                strokeWidth={1.6}
+                aria-hidden
+              />
             </div>
 
             {activityLoading ? (
@@ -401,7 +535,9 @@ export function CustomerDashboardOverview() {
               </div>
             ) : activityError ? (
               <div className="px-5 py-10 text-center">
-                <p className="text-sm font-medium text-[#fffdf9]">Chưa thể tải hoạt động gần đây.</p>
+                <p className="text-sm font-medium text-[#fffdf9]">
+                  Chưa thể tải hoạt động gần đây.
+                </p>
                 <Button
                   type="button"
                   variant="ghost"
@@ -417,8 +553,14 @@ export function CustomerDashboardOverview() {
               </div>
             ) : activities.length === 0 ? (
               <div className="px-5 py-10 text-center">
-                <Clock3 className="mx-auto size-8 text-[#bca374]/70" strokeWidth={1.4} aria-hidden />
-                <p className="mt-3 text-sm font-medium text-[#fffdf9]">Chưa có hoạt động để hiển thị</p>
+                <Clock3
+                  className="mx-auto size-8 text-[#bca374]/70"
+                  strokeWidth={1.4}
+                  aria-hidden
+                />
+                <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                  Chưa có hoạt động để hiển thị
+                </p>
                 <p className="mx-auto mt-1 max-w-md text-sm text-[#a09c94]">
                   Giao dịch ví và thay đổi điểm sẽ xuất hiện tại đây.
                 </p>
@@ -428,17 +570,32 @@ export function CustomerDashboardOverview() {
                 {activities.map((activity) => {
                   const Icon = activity.icon;
                   return (
-                    <article key={activity.id} className="flex items-center gap-3 py-3.5">
+                    <article
+                      key={activity.id}
+                      className="flex items-center gap-3 py-3.5"
+                    >
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-[#d8c49f]">
-                        <Icon className="size-[18px]" strokeWidth={1.7} aria-hidden />
+                        <Icon
+                          className="size-[18px]"
+                          strokeWidth={1.7}
+                          aria-hidden
+                        />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-medium text-[#fffdf9]">{activity.title}</h3>
-                        <p className="mt-0.5 truncate text-xs text-[#8f8b84]">{activity.description}</p>
+                        <h3 className="truncate text-sm font-medium text-[#fffdf9]">
+                          {activity.title}
+                        </h3>
+                        <p className="mt-0.5 truncate text-xs text-[#8f8b84]">
+                          {activity.description}
+                        </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-sm font-semibold text-[#d8c49f] tabular-nums">{activity.value}</p>
-                        <p className="mt-0.5 text-[11px] text-[#77736d]">{formatActivityDate(activity.date)}</p>
+                        <p className="text-sm font-semibold text-[#d8c49f] tabular-nums">
+                          {activity.value}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-[#77736d]">
+                          {formatActivityDate(activity.date)}
+                        </p>
                       </div>
                     </article>
                   );
@@ -451,12 +608,21 @@ export function CustomerDashboardOverview() {
         <aside className="space-y-6">
           <QuickActions />
 
-          <section aria-labelledby="membership-title" className="rounded-2xl border border-[#bca374]/20 bg-[radial-gradient(circle_at_top_right,rgba(188,163,116,0.17),transparent_55%),#161619] p-5 shadow-[0_18px_50px_rgba(8,8,10,0.22)]">
+          <section
+            aria-labelledby="membership-title"
+            className="rounded-2xl border border-[#bca374]/20 bg-[radial-gradient(circle_at_top_right,rgba(188,163,116,0.17),transparent_55%),#161619] p-5 shadow-[0_18px_50px_rgba(8,8,10,0.22)]"
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-[#bca374]">Thành viên AutoWash</p>
-                <h2 id="membership-title" className="mt-1 text-xl font-semibold text-[#fffdf9]">
-                  {currentTier?.name ?? (enabled ? "Member" : "Chưa có dữ liệu")}
+                <p className="text-sm font-medium text-[#bca374]">
+                  Thành viên AutoWash
+                </p>
+                <h2
+                  id="membership-title"
+                  className="mt-1 text-xl font-semibold text-[#fffdf9]"
+                >
+                  {currentTier?.name ??
+                    (enabled ? "Member" : "Chưa có dữ liệu")}
                 </h2>
               </div>
               <span className="flex size-10 items-center justify-center rounded-xl border border-[#bca374]/25 bg-[#bca374]/10 text-[#d8c49f]">
@@ -476,14 +642,18 @@ export function CustomerDashboardOverview() {
                 <Skeleton className="h-4 w-48 bg-white/10" />
               </div>
             ) : loyaltyQuery.isError ? (
-              <p className="mt-6 text-sm text-[#a09c94]">Chưa thể tải tiến trình thành viên.</p>
+              <p className="mt-6 text-sm text-[#a09c94]">
+                Chưa thể tải tiến trình thành viên.
+              </p>
             ) : (
               <div className="mt-6">
                 <div className="flex items-center justify-between gap-3 text-xs">
-                  <span className="text-[#a09c94]">
+                  <span className="text-[#a09c94] text-lg">
                     {nextTier?.name ?? loyalty?.nextTierName ?? "Hạng cao nhất"}
                   </span>
-                  <span className="font-semibold text-[#d8c49f] tabular-nums">{membershipProgress}%</span>
+                  <span className="font-semibold text-[#d8c49f] tabular-nums">
+                    {membershipProgress}%
+                  </span>
                 </div>
                 <div
                   className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"
@@ -514,18 +684,36 @@ export function CustomerDashboardOverview() {
             )}
           </section>
 
-          <section aria-labelledby="offers-title" className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#1d1d20] p-5 shadow-[0_18px_50px_rgba(8,8,10,0.2)]">
+          <section
+            aria-labelledby="offers-title"
+            className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#1d1d20] p-5 shadow-[0_18px_50px_rgba(8,8,10,0.2)]"
+          >
             <div className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-[#bca374]/10 blur-3xl" />
             <div className="relative">
               <div className="flex items-center gap-2 text-[#d8c49f]">
-                <TicketPercent className="size-5" strokeWidth={1.6} aria-hidden />
-                <h2 id="offers-title" className="text-base font-semibold text-[#fffdf9]">Ưu đãi của bạn</h2>
+                <TicketPercent
+                  className="size-5"
+                  strokeWidth={1.6}
+                  aria-hidden
+                />
+                <h2
+                  id="offers-title"
+                  className="text-base font-semibold text-[#fffdf9]"
+                >
+                  Ưu đãi của bạn
+                </h2>
               </div>
 
               {!enabled ? (
                 <div className="mt-5">
-                  <Gift className="size-8 text-[#bca374]/70" strokeWidth={1.4} aria-hidden />
-                  <p className="mt-3 text-sm font-medium text-[#fffdf9]">Chưa thể tải ưu đãi</p>
+                  <Gift
+                    className="size-8 text-[#bca374]/70"
+                    strokeWidth={1.4}
+                    aria-hidden
+                  />
+                  <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                    Chưa thể tải ưu đãi
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-[#a09c94]">
                     {isUnverified
                       ? "Ưu đãi sẽ hiển thị sau khi hồ sơ được xác minh."
@@ -539,8 +727,12 @@ export function CustomerDashboardOverview() {
                 </div>
               ) : featuredVoucher ? (
                 <div className="mt-5">
-                  <p className="text-2xl font-semibold tracking-tight text-[#fffdf9]">{featuredVoucher.rewardName}</p>
-                  <p className="mt-2 font-mono text-sm tracking-[0.16em] text-[#d8c49f]">{featuredVoucher.code}</p>
+                  <p className="text-2xl font-semibold tracking-tight text-[#fffdf9]">
+                    {featuredVoucher.rewardName}
+                  </p>
+                  <p className="mt-2 font-mono text-sm tracking-[0.16em] text-[#d8c49f]">
+                    {featuredVoucher.code}
+                  </p>
                   <p className="mt-3 text-sm leading-6 text-[#a09c94]">
                     {featuredVoucher.expiresAt
                       ? `Có hiệu lực đến ${new Date(featuredVoucher.expiresAt).toLocaleDateString("vi-VN")}.`
@@ -553,14 +745,26 @@ export function CustomerDashboardOverview() {
                     href="/customer/booking"
                     className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#bca374] px-3.5 py-2 text-sm font-semibold text-[#17130f] outline-none transition hover:bg-[#d8c49f] focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1d1d20] active:translate-y-px"
                   >
-                    Dùng khi đặt lịch
-                    <ArrowRight className="size-4" aria-hidden />
+                    <b className="font-semibold" style={{ color: "#17130f" }}>
+                      Dùng khi đặt lịch
+                    </b>
+                    <ArrowRight
+                      className="size-4"
+                      style={{ color: "#17130f" }}
+                      aria-hidden
+                    />
                   </Link>
                 </div>
               ) : (
                 <div className="mt-5">
-                  <Gift className="size-8 text-[#bca374]/70" strokeWidth={1.4} aria-hidden />
-                  <p className="mt-3 text-sm font-medium text-[#fffdf9]">Chưa có voucher khả dụng</p>
+                  <Gift
+                    className="size-8 text-[#bca374]/70"
+                    strokeWidth={1.4}
+                    aria-hidden
+                  />
+                  <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                    Chưa có voucher khả dụng
+                  </p>
                   <p className="mt-1 text-sm leading-6 text-[#a09c94]">
                     Voucher đã đổi từ điểm thành viên sẽ xuất hiện tại đây.
                   </p>
@@ -573,16 +777,51 @@ export function CustomerDashboardOverview() {
                   </Link>
                 </div>
               )}
+
+              <Button
+                ref={rewardTriggerRef}
+                type="button"
+                onClick={() => setDashboardView("rewards")}
+                disabled={!enabled}
+                className="mt-5 w-full justify-between bg-[#bca374] px-3.5 font-semibold text-[#17130f] hover:bg-[#d8c49f] focus-visible:border-[#d8c49f] focus-visible:ring-[#d8c49f]/40 disabled:bg-white/10 disabled:text-white/45"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles
+                    data-icon="inline-start"
+                    style={{
+                      color: enabled ? "#17130f" : "rgba(255, 255, 255, 0.45)",
+                    }}
+                    aria-hidden
+                  />
+                  <b
+                    className="font-semibold"
+                    style={{
+                      color: enabled ? "#17130f" : "rgba(255, 255, 255, 0.45)",
+                    }}
+                  >
+                    Đổi điểm lấy voucher
+                  </b>
+                </span>
+                <ArrowRight data-icon="inline-end" aria-hidden />
+              </Button>
             </div>
           </section>
 
-          <section aria-labelledby="support-title" className="rounded-2xl border border-white/10 bg-[#161619] p-5">
+          <section
+            aria-labelledby="support-title"
+            className="rounded-2xl border border-white/10 bg-[#161619] p-5"
+          >
             <div className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#bca374]/20 bg-[#bca374]/10 text-[#d8c49f]">
                 <Bot className="size-5" strokeWidth={1.6} aria-hidden />
               </span>
               <div>
-                <h2 id="support-title" className="text-base font-semibold text-[#fffdf9]">Cần hỗ trợ?</h2>
+                <h2
+                  id="support-title"
+                  className="text-base font-semibold text-[#fffdf9]"
+                >
+                  Cần hỗ trợ?
+                </h2>
                 <p className="mt-1 text-sm leading-6 text-[#a09c94]">
                   Trợ lý AI có thể hỗ trợ thông tin lịch đặt và dịch vụ.
                 </p>

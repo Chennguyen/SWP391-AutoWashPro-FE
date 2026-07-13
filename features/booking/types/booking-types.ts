@@ -20,6 +20,7 @@ export interface VoucherValidation {
   id?: string;
   voucherId?: string;
   code: string;
+  rewardName?: string;
   valid: boolean;
   discountAmount: number;
   message: string;
@@ -39,6 +40,9 @@ export interface BookingResult {
   id?: string;
   confirmationCode?: string;
   message?: string;
+  basePrice: number;
+  discountAmount: number;
+  finalPrice: number;
 }
 
 export interface CustomerBooking {

@@ -30,6 +30,7 @@ export function ResetPasswordForm() {
   const isClientReady = useClientReady();
   const resetPasswordToken = isClientReady ? getRecoveryToken() : null;
   const resetPasswordMutation = useResetPasswordMutation();
+  const [hasCompletedReset, setHasCompletedReset] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const {
@@ -46,11 +47,15 @@ export function ResetPasswordForm() {
   });
 
   useEffect(() => {
-    if (isClientReady && !resetPasswordToken) {
+    if (
+      isClientReady &&
+      !resetPasswordToken &&
+      !hasCompletedReset
+    ) {
       clearPasswordRecovery();
       router.replace("/forgot-password?reason=session-expired");
     }
-  }, [isClientReady, resetPasswordToken, router]);
+  }, [hasCompletedReset, isClientReady, resetPasswordToken, router]);
 
   async function onSubmit(data: ResetPasswordFields) {
     if (!resetPasswordToken) return;
@@ -67,6 +72,7 @@ export function ResetPasswordForm() {
         throw new Error(response.message || "Không thể đặt lại mật khẩu.");
       }
 
+      setHasCompletedReset(true);
       reset();
       clearPasswordRecovery();
       router.replace("/sign-in?reset=1");

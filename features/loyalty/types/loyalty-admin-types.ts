@@ -24,14 +24,17 @@ export type UpdateTierPayload = Partial<{
 }>;
 
 export type LoyaltyPointsConfig = {
-  vndPerPoint: number;      // configKey: "point_earn_rate"
   slotDurationMinutes?: number; // configKey: "SlotDurationMinutes"
+  slotBreakMinutes?: number;    // configKey: "SlotBreakMinutes"
   workingStartHour?: string;    // configKey: "WorkingStartHour"
   workingEndHour?: string;      // configKey: "WorkingEndHour"
   basePrice?: number;           // configKey: "BasePrice"
   suvBasePrice?: number;        // configKey: "SuvBasePrice"
   sedanBasePrice?: number;      // configKey: "SedanBasePrice"
   paymentDeposite?: number;     // configKey: "PaymentDeposite"
+  bonusPoint?: number;                  // configKey: "BonusPoint"
+  cancellationDeadlineHours?: number;   // configKey: "CancellationDeadlineHours"
+  cancelTimeMinutes?: number;           // configKey: "CancelTimeMinutes"
 };
 
 export type LoyaltyPointsConfigRaw = {

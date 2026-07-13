@@ -11,6 +11,8 @@ type VoucherRecord = {
   VoucherId?: string;
   code?: string;
   Code?: string;
+  rewardName?: string;
+  RewardName?: string;
   valid?: boolean;
   Valid?: boolean;
   isValid?: boolean;
@@ -36,6 +38,7 @@ function normalizeVoucher(body: VoucherRecord): VoucherValidation {
     id: raw.id ?? raw.Id,
     voucherId: raw.voucherId ?? raw.VoucherId ?? raw.id ?? raw.Id,
     code: raw.code ?? raw.Code ?? '',
+    rewardName: raw.rewardName ?? raw.RewardName,
     valid: raw.valid ?? raw.Valid ?? raw.isValid ?? raw.IsValid ?? false,
     discountAmount: Number(raw.discountAmount ?? raw.DiscountAmount ?? 0),
     message: raw.message ?? raw.Message ?? '',

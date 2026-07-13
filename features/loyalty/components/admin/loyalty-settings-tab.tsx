@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { RefreshCw, Save } from "lucide-react";
 import {
   getLoyaltySettings,
-  updateLoyaltySettings,
+  updateSystemConfig,
   type LoyaltyPointsConfig,
 } from "@/features/loyalty/loyalty-admin-service";
 import { AdminError } from "@/features/admin/components/admin-ui";
@@ -27,7 +27,7 @@ export function LoyaltySettingsTab({ token }: Props) {
   const [success, setSuccess] = useState(false);
 
   // Form state
-  const [vndPerPointStr, setVndPerPointStr] = useState("10000");
+  const [bonusPointStr, setBonusPointStr] = useState("10");
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -36,7 +36,7 @@ export function LoyaltySettingsTab({ token }: Props) {
     try {
       const data = await getLoyaltySettings(token);
       setSettings(data);
-      setVndPerPointStr(String(data.vndPerPoint));
+      setBonusPointStr(String(data.bonusPoint ?? 10));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải cài đặt.");
     } finally {
@@ -54,8 +54,17 @@ export function LoyaltySettingsTab({ token }: Props) {
     setSaving(true);
     setError(null);
     setSuccess(false);
+
+    // Validate bonusPoint
+    const bonusPoint = Number(bonusPointStr);
+    if (bonusPointStr.trim() === "" || isNaN(bonusPoint) || bonusPoint < 0) {
+      setError("Điểm thưởng hoàn thành đơn phải là một số lớn hơn hoặc bằng 0.");
+      setSaving(false);
+      return;
+    }
+
     try {
-      await updateLoyaltySettings(token, { vndPerPoint: Number(vndPerPointStr) || 10000 });
+      await updateSystemConfig(token, "BonusPoint", bonusPointStr);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể lưu cài đặt.");
@@ -77,24 +86,24 @@ export function LoyaltySettingsTab({ token }: Props) {
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-950 border-b border-slate-100 pb-2">Tích lũy & Loyalty</h3>
           <div>
-            <label htmlFor="vnd-per-point" className="block text-sm font-semibold text-slate-700 mb-1">
-              Số VNĐ để tích 1 điểm (VND_per_point)
+            <label htmlFor="bonus-point" className="block text-sm font-semibold text-slate-700 mb-1">
+              Điểm thưởng hoàn thành đơn (BonusPoint)
             </label>
             <input
-              id="vnd-per-point"
+              id="bonus-point"
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={vndPerPointStr}
+              value={bonusPointStr}
               onChange={(e) => {
                 const val = e.target.value.replace(/[^0-9]/g, "");
                 const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
-                setVndPerPointStr(cleanVal);
+                setBonusPointStr(cleanVal);
               }}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-slate-400">
-              Ví dụ: {(Number(vndPerPointStr) || 0).toLocaleString("vi-VN")} VNĐ = 1 điểm. Khách sẽ tích điểm dựa trên giá trị đơn rửa xe.
+              Số điểm tặng thêm cho khách hàng sau khi hoàn thành đơn rửa xe. Ví dụ: {bonusPointStr} điểm.
             </p>
           </div>
         </div>

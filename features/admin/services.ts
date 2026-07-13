@@ -524,30 +524,43 @@ function normalizeSlot(raw: unknown): AdminBookingSlot {
  * @returns Đối tượng DashboardStats.
  */
 function normalizeDashboard(raw: unknown): DashboardStats {
-  const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
+  const dataRecord = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
+  const summaryVal = dataRecord.summary ?? dataRecord.Summary;
+  const summary = summaryVal && typeof summaryVal === "object" ? asRecord(summaryVal) : {};
+
+  const getValue = (keys: string[]) => {
+    return readNumber(summary, keys, readNumber(dataRecord, keys, 0));
+  };
+
   return {
-    totalBookings: readNumber(record, [
+    totalBookings: getValue([
       "totalBookings", "TotalBookings",
       "bookingCount", "BookingCount",
       "totalBooking", "TotalBooking",
     ]),
-    completedBookings: readNumber(record, [
+    completedBookings: getValue([
       "completedBookings", "CompletedBookings",
       "completedBooking", "CompletedBooking",
     ]),
-    cancelledBookings: readNumber(record, [
+    cancelledBookings: getValue([
       "cancelledBookings", "CancelledBookings",
       "cancelledBooking", "CancelledBooking",
       "canceledBookings", "CanceledBookings",
     ]),
-    totalRevenue: readNumber(record, ["totalRevenue", "TotalRevenue", "revenue", "Revenue"]),
-    totalUsers: readNumber(record, [
+    totalRevenue: getValue(["totalRevenue", "TotalRevenue", "revenue", "Revenue"]),
+    totalUsers: getValue([
       "totalUsers", "TotalUsers",
+      "totalCustomers", "TotalCustomers",
       "userCount", "UserCount",
       "totalUser", "TotalUser",
     ]),
-    newUsers: readNumber(record, ["newUsers", "NewUsers", "newUser", "NewUser"]),
-    ...record,
+    newUsers: getValue(["newUsers", "NewUsers", "newUser", "NewUser"]),
+    activeCustomers: getValue(["activeCustomers", "ActiveCustomers"]),
+    lockedCustomers: getValue(["lockedCustomers", "LockedCustomers"]),
+    totalBranches: getValue(["totalBranches", "TotalBranches"]),
+    activeBranches: getValue(["activeBranches", "ActiveBranches"]),
+    ...dataRecord,
+    ...summary,
   };
 }
 
@@ -558,12 +571,57 @@ function normalizeDashboard(raw: unknown): DashboardStats {
  * @returns Cấu trúc RevenueReport đã chuẩn hóa.
  */
 function normalizeRevenue(raw: unknown): RevenueReport {
-  const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
-  const details = record.details ?? record.Details ?? record.items ?? record.Items ?? [];
+  const unwrapped = unwrapRecord(raw as ApiRecord<unknown>);
+  if (Array.isArray(unwrapped)) {
+    const details = unwrapped;
+    const totalRevenue = details.reduce((sum, item) => {
+      const record = asRecord(item);
+      const revenue = readNumber(record, ["revenue", "Revenue", "totalRevenue", "TotalRevenue"]);
+      return sum + revenue;
+    }, 0);
+    return {
+      totalRevenue,
+      details,
+    };
+  }
+
+  const record = asRecord(unwrapped);
+  const detailsVal =
+    record.details ??
+    record.Details ??
+    record.items ??
+    record.Items ??
+    record.data ??
+    record.Data ??
+    record.branchRevenues ??
+    record.BranchRevenues ??
+    record.dailyRevenues ??
+    record.DailyRevenues ??
+    record.revenues ??
+    record.Revenues ??
+    [];
+
+  const details = Array.isArray(detailsVal) ? (detailsVal as UnknownRecord[]) : [];
+
+  let computedBookings = 0;
+  let hasBookings = false;
+  for (const item of details) {
+    const itemRec = asRecord(item);
+    const bookings = itemRec.bookingCount ?? itemRec.BookingCount;
+    if (typeof bookings === "number") {
+      computedBookings += bookings;
+      hasBookings = true;
+    }
+  }
+
+  const apiRevenue = readNumber(record, ["totalRevenue", "TotalRevenue", "revenue", "Revenue"]);
+  const apiBookings = readNumber(record, ["totalBookings", "TotalBookings"], -1);
+  const totalBookings = apiBookings >= 0 ? apiBookings : (hasBookings ? computedBookings : undefined);
+
   return {
-    totalRevenue: readNumber(record, ["totalRevenue", "TotalRevenue", "revenue", "Revenue"]),
-    totalBookings: readNumber(record, ["totalBookings", "TotalBookings"], undefined),
-    details: Array.isArray(details) ? (details as UnknownRecord[]) : [],
+    totalRevenue: apiRevenue,
+    totalBookings,
+    details,
     ...record,
   };
 }
