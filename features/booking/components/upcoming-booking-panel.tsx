@@ -1027,7 +1027,7 @@ export function UpcomingBookingPanel() {
           </p>
           <Link
             href="/customer/booking"
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#bca374] px-4 py-2.5 text-sm font-semibold text-[#17130f] transition hover:bg-[#d8c49f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161619] active:translate-y-px"
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-lg bg-[#bca374] px-4 py-2.5 text-sm font-bold !text-[#17130f] transition hover:bg-[#d8c49f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161619] active:translate-y-px"
           >
             <Plus size={16} aria-hidden />
             Đặt lịch ngay

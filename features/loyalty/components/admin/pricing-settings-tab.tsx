@@ -116,7 +116,7 @@ export function PricingSettingsTab({ token }: Props) {
               pattern="[0-9]*"
               value={basePriceStr}
               onChange={(e) => handleNumericChange(e.target.value, setBasePriceStr)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-slate-400">
               Giá rửa xe cơ bản gốc của hệ thống. Ví dụ: {(Number(basePriceStr) || 0).toLocaleString("vi-VN")} VNĐ.
@@ -135,7 +135,7 @@ export function PricingSettingsTab({ token }: Props) {
               pattern="[0-9]*"
               value={sedanBasePriceStr}
               onChange={(e) => handleNumericChange(e.target.value, setSedanBasePriceStr)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-slate-400">
               Số tiền cộng thêm cho xe Sedan. Ví dụ: {(Number(sedanBasePriceStr) || 0).toLocaleString("vi-VN")} VNĐ.
@@ -154,7 +154,7 @@ export function PricingSettingsTab({ token }: Props) {
               pattern="[0-9]*"
               value={suvBasePriceStr}
               onChange={(e) => handleNumericChange(e.target.value, setSuvBasePriceStr)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-slate-400">
               Số tiền cộng thêm cho xe SUV. Ví dụ: {(Number(suvBasePriceStr) || 0).toLocaleString("vi-VN")} VNĐ.
@@ -173,7 +173,7 @@ export function PricingSettingsTab({ token }: Props) {
               pattern="[0-9]*"
               value={paymentDepositeStr}
               onChange={(e) => handleNumericChange(e.target.value, setPaymentDepositeStr)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
             <p className="mt-1 text-xs text-slate-400">
               Tỷ lệ đặt cọc trước (từ 0 đến 100%). Ví dụ: {paymentDepositeStr}%.

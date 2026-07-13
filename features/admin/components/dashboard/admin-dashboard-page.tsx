@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, CalendarCheck, RefreshCw, Users, WalletCards, XCircle } from "lucide-react";
+import { BadgeCheck, CalendarCheck, RefreshCw, Store, Users, WalletCards, XCircle } from "lucide-react";
 import {
   getDashboardStats,
   getBranches,
@@ -36,21 +36,38 @@ function formatVND(value: number) {
 }
 
 function toRevenueChartData(report: RevenueReport | null): RevenueChartPoint[] {
-  if (!report) return [];
+  if (!report || !Array.isArray(report.details)) return [];
 
   return report.details
     .flatMap((item) => {
-      const rawDate = item.date ?? item.Date;
-      const rawRevenue = item.revenue ?? item.Revenue;
+      const rawDate =
+        item.date ??
+        item.Date ??
+        item.bookingDate ??
+        item.BookingDate ??
+        item.time ??
+        item.Time ??
+        item.day ??
+        item.Day;
+      const rawRevenue =
+        item.revenue ??
+        item.Revenue ??
+        item.totalRevenue ??
+        item.TotalRevenue ??
+        item.amount ??
+        item.Amount;
 
-      if (typeof rawDate !== "string" || !rawDate.trim()) return [];
+      if (!rawDate) return [];
+
+      const dateStr = typeof rawDate === "string" ? rawDate : String(rawDate);
+      if (!dateStr.trim()) return [];
 
       const revenue =
         typeof rawRevenue === "number" ? rawRevenue : Number(rawRevenue ?? 0);
 
       return [
         {
-          date: rawDate,
+          date: dateStr,
           revenue: Number.isFinite(revenue) ? revenue : 0,
         },
       ];
@@ -87,13 +104,10 @@ export function AdminDashboardPage() {
     try {
       const result = await getBranches(token, { isActive: true });
       setBranches(result);
-      if (result.length > 0 && !branchId) {
-        setBranchId(result[0].id);
-      }
     } catch {
       setBranches([]);
     }
-  }, [token, branchId]);
+  }, [token]);
 
   const loadDashboard = useCallback(async () => {
     if (!token || !fromDate || !toDate) return;
@@ -169,18 +183,7 @@ export function AdminDashboardPage() {
               onChange={(event) => setToDate(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
-            <select
-              value={branchId}
-              onChange={(event) => setBranchId(event.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="">Tất cả chi nhánh</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
+
             <button
               type="button"
               onClick={loadDashboard}
@@ -197,18 +200,7 @@ export function AdminDashboardPage() {
       {loading && !stats ? <AdminLoading /> : null}
       {error ? <AdminError message={error} onRetry={loadDashboard} /> : null}
 
-      {stats && !error ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="Tổng lịch đặt" value={stats.totalBookings} icon={CalendarCheck} tone="text-blue-600" />
-          <MetricCard label="Hoàn thành" value={stats.completedBookings} icon={BadgeCheck} tone="text-emerald-600" />
-          <MetricCard label="Đã hủy" value={stats.cancelledBookings} icon={XCircle} tone="text-red-600" />
-          <MetricCard label="Tổng doanh thu" value={formatVND(stats.totalRevenue)} icon={WalletCards} tone="text-violet-600" />
-          <MetricCard label="Tổng người dùng" value={stats.totalUsers} icon={Users} tone="text-indigo-600" />
-          <MetricCard label="Người dùng mới" value={stats.newUsers} icon={Users} tone="text-amber-600" />
-        </div>
-      ) : null}
-
-      <div className="mt-4">
+      <div className="mb-4">
         <AreaSimple
           data={toRevenueChartData(revenue)}
           error={chartError}
@@ -218,6 +210,18 @@ export function AdminDashboardPage() {
           totalRevenue={revenue?.totalRevenue ?? stats?.totalRevenue ?? 0}
         />
       </div>
+
+      {stats && !error ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <MetricCard label="Tổng lịch đặt" value={stats.totalBookings} icon={CalendarCheck} tone="text-blue-600" />
+          <MetricCard label="Hoàn thành" value={stats.completedBookings} icon={BadgeCheck} tone="text-emerald-600" />
+          <MetricCard label="Đã hủy" value={stats.cancelledBookings} icon={XCircle} tone="text-red-600" />
+          <MetricCard label="Tổng doanh thu" value={formatVND(stats.totalRevenue)} icon={WalletCards} tone="text-violet-600" />
+          <MetricCard label="Tổng người dùng" value={stats.totalUsers} icon={Users} tone="text-indigo-600" />
+          <MetricCard label="Người dùng hoạt động" value={stats.activeCustomers ?? 0} icon={Users} tone="text-indigo-600" />
+          <MetricCard label="Tổng chi nhánh" value={stats.totalBranches ?? 0} icon={Store} tone="text-amber-500" />
+        </div>
+      ) : null}
     </AdminShell>
   );
 }
