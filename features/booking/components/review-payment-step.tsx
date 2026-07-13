@@ -53,7 +53,7 @@ function formatDate(dateStr: string) {
 }
 
 function toStartTime(date: string, slot: string) {
-  return `${date}T${slot}:00`;
+  return `${date}T${slot}:00+07:00`;
 }
 
 function addMinutes(time: string, minutes: number) {
