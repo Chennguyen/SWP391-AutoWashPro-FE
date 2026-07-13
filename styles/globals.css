@@ -128,12 +128,13 @@ h6,
 }
 
 /* ==========================================================================
-   AutoWash Pro Booking shadcn Token Scope
-   Keeps the booking flow synchronized with the customer/admin dark luxury shell.
+   AutoWash Pro Dark shadcn Token Scopes
+   Keeps shadcn controls synchronized with the dark luxury shell.
    ========================================================================== */
 
 .booking-brand-surface,
-.booking-brand-dialog {
+.booking-brand-dialog,
+.admin-brand-surface {
   --background: #0e0e10;
   --foreground: #fffdf9;
   --card: #161619;
@@ -160,6 +161,10 @@ h6,
   --sidebar-accent-foreground: #d8c49f;
   --sidebar-border: #2e2d2b;
   --sidebar-ring: #bca374;
+}
+
+.admin-brand-surface {
+  color-scheme: dark;
 }
 
 .booking-brand-surface [data-slot="card"],

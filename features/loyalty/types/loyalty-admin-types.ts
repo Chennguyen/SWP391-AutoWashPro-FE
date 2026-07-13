@@ -24,8 +24,8 @@ export type UpdateTierPayload = Partial<{
 }>;
 
 export type LoyaltyPointsConfig = {
-  vndPerPoint: number;      // configKey: "point_earn_rate"
   slotDurationMinutes?: number; // configKey: "SlotDurationMinutes"
+  slotBreakMinutes?: number;    // configKey: "SlotBreakMinutes"
   workingStartHour?: string;    // configKey: "WorkingStartHour"
   workingEndHour?: string;      // configKey: "WorkingEndHour"
   basePrice?: number;           // configKey: "BasePrice"

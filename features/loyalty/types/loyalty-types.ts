@@ -16,6 +16,7 @@ export type LoyaltyTier = {
 };
 
 export type LoyaltyInfo = {
+  customerId: string;
   points: number;
   totalWashes: number;
   tier: LoyaltyTier | null;
@@ -25,24 +26,19 @@ export type LoyaltyInfo = {
 
 export type RewardType = "FREE_WASH" | "VOUCHER" | "GIFT" | string;
 
-export type Reward = {
-  id: string;
-  name: string;
-  description: string;
-  pointsRequired: number;
-  rewardType: RewardType;
-  quantityAvailable: number | null;
-  validDays: number | null;
-  isActive: boolean;
-};
+export type { Reward } from "@/features/voucher/types";
 
 export type MyVoucher = {
   id: string;
   code: string;
   rewardName: string;
+  status: "Active" | "Used" | "Expired" | string;
+  discountType: "Percentage" | "FixedAmount" | string;
+  discountValue: number;
   discountAmount: number | null;
   rewardType: RewardType;
   expiresAt: string | null;
+  usedAt: string | null;
   isUsed: boolean;
 };
 

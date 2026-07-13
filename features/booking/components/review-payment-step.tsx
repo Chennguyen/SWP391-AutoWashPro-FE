@@ -38,6 +38,7 @@ import type { BookingResult, Branch, VoucherValidation } from "@/features/bookin
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
 
 const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
+const POINT_REDEMPTION_VALUE_VND = 100;
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -45,6 +46,12 @@ function formatVND(amount: number) {
     currency: "VND",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function formatVoucherDiscount(voucher: MyVoucher) {
+  return voucher.discountType.toLowerCase() === "percentage"
+    ? `${voucher.discountValue.toLocaleString("vi-VN")}%`
+    : formatVND(voucher.discountValue);
 }
 
 function formatDate(dateStr: string) {
@@ -135,7 +142,6 @@ export function ReviewPaymentStep({
   onUnauthorized,
 }: ReviewPaymentStepProps) {
   const [configs, setConfigs] = useState({
-    vndPerPoint: 10_000,
     basePrice: 100_000,
     sedanBasePrice: 0,
     suvBasePrice: 30_000,
@@ -149,7 +155,6 @@ export function ReviewPaymentStep({
         const settings = await getLoyaltySettings(token);
         if (active) {
           setConfigs({
-            vndPerPoint: settings.vndPerPoint ?? 10_000,
             basePrice: settings.basePrice ?? 100_000,
             sedanBasePrice: settings.sedanBasePrice ?? 0,
             suvBasePrice: settings.suvBasePrice ?? 30_000,
@@ -218,7 +223,9 @@ export function ReviewPaymentStep({
         const list = await getMyVouchers(token, userId);
         const now = Date.now();
         const validVouchers = list.filter((v) => {
-          if (v.isUsed) return false;
+          if (v.status.toLowerCase() !== "active" || v.isUsed || v.discountValue <= 0) {
+            return false;
+          }
           if (v.expiresAt) {
             return new Date(v.expiresAt).getTime() > now;
           }
@@ -498,9 +505,17 @@ export function ReviewPaymentStep({
   const loyaltyPoints = loyalty?.points ?? 0;
   const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
   const payableAmountBeforeRedeem = Math.max(0, servicePrice - promotionDiscount - discount);
-  const redeemValue = redeemPoint
-    ? Math.min(payableAmountBeforeRedeem, loyaltyPoints * configs.vndPerPoint)
-    : 0;
+  const maxRedeemByPoints = loyaltyPoints * POINT_REDEMPTION_VALUE_VND;
+  const rawRedeemDiscountEstimate = Math.min(
+    maxRedeemByPoints,
+    payableAmountBeforeRedeem,
+  );
+  const redeemPointsUsedEstimate = Math.floor(
+    rawRedeemDiscountEstimate / POINT_REDEMPTION_VALUE_VND,
+  );
+  const redeemDiscountEstimate =
+    redeemPointsUsedEstimate * POINT_REDEMPTION_VALUE_VND;
+  const redeemValue = redeemPoint ? redeemDiscountEstimate : 0;
   const payableAmount = Math.max(0, payableAmountBeforeRedeem - redeemValue);
   const deposit = Math.round(payableAmount * depositRate);
   const voucherId = localAppliedVoucher?.voucherId ?? localAppliedVoucher?.id ?? null;
@@ -785,7 +800,15 @@ export function ReviewPaymentStep({
               <span className="block text-sm font-semibold text-foreground">Dùng điểm thưởng</span>
               <p className="mt-1 text-xs text-muted-foreground">
                 Bạn có {loyaltyPoints.toLocaleString("vi-VN")} điểm
-                {configs.vndPerPoint > 0 ? ` · ước tính giảm tối đa ${formatVND(loyaltyPoints * configs.vndPerPoint)}` : ""}
+              </p>
+              <div className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                <p>
+                  Ước tính dùng {redeemPointsUsedEstimate.toLocaleString("vi-VN")} điểm
+                </p>
+                <p>Ước tính giảm {formatVND(redeemDiscountEstimate)}</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Điểm sẽ được trừ khi check-in và thanh toán thành công.
               </p>
             </div>
             <input
@@ -1024,14 +1047,15 @@ export function ReviewPaymentStep({
                 <div className="flex flex-col gap-3">
                   {myVouchers.map((v) => {
                     const isSelected = selectedVoucherInModal?.id === v.id;
-                    const discountValueText = v.discountAmount
-                      ? `${v.discountAmount.toLocaleString("vi-VN")}đ`
-                      : "Freeship / Free";
+                    const discountValueText = formatVoucherDiscount(v);
                     return (
                       <button
                         key={v.id}
                         type="button"
-                        onClick={() => setSelectedVoucherInModal(v)}
+                        onClick={() => {
+                          setSelectedVoucherInModal(v);
+                          setVoucherError(null);
+                        }}
                         aria-pressed={isSelected}
                         className={cn(
                           "grid grid-cols-[88px_minmax(0,1fr)_36px] overflow-hidden rounded-xl border bg-card text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
@@ -1094,20 +1118,12 @@ export function ReviewPaymentStep({
               className="!h-10 w-full sm:w-28"
               onClick={() => {
                 if (selectedVoucherInModal) {
-                  setLocalAppliedVoucher({
-                    id: selectedVoucherInModal.id,
-                    voucherId: selectedVoucherInModal.id,
-                    code: selectedVoucherInModal.code,
-                    discountAmount: selectedVoucherInModal.discountAmount ?? 0,
-                    valid: true,
-                    message: "",
-                  });
+                  void handleApplyVoucherCode(selectedVoucherInModal.code);
                 }
-                setIsVoucherModalOpen(false);
               }}
-              disabled={!selectedVoucherInModal}
+              disabled={!selectedVoucherInModal || voucherValidationLoading}
             >
-              Đồng ý
+              {voucherValidationLoading ? "Đang áp dụng..." : "Đồng ý"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -202,6 +202,9 @@ function normalizeLoyaltyInfo(body: unknown): LoyaltyInfo {
     profileData.tierData ?? profileData.TierData ?? null;
 
   return {
+    customerId:
+      str(data, ["customerId", "CustomerId"]) ||
+      str(profileData, ["id", "Id"]),
     points: num(data, ["totalPoints", "TotalPoints", "points", "Points"]),
     totalWashes: num(data, ["totalWashes", "TotalWashes", "washCount", "WashCount"]),
     tier: normalizeTier(tierRaw),
@@ -224,6 +227,26 @@ function normalizeLoyaltyInfo(body: unknown): LoyaltyInfo {
 function normalizeReward(raw: unknown): Reward {
   const r = rec(raw);
   const rewardTypeRaw = r.rewardType ?? r.RewardType ?? r.reward_type ?? r.type ?? r.Type;
+  const quantityAvailable = num(r, [
+    "quantityAvailable",
+    "QuantityAvailable",
+    "stockQuantity",
+    "StockQuantity",
+    "stock_quantity",
+  ]);
+  const isActive = Boolean(
+    r.isActive ?? r.IsActive ?? (r.status === "active" || r.Status === "active"),
+  );
+  const allowedTiersRaw = r.allowedTiers ?? r.AllowedTiers;
+  const allowedTiers = Array.isArray(allowedTiersRaw)
+    ? allowedTiersRaw.map((tier) => {
+        const tierRecord = rec(tier);
+        return {
+          id: str(tierRecord, ["id", "Id"]),
+          name: str(tierRecord, ["name", "Name"]),
+        };
+      })
+    : [];
   let rewardType: RewardType = "VOUCHER";
   if (typeof rewardTypeRaw === "number") {
     const map: RewardType[] = ["FREE_WASH", "VOUCHER", "GIFT"];
@@ -237,9 +260,13 @@ function normalizeReward(raw: unknown): Reward {
     description: str(r, ["description", "Description"]),
     pointsRequired: num(r, ["pointsRequired", "PointsRequired", "points_required", "requiredPoints"]),
     rewardType,
-    quantityAvailable: optNum(r, ["quantityAvailable", "QuantityAvailable", "stockQuantity", "StockQuantity", "stock_quantity"]),
-    validDays: optNum(r, ["validDays", "ValidDays", "validDaysAfterRedeem", "ValidDaysAfterRedeem", "valid_days_after_redeem"]),
-    isActive: Boolean(r.isActive ?? r.IsActive ?? (r.status === "active" || r.Status === "active")),
+    quantityAvailable,
+    validDays: num(r, ["validDays", "ValidDays", "validDaysAfterRedeem", "ValidDaysAfterRedeem", "valid_days_after_redeem"]),
+    isRedeemable: Boolean(
+      r.isRedeemable ?? r.IsRedeemable ?? (isActive && quantityAvailable > 0),
+    ),
+    allowedTiers,
+    isActive,
   };
 }
 
@@ -251,14 +278,34 @@ function normalizeReward(raw: unknown): Reward {
  */
 function normalizeVoucher(raw: unknown): MyVoucher {
   const r = rec(raw);
+  const code = str(r, ["code", "Code"]);
+  const statusRaw = r.status ?? r.Status;
+  const discountTypeRaw = r.discountType ?? r.DiscountType ?? r.discount_type;
+  const status = typeof statusRaw === "number"
+    ? (["Active", "Used", "Expired"][statusRaw] ?? "Active")
+    : String(statusRaw ?? "Active");
+  const discountType = typeof discountTypeRaw === "number"
+    ? (["Percentage", "FixedAmount"][discountTypeRaw] ?? "FixedAmount")
+    : String(discountTypeRaw ?? "FixedAmount");
+  const usedAt = optStr(r, ["usedAt", "UsedAt", "used_at"]);
+  const isUsedRaw = r.isUsed ?? r.IsUsed ?? r.is_used;
+  const isExplicitlyUsed =
+    isUsedRaw === true || String(isUsedRaw ?? "").toLowerCase() === "true";
+
   return {
     id: str(r, ["id", "Id", "voucherId", "VoucherId"]),
-    code: str(r, ["code", "Code"]),
-    rewardName: str(r, ["rewardName", "RewardName", "reward_name", "name", "Name"], "Phần thưởng"),
+    code,
+    rewardName:
+      str(r, ["rewardName", "RewardName", "reward_name", "name", "Name"]) ||
+      `Voucher ${code}`,
+    status,
+    discountType,
+    discountValue: num(r, ["discountValue", "DiscountValue", "discount_value"]),
     discountAmount: optNum(r, ["discountAmount", "DiscountAmount", "discount_amount"]),
     rewardType: str(r, ["rewardType", "RewardType", "reward_type", "type", "Type"], "VOUCHER"),
     expiresAt: optStr(r, ["expiresAt", "ExpiresAt", "expiredAt", "ExpiredAt", "expires_at", "expireDate", "ExpireDate"]),
-    isUsed: Boolean(r.isUsed ?? r.IsUsed ?? r.is_used ?? false),
+    usedAt,
+    isUsed: isExplicitlyUsed || status.toLowerCase() === "used" || usedAt !== null,
   };
 }
 

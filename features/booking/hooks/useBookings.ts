@@ -92,6 +92,7 @@ export function useCheckInBookingMutation(token: string) {
     onSuccess: (_, id) => {
       void queryClient.invalidateQueries({ queryKey: ["customer-bookings"] });
       void queryClient.invalidateQueries({ queryKey: ["booking-detail", id] });
+      void queryClient.invalidateQueries({ queryKey: ["loyalty-info"] });
     },
   });
 }

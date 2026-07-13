@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getLoyaltySettings,
-  updateLoyaltySettings,
   getAdminTiers,
   createAdminTier,
   updateAdminTier,
@@ -45,24 +44,10 @@ export function useGetLoyaltySettingsQuery(token: string, options?: { enabled?: 
   });
 }
 
-export function useUpdateLoyaltySettingsMutation(token: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation<void, ApiError, Parameters<typeof updateLoyaltySettings>[1]>({
-    mutationFn: async (payload) => {
-      if (!token) throw new Error("No token provided");
-      await updateLoyaltySettings(token, payload);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["loyalty-settings", token] });
-    },
-  });
-}
-
 export function useUpdateSystemConfigMutation(token: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ApiError, { configKey: string; configValue: string }>({
+  return useMutation<void, ApiError, { configKey: string; configValue: string | number }>({
     mutationFn: async ({ configKey, configValue }) => {
       if (!token) throw new Error("No token provided");
       await updateSystemConfig(token, configKey, configValue);
@@ -109,7 +94,7 @@ export function useUpdateAdminTierMutation(token: string) {
       if (!token) throw new Error("No token provided");
       await updateAdminTier(token, id, payload);
     },
-    onSuccess: (_, { id }) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin-tiers", token] });
       void queryClient.invalidateQueries({ queryKey: ["all-tiers"] });
     },
