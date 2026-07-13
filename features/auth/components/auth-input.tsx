@@ -72,9 +72,8 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
           {isPassword && (
             <button
               type="button"
-              tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#d8bd84] transition-colors hover:text-[#f0d89f]"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#d8bd84] outline-none transition-colors hover:text-[#f0d89f] focus-visible:ring-2 focus-visible:ring-[#d8bd84]/60"
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -84,7 +83,13 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
 
         {/* Error message */}
         {error && (
-          <p className="mt-1 text-xs font-medium !text-red-400">{error}</p>
+          <p
+            id={id ? `${id}-error` : undefined}
+            role="alert"
+            className="mt-1 text-xs font-medium !text-red-400"
+          >
+            {error}
+          </p>
         )}
       </div>
     );
