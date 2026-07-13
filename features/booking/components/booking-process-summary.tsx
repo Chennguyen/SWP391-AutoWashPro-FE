@@ -47,7 +47,7 @@ function SummaryRow({ icon, label, value, isDone, step, currentStep, goTo }: Sum
           className={cn(
             "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition",
             (isDone || isActive) && "bg-primary text-primary-foreground",
-            !isDone && !isActive && "bg-muted text-muted-foreground",
+            !isDone && !isActive && "!bg-white/10 !text-[#c5beb3]",
           )}
         >
           {isDone ? <Check aria-hidden /> : <span className="text-[10px]">{step}</span>}
@@ -55,20 +55,20 @@ function SummaryRow({ icon, label, value, isDone, step, currentStep, goTo }: Sum
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <span className={cn("text-[10px] font-bold uppercase tracking-widest", isDone || isActive ? "!text-[#d8bd84]" : "!text-[#c5beb3]")}>
               {label}
             </span>
           </div>
 
           <div className={cn("mt-1 text-sm font-semibold leading-snug", isDone ? "text-foreground" : "text-muted-foreground")}>
             {isDone ? value : (
-              <span className="text-xs italic text-muted-foreground">Chưa chọn</span>
+              <span className="text-xs italic !text-[#a09c94]">Chưa chọn</span>
             )}
           </div>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className={cn(isDone || isActive ? "text-foreground" : "text-muted-foreground")}>
+          <span className={cn(isDone || isActive ? "!text-[#d8bd84]" : "!text-[#a09c94]")}>
             {icon}
           </span>
           {isAccessible && !isActive && (
@@ -127,7 +127,7 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
             selectedBranch ? (
               <div>
                 <p className="font-semibold leading-tight text-foreground">{selectedBranch.name}</p>
-                <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{selectedBranch.address}</p>
+                <p className="mt-0.5 text-[11px] leading-tight !text-[#c5beb3]">{selectedBranch.address}</p>
               </div>
             ) : null
           }
@@ -144,7 +144,7 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
             selectedVehicle ? (
               <div>
                 <p className="font-semibold text-foreground tabular-nums">{selectedVehicle.licensePlate}</p>
-                <p className="text-[11px] text-muted-foreground">{selectedVehicle.brand} {selectedVehicle.model}</p>
+                <p className="text-[11px] !text-[#c5beb3]">{selectedVehicle.brand} {selectedVehicle.model}</p>
               </div>
             ) : null
           }
@@ -161,7 +161,7 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
             selectedDate && selectedSlot ? (
               <div>
                 <p className="font-semibold text-foreground tabular-nums">{selectedSlot}</p>
-                <p className="text-[11px] text-muted-foreground">{formatDate(selectedDate)}</p>
+                <p className="text-[11px] !text-[#c5beb3]">{formatDate(selectedDate)}</p>
               </div>
             ) : null
           }
@@ -175,7 +175,7 @@ export function BookingProcessSummary({ state, goTo }: BookingProcessSummaryProp
           icon={<ReceiptText />}
           label="Bảng giá"
           value={
-            <span className="text-[11px] text-muted-foreground">Đã xem chi tiết phí</span>
+            <span className="text-[11px] !text-[#c5beb3]">Đã xem chi tiết phí</span>
           }
           isDone={isStep4Done}
           step={4}
