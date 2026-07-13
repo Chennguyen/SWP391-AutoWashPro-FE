@@ -129,19 +129,6 @@ function bool(obj: Rec, keys: string[], fallback = false): boolean {
 }
 
 /**
- * Giải nén các bản ghi lồng nhau từ các phong bì phản hồi bên ngoài.
- * 
- * @param body Phản hồi của API.
- * @returns Bản ghi bên trong.
- */
-function unwrap(body: unknown): Rec {
-  const r = rec(body);
-  if (r.data !== undefined) return rec(r.data);
-  if (r.Data !== undefined) return rec(r.Data);
-  return r;
-}
-
-/**
  * Trích xuất danh sách mảng từ phong bì phản hồi REST.
  * 
  * @param body Phản hồi API chứa danh sách mảng.
@@ -254,15 +241,15 @@ function formatHourString(val: string): string {
 }
 
 /**
- * Chuẩn hóa các cài đặt tham số hệ thống (tỉ lệ điểm, thời gian làm việc) từ các khóa cấu hình.
+ * Chuẩn hóa các tham số hệ thống từ các khóa cấu hình.
  * 
- * @param body Phản hồi API chứa cấu hình điểm.
+ * @param body Phản hồi API chứa các cấu hình hệ thống.
  * @returns Cấu hình LoyaltyPointsConfig đã phân tích.
  */
 function normalizeSettings(body: unknown): LoyaltyPointsConfig {
   const list = unwrapList(body);
-  let vndPerPoint = 10000;
   let slotDurationMinutes = 15;
+  let slotBreakMinutes = 1;
   let workingStartHour = "08:00";
   let workingEndHour = "17:00";
   let basePrice = 100000;
@@ -277,17 +264,12 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
     const r = rec(item);
     const key = str(r, ["configKey", "ConfigKey", "key", "Key"]);
     const value = str(r, ["configValue", "ConfigValue", "value", "Value"]);
-    if (key === "point_earn_rate" && value) {
-      try {
-        const parsed = JSON.parse(value) as Record<string, unknown>;
-        const v = Number(parsed["VND_per_point"] ?? parsed["vnd_per_point"]);
-        if (Number.isFinite(v)) vndPerPoint = v;
-      } catch {
-        // ignore parse error
-      }
-    } else if (key === "SlotDurationMinutes" && value) {
+    if (key === "SlotDurationMinutes" && value) {
       const v = Number(value);
       if (Number.isFinite(v) && v > 0) slotDurationMinutes = v;
+    } else if (key === "SlotBreakMinutes" && value) {
+      const v = Number(value);
+      if (Number.isInteger(v) && v >= 1 && v <= 60) slotBreakMinutes = v;
     } else if (key === "WorkingStartHour" && value) {
       workingStartHour = formatHourString(value);
     } else if (key === "WorkingEndHour" && value) {
@@ -316,18 +298,9 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
     }
   }
 
-  // Dự phòng: nếu body là một đối tượng duy nhất (không phải mảng)
-  if (list.length === 0) {
-    const r = unwrap(body);
-    vndPerPoint = num(r, [
-      "earnRatePerAmount", "EarnRatePerAmount",
-      "earn_rate_per_amount", "vndPerPoint", "VndPerPoint",
-    ], 10000);
-  }
-
   return {
-    vndPerPoint,
     slotDurationMinutes,
+    slotBreakMinutes,
     workingStartHour,
     workingEndHour,
     basePrice,
@@ -427,7 +400,7 @@ function normalizePromotion(raw: unknown): AdminPromotion {
 // ─── Loyalty Points Config ────────────────────────────────────────────────────
 
 /**
- * Lấy các tham số cấu hình thành viên tích điểm của hệ thống, ví dụ tỷ lệ VNĐ đổi 1 điểm.
+ * Lấy các tham số cấu hình thành viên, giá và khung giờ hoạt động của hệ thống.
  * 
  * @param token Token xác thực.
  * @returns Một promise giải quyết thành cấu hình LoyaltyPointsConfig.
@@ -439,32 +412,6 @@ export async function getLoyaltySettings(token: string): Promise<LoyaltyPointsCo
   });
   const body = await handleApiResponse<unknown>(res);
   return normalizeSettings(body);
-}
-
-/**
- * Cập nhật cấu hình tỷ lệ quy đổi tích điểm (quy đổi số tiền VNĐ tương ứng với 1 điểm).
- * 
- * @param token Token xác thực.
- * @param settings Các cài đặt cập nhật chứa tham số vndPerPoint.
- * @returns Hứa giải quyết khi cập nhật cấu hình hoàn tất thành công.
- */
-export async function updateLoyaltySettings(
-  token: string,
-  settings: Partial<LoyaltyPointsConfig>,
-): Promise<void> {
-  if (settings.vndPerPoint !== undefined) {
-    const payload: LoyaltyPointsConfigRaw = {
-      configKey: "point_earn_rate",
-      configValue: JSON.stringify({ VND_per_point: settings.vndPerPoint }),
-    };
-    const res = await fetch(loyaltyAdminEndpoint("/Update-points-config"), {
-      method: "PUT",
-      cache: "no-store",
-      headers: authHeaders(token),
-      body: JSON.stringify(payload),
-    });
-    await handleApiResponse<unknown>(res);
-  }
 }
 
 // ─── Tiers ────────────────────────────────────────────────────────────────────
@@ -691,21 +638,21 @@ export async function adjustCustomerPoints(
 }
 
 /**
- * Cập nhật cấu hình hệ thống trực tiếp thông qua cặp khóa-giá trị dạng chuỗi.
+ * Cập nhật cấu hình hệ thống trực tiếp thông qua cặp khóa-giá trị.
  * 
  * @param token Token xác thực.
  * @param key Khóa định danh của cấu hình hệ thống.
- * @param value Giá trị chuỗi của cấu hình hệ thống cần thiết lập.
+ * @param value Giá trị cấu hình; luôn được chuyển thành chuỗi trước khi gửi back-end.
  * @returns Hứa giải quyết khi cấu hình hệ thống được cập nhật thành công.
  */
 export async function updateSystemConfig(
   token: string,
   key: string,
-  value: string,
+  value: string | number,
 ): Promise<void> {
   const payload: LoyaltyPointsConfigRaw = {
     configKey: key,
-    configValue: value,
+    configValue: String(value),
   };
   const res = await fetch(loyaltyAdminEndpoint("/Update-points-config"), {
     method: "PUT",
