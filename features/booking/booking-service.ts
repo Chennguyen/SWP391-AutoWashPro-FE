@@ -4,7 +4,6 @@ import type {
   CreateBookingPayload,
   CustomerBooking,
 } from "@/features/booking/types/booking-types";
-import { apiBase, handleApiResponse } from "@/lib/api-error";
 import { axiosInstance } from "@/lib/axios";
 
 type SlotRecord = {
@@ -54,6 +53,12 @@ type BookingResponse = {
   Code?: string;
   message?: string;
   Message?: string;
+  basePrice?: number | string;
+  BasePrice?: number | string;
+  discountAmount?: number | string;
+  DiscountAmount?: number | string;
+  finalPrice?: number | string;
+  FinalPrice?: number | string;
   data?: BookingResponse;
   Data?: BookingResponse;
 };
@@ -143,19 +148,27 @@ type BookingListResponse =
  * @param body Phản hồi của API chứa thông tin slot.
  * @returns Mảng các bản ghi slot thô.
  */
-function unwrapList(body: any): any[] {
+function unwrapList(body: unknown): SlotRecord[] {
   if (!body) return [];
-  if (Array.isArray(body)) return body;
+  if (Array.isArray(body)) return body as SlotRecord[];
+  if (typeof body !== "object") return [];
 
-  const directList = body.items ?? body.Items ?? body.results ?? body.Results;
-  if (Array.isArray(directList)) return directList;
+  const record = body as Record<string, unknown>;
 
-  const dataPayload = body.data ?? body.Data;
-  if (Array.isArray(dataPayload)) return dataPayload;
+  const directList = record.items ?? record.Items ?? record.results ?? record.Results;
+  if (Array.isArray(directList)) return directList as SlotRecord[];
+
+  const dataPayload = record.data ?? record.Data;
+  if (Array.isArray(dataPayload)) return dataPayload as SlotRecord[];
 
   if (dataPayload && typeof dataPayload === "object") {
-    const nestedList = dataPayload.items ?? dataPayload.Items ?? dataPayload.results ?? dataPayload.Results;
-    if (Array.isArray(nestedList)) return nestedList;
+    const nestedRecord = dataPayload as Record<string, unknown>;
+    const nestedList =
+      nestedRecord.items ??
+      nestedRecord.Items ??
+      nestedRecord.results ??
+      nestedRecord.Results;
+    if (Array.isArray(nestedList)) return nestedList as SlotRecord[];
   }
 
   return [];
@@ -310,6 +323,18 @@ function normalizeBookingResult(body: BookingResponse): BookingResult {
   const raw = body.data ?? body.Data ?? body;
   const bookingId = String(raw.bookingId ?? raw.BookingId ?? raw.id ?? raw.Id ?? "");
 
+  const basePrice = Number(raw.basePrice ?? raw.BasePrice);
+  const discountAmount = Number(raw.discountAmount ?? raw.DiscountAmount);
+  const finalPrice = Number(raw.finalPrice ?? raw.FinalPrice);
+
+  if (
+    !Number.isFinite(basePrice) ||
+    !Number.isFinite(discountAmount) ||
+    !Number.isFinite(finalPrice)
+  ) {
+    throw new Error("Booking response is missing authoritative price fields.");
+  }
+
   return {
     bookingId,
     id:
@@ -319,6 +344,9 @@ function normalizeBookingResult(body: BookingResponse): BookingResult {
     confirmationCode:
       raw.confirmationCode ?? raw.ConfirmationCode ?? raw.code ?? raw.Code,
     message: raw.message ?? raw.Message,
+    basePrice,
+    discountAmount,
+    finalPrice,
   };
 }
 
@@ -545,5 +573,3 @@ export async function cancelBooking(
 ): Promise<void> {
   await axiosInstance.post(`/api/v1/bookings/${encodeURIComponent(id)}/cancel`, { reason });
 }
-
-

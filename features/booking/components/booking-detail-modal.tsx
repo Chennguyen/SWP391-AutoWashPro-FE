@@ -3,10 +3,12 @@
 import { X, CalendarDays, Car, MapPin, Clock, Tag, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { CustomerBooking } from "@/features/booking/types/booking-types";
-import type { Vehicle } from "@/features/booking/types/vehicle-types";
-import { getVehicles } from "@/features/booking/vehicle-service";
 import { getLoyaltySettings, type LoyaltyPointsConfig } from "@/features/loyalty/loyalty-admin-service";
-import { useCheckInBookingMutation, useCancelBookingMutation } from "@/features/booking/hooks/useBookings";
+import {
+  useCancelBookingMutation,
+  useCheckInBookingMutation,
+  useGetBookingQuery,
+} from "@/features/booking/hooks/useBookings";
 import { ApiError } from "@/lib/api-error";
 import {
   formatDateOnly,
@@ -17,6 +19,7 @@ import {
   canCheckIn,
 } from "@/features/booking/utils";
 import { CheckInConfirmModal, CancelModal } from "./upcoming-booking-panel";
+import { BookingPriceSummary } from "./booking-price-summary";
 
 interface BookingDetailModalProps {
   booking: CustomerBooking;
@@ -38,7 +41,6 @@ export function BookingDetailModal({
   onClose,
   onChanged,
 }: BookingDetailModalProps) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [configs, setConfigs] = useState<LoyaltyPointsConfig | null>(null);
 
   const [showCheckInModal, setShowCheckInModal] = useState(false);
@@ -49,18 +51,16 @@ export function BookingDetailModal({
 
   const checkInMutation = useCheckInBookingMutation(token);
   const cancelMutation = useCancelBookingMutation(token);
+  const detailQuery = useGetBookingQuery(token, booking.id);
+  const resolvedBooking = detailQuery.data ?? booking;
 
   useEffect(() => {
     if (!token) return;
     let active = true;
     async function loadAuxData() {
       try {
-        const [vehiclesList, settings] = await Promise.all([
-          getVehicles(token, 1, 100).catch(() => []),
-          getLoyaltySettings(token).catch(() => null),
-        ]);
+        const settings = await getLoyaltySettings(token).catch(() => null);
         if (active) {
-          setVehicles(vehiclesList);
           setConfigs(settings);
         }
       } catch (err) {
@@ -213,141 +213,13 @@ export function BookingDetailModal({
               ))}
             </div>
 
-            {/* Payment Details breakdown (Image 3 logic) */}
-            {(() => {
-              const finalPrice = booking.finalPrice ?? booking.totalPrice ?? 100_000;
-              const basePrice = booking.basePrice ?? configs?.basePrice ?? 100_000;
-              const suvSurcharge = configs?.suvBasePrice ?? 30_000;
-              const sedanSurcharge = configs?.sedanBasePrice ?? 0;
-
-              const bookingVehicle = vehicles.find((v) => {
-                const vPlate = v.licensePlate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-                const bPlate = booking.vehicleLicensePlate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-                return vPlate === bPlate;
-              });
-              const vehicleType = bookingVehicle?.vehicleType;
-
-              let isSUV = false;
-              let isSedan = false;
-
-              if (vehicleType) {
-                isSUV = vehicleType === "SUV";
-                isSedan = vehicleType === "SEDAN";
-              } else {
-                const lowerPlate = booking.vehicleLicensePlate.toLowerCase();
-                if (lowerPlate.includes("suv")) {
-                  isSUV = true;
-                } else if (lowerPlate.includes("sedan")) {
-                  isSedan = true;
-                } else {
-                  const diff = Math.max(0, (booking.totalPrice ?? finalPrice) - basePrice);
-                  if (Math.abs(diff - suvSurcharge) < Math.abs(diff - sedanSurcharge)) {
-                    isSUV = true;
-                  } else {
-                    isSedan = true;
-                  }
-                }
-              }
-
-              const surcharge = isSUV ? suvSurcharge : isSedan ? sedanSurcharge : 0;
-              const originalPrice = basePrice + surcharge;
-
-              const totalDiscount = Math.max(0, originalPrice - finalPrice);
-              const voucherDiscount = booking.discountAmount ?? 0;
-              const promotionDiscount = Math.max(0, totalDiscount - voucherDiscount);
-
-              const depositAmount = Math.round(finalPrice * 0.3);
-              const remainingAmount = finalPrice - depositAmount;
-
-              return (
-                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shrink-0">
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Chi tiết thanh toán
-                    </p>
-                  </div>
-                  <div className="px-4 py-3 space-y-2.5">
-                    {/* Giá dịch vụ gốc */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Giá dịch vụ gốc</span>
-                      <span className="font-medium text-slate-700">
-                        {basePrice.toLocaleString("vi-VN")} ₫
-                      </span>
-                    </div>
-
-                    {/* Phụ phí dòng xe */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">
-                        Phụ phí dòng xe ({isSUV ? "SUV" : isSedan ? "Sedan" : "Khác"})
-                      </span>
-                      <span className="font-normal text-slate-700">
-                        +{surcharge.toLocaleString("vi-VN")}₫
-                      </span>
-                    </div>
-
-                    {/* Ưu đãi giảm giá */}
-                    <div className="flex justify-between text-sm">
-                      <div>
-                        <span className="text-slate-600">Ưu đãi giảm giá</span>
-                        <p className="text-xs text-slate-400 font-normal">
-                          (Khuyến mãi từ hệ thống)
-                        </p>
-                      </div>
-                      {promotionDiscount > 0 ? (
-                        <span className="font-medium text-red-600">
-                          -{promotionDiscount.toLocaleString("vi-VN")}₫
-                        </span>
-                      ) : (
-                        <span className="font-medium text-slate-700">0đ</span>
-                      )}
-                    </div>
-
-                    {/* Voucher */}
-                    <div className="flex justify-between text-sm">
-                      <div>
-                        <span className="text-slate-600">Voucher</span>
-                        <p className="text-xs text-slate-400 font-normal">
-                          (Mã giảm giá đã áp dụng)
-                        </p>
-                      </div>
-                      {voucherDiscount > 0 ? (
-                        <span className="font-medium text-red-600">
-                          -{voucherDiscount.toLocaleString("vi-VN")}₫
-                        </span>
-                      ) : (
-                        <span className="font-medium text-slate-700">0đ</span>
-                      )}
-                    </div>
-
-                    {/* Số tiền phải cọc */}
-                    <div className="flex justify-between text-sm">
-                      <div>
-                        <span className="text-slate-600">Số tiền phải cọc (30%)</span>
-                        <p className="text-xs text-slate-400">
-                          Bạn phải cọc trước 30% để giữ slot
-                        </p>
-                      </div>
-                      <span className="font-medium text-slate-700">
-                        -{depositAmount.toLocaleString("vi-VN")}₫
-                      </span>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t border-dashed border-slate-200" />
-
-                    {/* Tổng tiền phải trả khi check-in */}
-                    <div className="flex justify-between text-sm">
-                      <span className="font-semibold text-slate-800">
-                        Tổng tiền phải trả khi check-in
-                      </span>
-                      <span className="font-bold text-slate-950">
-                        {remainingAmount.toLocaleString("vi-VN")}₫
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+            <BookingPriceSummary
+              booking={detailQuery.data}
+              isLoading={detailQuery.isLoading}
+              error={detailQuery.error}
+              depositRate={configs?.paymentDeposite ?? 30}
+              onRetry={() => void detailQuery.refetch()}
+            />
 
             {/* Error message */}
             {actionError && (
@@ -421,7 +293,7 @@ export function BookingDetailModal({
       {/* Sub-modals */}
       {showCheckInModal && (
         <CheckInConfirmModal
-          booking={booking}
+          booking={resolvedBooking}
           onConfirm={handleCheckIn}
           onClose={() => {
             setShowCheckInModal(false);
