@@ -232,7 +232,7 @@ function QuickActions() {
               <Icon className="size-[18px]" strokeWidth={1.7} aria-hidden />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-[#fffdf9]">{label}</span>
+              <span className="block text-sm font-bold text-[#fffdf9]">{label}</span>
               <span className="mt-0.5 block truncate text-xs text-[#8f8b84]">{description}</span>
             </span>
             <ChevronRight className="size-4 shrink-0 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-[#d8c49f]" aria-hidden />

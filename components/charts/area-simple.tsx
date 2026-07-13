@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, BarChart3 } from "lucide-react";
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 export type RevenueChartPoint = {
   date: string;
@@ -36,7 +36,7 @@ export type AreaSimpleProps = {
 const chartConfig = {
   revenue: {
     label: "Doanh thu",
-    color: "var(--color-blue-600)",
+    color: "#bca374",
   },
 } satisfies ChartConfig;
 
@@ -63,11 +63,11 @@ export function AreaSimple({
   error = null,
 }: AreaSimpleProps) {
   return (
-    <Card className="rounded-lg shadow-sm">
+    <Card className="bg-white border border-slate-200 rounded-lg shadow-sm">
       <CardHeader>
-        <CardTitle>Xu hướng doanh thu</CardTitle>
+        <CardTitle className="text-slate-950 font-bold">Xu hướng doanh thu</CardTitle>
         <CardDescription>
-          Doanh thu theo ngày trong khoảng thời gian và chi nhánh đang chọn.
+          Doanh thu theo ngày trong khoảng thời gian.
         </CardDescription>
       </CardHeader>
 
@@ -75,13 +75,13 @@ export function AreaSimple({
         {loading ? (
           <Skeleton className="h-60 w-full sm:h-70" />
         ) : error ? (
-          <Alert variant="destructive" className="min-h-60 content-center">
+          <Alert variant="destructive" className="min-h-60 content-center bg-slate-50 border-slate-200">
             <AlertCircle aria-hidden />
             <AlertTitle>Không thể tải biểu đồ</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : data.length === 0 ? (
-          <Alert className="min-h-60 content-center border-dashed">
+          <Alert className="min-h-60 content-center border-dashed bg-slate-50 border-slate-200">
             <BarChart3 aria-hidden />
             <AlertTitle>Chưa có dữ liệu doanh thu</AlertTitle>
             <AlertDescription>
@@ -96,12 +96,14 @@ export function AreaSimple({
             <AreaChart
               accessibilityLayer
               data={data}
-              margin={{ left: 4, right: 4, top: 8 }}
+              margin={{ left: 4, right: 4, top: 20 }}
             >
               <CartesianGrid
-                stroke="var(--color-slate-200)"
-                strokeDasharray="3 3"
                 vertical={false}
+              />
+              <YAxis
+                hide={true}
+                domain={[0, (dataMax: number) => dataMax * 1.15]}
               />
               <XAxis
                 axisLine={false}
@@ -112,7 +114,7 @@ export function AreaSimple({
                 tickMargin={10}
               />
               <ChartTooltip
-                cursor={{ stroke: "var(--color-slate-300)" }}
+                cursor={false}
                 content={
                   <ChartTooltipContent
                     className="border-slate-200 bg-white text-slate-950"
@@ -135,7 +137,7 @@ export function AreaSimple({
               <Area
                 dataKey="revenue"
                 fill="var(--color-revenue)"
-                fillOpacity={0.14}
+                fillOpacity={0.2}
                 stroke="var(--color-revenue)"
                 strokeWidth={2.5}
                 type="monotone"

@@ -269,6 +269,9 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
   let suvBasePrice = 30000;
   let sedanBasePrice = 0;
   let paymentDeposite = 30;
+  let bonusPoint = 10;
+  let cancellationDeadlineHours = 72;
+  let cancelTimeMinutes = 3;
 
   for (const item of list) {
     const r = rec(item);
@@ -301,6 +304,15 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
     } else if (key === "PaymentDeposite" && value) {
       const v = Number(value);
       if (Number.isFinite(v)) paymentDeposite = v;
+    } else if (key === "BonusPoint" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) bonusPoint = v;
+    } else if (key === "CancellationDeadlineHours" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) cancellationDeadlineHours = v;
+    } else if (key === "CancelTimeMinutes" && value) {
+      const v = Number(value);
+      if (Number.isFinite(v)) cancelTimeMinutes = v;
     }
   }
 
@@ -322,6 +334,9 @@ function normalizeSettings(body: unknown): LoyaltyPointsConfig {
     suvBasePrice,
     sedanBasePrice,
     paymentDeposite,
+    bonusPoint,
+    cancellationDeadlineHours,
+    cancelTimeMinutes,
   };
 }
 

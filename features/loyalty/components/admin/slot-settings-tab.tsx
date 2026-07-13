@@ -30,6 +30,8 @@ export function SlotSettingsTab({ token }: Props) {
   const [slotDurationMinutes, setSlotDurationMinutes] = useState(15);
   const [workingStartHour, setWorkingStartHour] = useState("08:00");
   const [workingEndHour, setWorkingEndHour] = useState("17:00");
+  const [cancellationDeadlineHours, setCancellationDeadlineHours] = useState("72");
+  const [cancelTimeMinutes, setCancelTimeMinutes] = useState("3");
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -41,6 +43,8 @@ export function SlotSettingsTab({ token }: Props) {
       setSlotDurationMinutes(data.slotDurationMinutes ?? 15);
       setWorkingStartHour(data.workingStartHour ?? "08:00");
       setWorkingEndHour(data.workingEndHour ?? "17:00");
+      setCancellationDeadlineHours(String(data.cancellationDeadlineHours ?? 72));
+      setCancelTimeMinutes(String(data.cancelTimeMinutes ?? 3));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải cài đặt.");
     } finally {
@@ -58,15 +62,35 @@ export function SlotSettingsTab({ token }: Props) {
     setSaving(true);
     setError(null);
     setSuccess(false);
+
+    // Validate cancellationDeadlineHours
+    const deadlineHours = Number(cancellationDeadlineHours);
+    if (cancellationDeadlineHours.trim() === "" || isNaN(deadlineHours) || deadlineHours < 0) {
+      setError("Hạn chót hủy lịch phải là một số giờ lớn hơn hoặc bằng 0.");
+      setSaving(false);
+      return;
+    }
+
+    // Validate cancelTimeMinutes
+    const timeMinutes = Number(cancelTimeMinutes);
+    if (cancelTimeMinutes.trim() === "" || isNaN(timeMinutes) || timeMinutes < 1) {
+      setError("Thời gian tự động hủy đơn chưa cọc phải là một số phút lớn hơn hoặc bằng 1.");
+      setSaving(false);
+      return;
+    }
+
     try {
-      await updateSystemConfig(token, "SlotDurationMinutes", String(slotDurationMinutes));
-      
       // Chuyển đổi định dạng "08:00" -> "8" và "17:00" -> "17" để Backend parse thành công
       const startHourClean = workingStartHour.split(":")[0].replace(/^0+/, "") || "0";
       const endHourClean = workingEndHour.split(":")[0].replace(/^0+/, "") || "0";
-      
-      await updateSystemConfig(token, "WorkingStartHour", startHourClean);
-      await updateSystemConfig(token, "WorkingEndHour", endHourClean);
+
+      await Promise.all([
+        updateSystemConfig(token, "SlotDurationMinutes", String(slotDurationMinutes)),
+        updateSystemConfig(token, "WorkingStartHour", startHourClean),
+        updateSystemConfig(token, "WorkingEndHour", endHourClean),
+        updateSystemConfig(token, "CancellationDeadlineHours", cancellationDeadlineHours),
+        updateSystemConfig(token, "CancelTimeMinutes", cancelTimeMinutes),
+      ]);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể lưu cài đặt.");
@@ -150,8 +174,50 @@ export function SlotSettingsTab({ token }: Props) {
               </select>
             </div>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 border-b border-slate-100 pb-3">
             Giờ làm việc giới hạn ở các mốc giờ chẵn để tương thích hoàn hảo với bộ phân tích giờ của Backend.
+          </p>
+
+          <div className="grid grid-cols-2 gap-4 pt-1">
+            <div>
+              <label htmlFor="cancellation-deadline" className="block text-sm font-semibold text-slate-700 mb-1">
+                Hạn chót hủy lịch (Giờ)
+              </label>
+              <input
+                id="cancellation-deadline"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={cancellationDeadlineHours}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setCancellationDeadlineHours(cleanVal);
+                }}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label htmlFor="cancel-time" className="block text-sm font-semibold text-slate-700 mb-1">
+                Tự động hủy đơn chưa cọc (Phút)
+              </label>
+              <input
+                id="cancel-time"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={cancelTimeMinutes}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                  setCancelTimeMinutes(cleanVal);
+                }}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">
+            Quy định hạn chót để khách được hủy đặt lịch (CancellationDeadlineHours) và thời hạn giữ chỗ tối đa khi thanh toán cọc chưa hoàn thành (CancelTimeMinutes).
           </p>
         </div>
 
