@@ -548,17 +548,6 @@ export async function getBooking(token: string, id: string): Promise<CustomerBoo
 }
 
 /**
- * Thực hiện check-in cho khách hàng tại chi nhánh khi họ đến đúng khung giờ.
- * 
- * @param token Token xác thực.
- * @param id ID của lịch đặt cần check-in.
- * @returns Một promise giải quyết khi hoạt động check-in hoàn tất.
- */
-export async function checkInBooking(token: string, id: string): Promise<void> {
-  await axiosInstance.post(`/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {});
-}
-
-/**
  * Hủy một lịch đặt đã hẹn kèm theo lý do cụ thể.
  * 
  * @param token Token xác thực.
