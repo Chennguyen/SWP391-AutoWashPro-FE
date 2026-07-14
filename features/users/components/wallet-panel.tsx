@@ -119,7 +119,7 @@ export function WalletPanel({
   onRefresh,
   onUnauthorized,
 }: WalletPanelProps) {
-  const [amount, setAmount] = useState(500000);
+  const [amount, setAmount] = useState("500000");
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
   const [isUnverified, setIsUnverified] = useState(false);
@@ -149,13 +149,15 @@ export function WalletPanel({
     event.preventDefault();
     setTopUpError(null);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setTopUpError("Vui lòng nhập số tiền hợp lệ.");
+    const parsedAmount = parseInt(amount, 10);
+
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      setTopUpError("Vui lòng nhập số tiền lớn hơn 0 đồng.");
       return;
     }
 
     try {
-      await topUpMutation.mutateAsync(amount);
+      await topUpMutation.mutateAsync(parsedAmount);
       await onRefresh();
       setPageIndex(1);
       void txQuery.refetch();
@@ -245,11 +247,19 @@ export function WalletPanel({
               </label>
               <input
                 id="wallet-top-up"
-                type="number"
-                min={1000}
-                step={1000}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={amount}
-                onChange={(event) => setAmount(Number(event.target.value))}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  // Allow only digits
+                  if (/^\d*$/.test(val)) {
+                    // Remove leading zeros, unless it is just "0"
+                    const cleaned = val.replace(/^0+(?!$)/, "");
+                    setAmount(cleaned);
+                  }
+                }}
                 disabled={saving}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
               />
@@ -259,7 +269,7 @@ export function WalletPanel({
                 <button
                   key={preset}
                   type="button"
-                  onClick={() => setAmount(preset)}
+                  onClick={() => setAmount(String(preset))}
                   className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                 >
                   {formatCurrency(preset)}

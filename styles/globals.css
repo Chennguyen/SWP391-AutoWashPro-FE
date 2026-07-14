@@ -900,3 +900,107 @@ input[type="password"] {
     @apply font-sans;
   }
 }
+
+/* ==========================================================================
+   React Big Calendar Dark Theme Overrides
+   ========================================================================== */
+.bg-background-outer .rbc-calendar {
+  background-color: var(--background-main) !important;
+  color: var(--text-light) !important;
+  border-radius: 16px;
+  border: 1px solid var(--border-box) !important;
+  padding: 20px;
+}
+
+.bg-background-outer .rbc-header {
+  color: var(--text-light) !important;
+  font-weight: 700 !important;
+  border-bottom: 2px solid var(--border-box) !important;
+  padding: 8px 0 !important;
+}
+
+.bg-background-outer .rbc-month-view,
+.bg-background-outer .rbc-time-view,
+.bg-background-outer .rbc-agenda-view {
+  border: 1px solid var(--border-box) !important;
+  background-color: var(--background-main) !important;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.bg-background-outer .rbc-day-bg {
+  border-left: 1px solid var(--border-box) !important;
+}
+
+.bg-background-outer .rbc-month-row {
+  border-top: 1px solid var(--border-box) !important;
+}
+
+.bg-background-outer .rbc-off-range-bg {
+  background-color: rgba(255, 255, 255, 0.015) !important;
+}
+
+.bg-background-outer .rbc-today {
+  background-color: rgba(188, 163, 116, 0.06) !important;
+}
+
+/* Event styles */
+.bg-background-outer .rbc-event {
+  background-color: transparent !important;
+  padding: 2px 6px !important; /* Inset from day cell borders */
+  border: none !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+}
+
+.bg-background-outer .rbc-event-content {
+  font-size: 11px !important;
+  padding: 0 !important;
+}
+
+.bg-background-outer .rbc-event.rbc-selected {
+  background-color: transparent !important;
+}
+
+/* Toolbar buttons styling */
+.bg-background-outer .rbc-toolbar button {
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-box) !important;
+  background-color: transparent !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.bg-background-outer .rbc-toolbar button:hover {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--gold-primary) !important;
+  color: var(--gold-primary) !important;
+}
+
+.bg-background-outer .rbc-toolbar button.rbc-active {
+  background-color: var(--gold-primary) !important;
+  color: #17130f !important;
+  border-color: var(--gold-primary) !important;
+}
+
+.bg-background-outer .rbc-toolbar-label {
+  color: var(--text-light) !important;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+/* Pull first event row up to align with day numbers */
+.bg-background-outer .rbc-row-content > .rbc-row:nth-child(2) {
+  margin-top: -18px !important;
+}
+
+/* Adjust date cell line-height/padding so events align nicely next to them */
+.bg-background-outer .rbc-date-cell {
+  padding-top: 4px !important;
+  padding-bottom: 2px !important;
+  line-height: 1 !important;
+}
