@@ -246,22 +246,6 @@ export function isUpcomingStatus(status: string): boolean {
 }
 
 /**
- * Kiểm tra xem trạng thái lịch đặt hiện tại có cho phép khách hàng thực hiện check-in hay không.
- * Điều kiện: Trạng thái là "confirmed" và thời gian hiện tại đã đến hoặc vượt quá thời gian bắt đầu lịch đặt.
- * 
- * @param booking Đối tượng lịch đặt.
- * @returns Có thể check-in hay không.
- */
-export function canCheckIn(booking: CustomerBooking): boolean {
-  if (normalizeStatus(booking.status) !== "confirmed") {
-    return false;
-  }
-  const startDate = getBookingStartDate(booking);
-  if (!startDate) return false;
-  return Date.now() >= startDate.getTime();
-}
-
-/**
  * Trả về các class CSS Tailwind tương ứng để tạo màu sắc nhãn (Badge) cho từng trạng thái lịch đặt.
  * 
  * @param status Từ khóa trạng thái hiện tại.

@@ -1,51 +1,22 @@
 "use client";
 
-import {
-  X,
-  CalendarPlus,
-  Clock,
-  Ban,
-  CheckCircle2,
-  Award,
-  Gift,
-  ShieldCheck,
-  ShieldAlert,
-  Info,
-} from "lucide-react";
+import { CircleAlert, X } from "lucide-react";
 import { useNotifications } from "../hooks/useNotifications";
 import { cn } from "@/lib/utils";
-import type { NotificationType, NotificationItem } from "@/features/notifications/services";
+import type { NotificationItem } from "@/features/notifications/services";
 import { getNotificationDetails } from "./notification-bell";
 
-const ICON_MAP: Record<NotificationType, any> = {
-  BookingCreated: CalendarPlus,
-  BookingReminder: Clock,
-  BookingCancelled: Ban,
-  BookingCompleted: CheckCircle2,
-  TierUpgraded: Award,
-  RewardRedeemed: Gift,
-  IdentityApproved: ShieldCheck,
-  IdentityRejected: ShieldAlert,
-  SystemAlert: Info,
-};
-
-const COLOR_MAP: Record<NotificationType, string> = {
-  BookingCreated: "text-blue-500 bg-blue-50 border-blue-100",
-  BookingReminder: "text-amber-500 bg-amber-50 border-amber-100",
-  BookingCancelled: "text-red-500 bg-red-50 border-red-100",
-  BookingCompleted: "text-emerald-500 bg-emerald-50 border-emerald-100",
-  TierUpgraded: "text-purple-500 bg-purple-50 border-purple-100",
-  RewardRedeemed: "text-teal-500 bg-teal-50 border-teal-100",
-  IdentityApproved: "text-emerald-500 bg-emerald-50 border-emerald-100",
-  IdentityRejected: "text-rose-500 bg-rose-50 border-rose-100",
-  SystemAlert: "text-sky-500 bg-sky-50 border-sky-100",
-};
-
 function ToastCard({ item, onDismiss }: { item: NotificationItem; onDismiss: (id: string) => void }) {
-  const { Icon, colorClass } = getNotificationDetails(item.type, item.message, item.title);
+  const details = getNotificationDetails(item.type, item.message, item.title);
+  const isError = item.tone === "error";
+  const Icon = isError ? CircleAlert : details.Icon;
+  const colorClass = isError
+    ? "text-red-500 bg-red-50 border-red-100"
+    : details.colorClass;
 
   return (
     <article
+      data-tone={isError ? "error" : "default"}
       className={cn(
         "notif-toast-card flex w-full items-start gap-3 shadow-xl backdrop-blur-md",
         "animate-in slide-in-from-right-10 fade-in-50 duration-300"

@@ -1,7 +1,19 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, RefreshCw, X } from "lucide-react";
+import {
+  CalendarDays,
+  CarFront,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  LoaderCircle,
+  MapPin,
+  RefreshCw,
+  UserRound,
+  X,
+} from "lucide-react";
 import {
   getAdminBookings,
   getBranches,
@@ -11,9 +23,22 @@ import {
 } from "@/features/admin/services";
 import { AdminError, AdminPageHeader, AdminShell } from "@/features/admin/components/admin-ui";
 import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
+import { useCheckInAdminBookingMutation } from "@/features/admin/hooks/useAdmin";
+import { useNotifications } from "@/features/notifications/hooks/useNotifications";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 5;
+const BUSINESS_TIMEZONE_OFFSET = "+07:00";
 
 function todayISO() {
   const today = new Date();
@@ -30,6 +55,30 @@ function formatTime(value: string) {
     return `${match[1].padStart(2, "0")}:${match[2]}`;
   }
   return value;
+}
+
+function formatBookingDate(value: string) {
+  if (!value) return "-";
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return value;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function getBookingStartTimestamp(booking: AdminBooking): number | null {
+  const dateMatch = booking.startTime.match(/(\d{4})-(\d{2})-(\d{2})/) ??
+    booking.bookingDate.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const timeMatch = booking.startTime.match(/T?(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, year, month, day] = dateMatch;
+  const [, hour, minute, second = "00"] = timeMatch;
+  const timezone = booking.startTime.match(/(Z|[+-]\d{2}:\d{2})$/i)?.[1] ??
+    BUSINESS_TIMEZONE_OFFSET;
+  const isoValue = `${year}-${month}-${day}T${hour.padStart(2, "0")}:${minute}:${second}${timezone}`;
+  const timestamp = Date.parse(isoValue);
+
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function formatDateTime(value?: string) {
@@ -72,10 +121,30 @@ function statusBadge(status: string) {
 function BookingDetailModal({
   booking,
   onClose,
+  onCheckIn,
 }: {
   booking: AdminBooking;
   onClose: () => void;
+  onCheckIn: (booking: AdminBooking) => void;
 }) {
+  const [now, setNow] = useState(() => Date.now());
+  const checkInStartAt = getBookingStartTimestamp(booking);
+  const isBeforeCheckInTime = checkInStartAt !== null && now < checkInStartAt;
+  const checkInTooltipId = `check-in-tooltip-${booking.id}`;
+
+  useEffect(() => {
+    if (checkInStartAt === null) return;
+
+    const remaining = checkInStartAt - Date.now();
+    if (remaining <= 0) return;
+
+    const timeoutId = window.setTimeout(
+      () => setNow(Date.now()),
+      Math.min(remaining + 100, 60_000),
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [checkInStartAt, now]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
       <section className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-2xl" aria-modal="true" role="dialog">
@@ -138,6 +207,38 @@ function BookingDetailModal({
             <p className="mt-1 text-slate-800">{formatDateTime(booking.createdAt)}</p>
           </div>
         </div>
+        {booking.status === "Confirmed" ? (
+          <div className="flex justify-end border-t border-slate-200 px-5 py-4">
+            <span
+              className={cn(
+                "group relative inline-flex",
+                isBeforeCheckInTime && "cursor-not-allowed",
+              )}
+              tabIndex={isBeforeCheckInTime ? 0 : undefined}
+              aria-describedby={isBeforeCheckInTime ? checkInTooltipId : undefined}
+            >
+              <Button
+                type="button"
+                disabled={isBeforeCheckInTime}
+                onClick={() => onCheckIn(booking)}
+                className="bg-[var(--gold-primary)] font-bold text-[#17130f] hover:bg-[#cdb78d] focus-visible:ring-[rgba(188,163,116,0.35)] disabled:bg-[#5b4e37] disabled:text-[#a09c94] disabled:opacity-100"
+              >
+                <CheckCircle2 data-icon="inline-start" aria-hidden />
+                Check-in
+              </Button>
+
+              {isBeforeCheckInTime ? (
+                <span
+                  id={checkInTooltipId}
+                  role="tooltip"
+                  className="pointer-events-none invisible absolute right-0 bottom-full z-10 mb-2 w-max max-w-[260px] translate-y-1 rounded-[8px] border border-[rgba(188,163,116,0.25)] bg-[#161619] px-3 py-2 text-center text-xs leading-5 font-medium text-[#fffdf9] opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+                >
+                  Chưa đến thời điểm check-in. Có thể check-in từ {formatTime(booking.startTime)} ngày {formatBookingDate(booking.bookingDate)}.
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ) : null}
       </section>
     </div>
   );
@@ -162,6 +263,8 @@ function normalizeSearch(value: string): string {
  */
 export function AdminBookingsPage() {
   const token = useAdminToken();
+  const checkInMutation = useCheckInAdminBookingMutation(token);
+  const { showToast } = useNotifications();
   const [date, setDate] = useState(todayISO());
   const [branchId, setBranchId] = useState("");
   const [status, setStatus] = useState<BookingStatus | "">("");
@@ -174,6 +277,7 @@ export function AdminBookingsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
+  const [checkInBooking, setCheckInBooking] = useState<AdminBooking | null>(null);
 
   const filteredBookings = useMemo(() => {
     const keyword = normalizeSearch(searchTerm);
@@ -210,7 +314,7 @@ export function AdminBookingsPage() {
 
   const loadBookings = useCallback(
     async (page = pageIndex) => {
-      if (!token) return;
+      if (!token) return null;
       setLoading(true);
       setError(null);
       try {
@@ -223,8 +327,10 @@ export function AdminBookingsPage() {
         });
         setBookings(result.items);
         setTotalCount(result.totalCount);
+        return result.items;
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Không thể tải lịch đặt.");
+        return null;
       } finally {
         setLoading(false);
       }
@@ -257,6 +363,60 @@ export function AdminBookingsPage() {
   function goToPage(page: number) {
     const clamped = Math.max(1, Math.min(page, totalPages));
     setPageIndex(clamped);
+  }
+
+  function openCheckInDialog(booking: AdminBooking) {
+    setSelectedBooking(null);
+    setCheckInBooking(booking);
+  }
+
+  async function handleConfirmCheckIn() {
+    if (!checkInBooking || checkInMutation.isPending) return;
+
+    const bookingId = checkInBooking.id;
+    try {
+      const result = await checkInMutation.mutateAsync(bookingId);
+
+      if (result.status === "InProgress") {
+        showToast({
+          title: "Check-in thành công",
+          message: result.message || "Booking đã chuyển sang trạng thái đang rửa.",
+          type: "BookingCompleted",
+        });
+      } else {
+        showToast({
+          title: "Check-in không thành công",
+          message: result.message || "Booking không thể chuyển sang trạng thái đang rửa.",
+          type: result.status === "Cancelled" ? "BookingCancelled" : "SystemAlert",
+          tone: "error",
+        });
+      }
+
+      setCheckInBooking(null);
+      setSelectedBooking(null);
+      await loadBookings(pageIndex);
+    } catch (checkInError) {
+      showToast({
+        title: "Không thể check-in",
+        message:
+          checkInError instanceof Error
+            ? checkInError.message
+            : "Không thể check-in booking. Vui lòng thử lại.",
+        type: "SystemAlert",
+        tone: "error",
+      });
+
+      const refreshedBookings = await loadBookings(pageIndex);
+      if (refreshedBookings) {
+        const refreshedBooking = refreshedBookings.find((booking) => booking.id === bookingId);
+        if (!refreshedBooking || refreshedBooking.status !== "Confirmed") {
+          setCheckInBooking(null);
+          setSelectedBooking(null);
+        } else {
+          setCheckInBooking(refreshedBooking);
+        }
+      }
+    }
   }
 
   const startItem = totalCount === 0 ? 0 : (pageIndex - 1) * PAGE_SIZE + 1;
@@ -326,7 +486,7 @@ export function AdminBookingsPage() {
           <h2 className="font-bold text-slate-950">Danh sách booking</h2>
           {totalCount > 0 && (
             <span className="text-xs text-slate-500">
-              Hiển thị {startItem}–{endItem} trong số {totalCount} booking
+              Hiển thị {startItem}-{endItem} trong số {totalCount} booking
             </span>
           )}
         </div>
@@ -442,8 +602,134 @@ export function AdminBookingsPage() {
       </section>
 
       {selectedBooking ? (
-        <BookingDetailModal booking={selectedBooking} onClose={() => setSelectedBooking(null)} />
+        <BookingDetailModal
+          booking={selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+          onCheckIn={openCheckInDialog}
+        />
       ) : null}
+
+      <Dialog
+        open={checkInBooking !== null}
+        onOpenChange={(open) => {
+          if (!open && !checkInMutation.isPending) {
+            setCheckInBooking(null);
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          overlayClassName="bg-black/70 backdrop-blur-[3px]"
+          className="admin-brand-surface gap-0 overflow-hidden rounded-[16px] border border-[var(--border-box)] bg-[var(--background-main)] p-0 text-[var(--text-light)] shadow-[0_28px_80px_rgba(0,0,0,0.52)] ring-0 [font-family:Arial,Helvetica,sans-serif] sm:max-w-[576px]"
+        >
+          <DialogHeader className="relative gap-0 border-b border-[var(--border-box)] px-[20px] py-[20px] pr-[60px] sm:px-[24px] sm:py-[24px] sm:pr-[64px]">
+            <div className="mb-[16px] flex size-[40px] items-center justify-center rounded-[12px] bg-[rgba(188,163,116,0.12)] text-[var(--gold-primary)] ring-1 ring-[rgba(188,163,116,0.28)]">
+              <CheckCircle2 className="size-[20px]" aria-hidden />
+            </div>
+            <DialogTitle className="text-[22px] leading-[28px] font-bold tracking-[-0.01em] text-[var(--text-light)] sm:text-[24px]">
+              Xác nhận check-in
+            </DialogTitle>
+            <DialogDescription className="mt-[6px] max-w-[448px] text-[14px] leading-[22px] text-[var(--text-secondary)]">
+              Kiểm tra đúng khách hàng, phương tiện và lịch hẹn trước khi tiếp tục.
+            </DialogDescription>
+            <DialogClose
+              className="absolute top-[16px] right-[16px] inline-flex size-[36px] items-center justify-center rounded-[10px] text-[var(--text-secondary)] outline-none transition hover:bg-white/5 hover:text-[var(--text-light)] focus-visible:ring-2 focus-visible:ring-[var(--gold-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background-main)] disabled:pointer-events-none disabled:opacity-50 sm:top-[20px] sm:right-[20px]"
+              disabled={checkInMutation.isPending}
+              aria-label="Đóng"
+            >
+              <X className="size-[20px]" aria-hidden />
+            </DialogClose>
+          </DialogHeader>
+
+          {checkInBooking ? (
+            <div className="px-[20px] py-[20px] sm:px-[24px]">
+              <div className="grid gap-x-[24px] gap-y-[20px] rounded-[12px] border border-[var(--border-box)] bg-[var(--background-outer)] p-[16px] sm:grid-cols-2 sm:p-[20px]">
+                <div className="flex min-w-0 items-start gap-[12px]">
+                  <UserRound className="mt-[2px] size-[16px] shrink-0 text-[var(--gold-primary)]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[12px] leading-[16px] font-semibold text-[var(--text-secondary)]">Khách hàng</p>
+                    <p className="mt-[4px] truncate text-[14px] leading-[20px] font-semibold text-[var(--text-light)]">
+                      {checkInBooking.customerName || "Chưa cập nhật"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 items-start gap-[12px]">
+                  <CarFront className="mt-[2px] size-[16px] shrink-0 text-[var(--gold-primary)]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[12px] leading-[16px] font-semibold text-[var(--text-secondary)]">Biển số xe</p>
+                    <p className="mt-[4px] truncate text-[14px] leading-[20px] font-bold text-[var(--text-light)] [font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace]">
+                      {checkInBooking.vehiclePlate || "Chưa cập nhật"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 items-start gap-[12px] sm:col-span-2">
+                  <MapPin className="mt-[2px] size-[16px] shrink-0 text-[var(--gold-primary)]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[12px] leading-[16px] font-semibold text-[var(--text-secondary)]">Chi nhánh</p>
+                    <p className="mt-[4px] truncate text-[14px] leading-[20px] font-semibold text-[var(--text-light)]">
+                      {checkInBooking.branchName || "Chưa cập nhật"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 items-start gap-[12px]">
+                  <CalendarDays className="mt-[2px] size-[16px] shrink-0 text-[var(--gold-primary)]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[12px] leading-[16px] font-semibold text-[var(--text-secondary)]">Ngày hẹn</p>
+                    <p className="mt-[4px] text-[14px] leading-[20px] font-semibold text-[var(--text-light)]">
+                      {formatBookingDate(checkInBooking.bookingDate)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex min-w-0 items-start gap-[12px]">
+                  <Clock3 className="mt-[2px] size-[16px] shrink-0 text-[var(--gold-primary)]" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="text-[12px] leading-[16px] font-semibold text-[var(--text-secondary)]">Khung giờ</p>
+                    <p className="mt-[4px] whitespace-nowrap text-[14px] leading-[20px] font-semibold text-[var(--text-light)]">
+                      {checkInBooking.endTime
+                        ? `${formatTime(checkInBooking.startTime)} - ${formatTime(checkInBooking.endTime)}`
+                        : formatTime(checkInBooking.startTime)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-[16px] rounded-[12px] border border-[rgba(188,163,116,0.28)] bg-[rgba(188,163,116,0.09)] px-[16px] py-[12px] text-[14px] leading-[20px] text-[#d8c49f]">
+                Booking sẽ chuyển sang trạng thái <span className="font-semibold">Đang rửa</span> ngay sau khi check-in.
+              </p>
+            </div>
+          ) : null}
+
+          <DialogFooter className="m-0 grid grid-cols-1 gap-[8px] rounded-none border-t border-[var(--border-box)] bg-[#121214] px-[20px] py-[16px] sm:flex sm:px-[24px]">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={checkInMutation.isPending}
+              onClick={() => setCheckInBooking(null)}
+              className="h-[40px] border-[var(--border-box)] bg-transparent px-[16px] text-[14px] font-semibold text-[var(--text-body)] hover:border-[rgba(188,163,116,0.45)] hover:bg-white/5 hover:text-[var(--text-light)]"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              disabled={checkInMutation.isPending}
+              aria-busy={checkInMutation.isPending}
+              onClick={() => void handleConfirmCheckIn()}
+              className="h-[40px] bg-[var(--gold-primary)] px-[16px] text-[14px] font-bold text-[#17130f] hover:bg-[#cdb78d] focus-visible:border-[var(--gold-primary)] focus-visible:ring-[rgba(188,163,116,0.35)]"
+            >
+              {checkInMutation.isPending ? (
+                <LoaderCircle data-icon="inline-start" className="animate-spin" aria-hidden />
+              ) : (
+                <CheckCircle2 data-icon="inline-start" aria-hidden />
+              )}
+              {checkInMutation.isPending ? "Đang check-in..." : "Xác nhận check-in"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }
