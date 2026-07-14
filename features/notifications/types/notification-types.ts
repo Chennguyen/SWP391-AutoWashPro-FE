@@ -9,6 +9,8 @@ export type NotificationType =
   | "IdentityRejected"
   | "SystemAlert";
 
+export type NotificationTone = "default" | "error";
+
 export type NotificationItem = {
   id: string;
   title: string;
@@ -16,6 +18,7 @@ export type NotificationItem = {
   type: NotificationType;
   isRead: boolean;
   createdAt: string;
+  tone?: NotificationTone;
 };
 
 export type GetNotificationsParams = {

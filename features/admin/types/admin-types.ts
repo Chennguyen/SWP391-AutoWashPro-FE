@@ -55,6 +55,14 @@ export type AdminBooking = {
   createdAt?: string;
 };
 
+export type AdminCheckInResult = {
+  id: string;
+  status: BookingStatus;
+  checkedInAt: string;
+  estimatedCompletedAt: string;
+  message: string;
+};
+
 export type AdminBookingSlot = {
   id?: string;
   time: string;

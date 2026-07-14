@@ -246,22 +246,6 @@ export function isUpcomingStatus(status: string): boolean {
 }
 
 /**
- * Kiểm tra xem trạng thái lịch đặt hiện tại có cho phép khách hàng thực hiện check-in hay không.
- * Điều kiện: Trạng thái là "confirmed" và thời gian hiện tại đã đến hoặc vượt quá thời gian bắt đầu lịch đặt.
- * 
- * @param booking Đối tượng lịch đặt.
- * @returns Có thể check-in hay không.
- */
-export function canCheckIn(booking: CustomerBooking): boolean {
-  if (normalizeStatus(booking.status) !== "confirmed") {
-    return false;
-  }
-  const startDate = getBookingStartDate(booking);
-  if (!startDate) return false;
-  return Date.now() >= startDate.getTime();
-}
-
-/**
  * Trả về các class CSS Tailwind tương ứng để tạo màu sắc nhãn (Badge) cho từng trạng thái lịch đặt.
  * 
  * @param status Từ khóa trạng thái hiện tại.
@@ -273,7 +257,9 @@ export function statusStyle(status: string): string {
     return "border-red-200 bg-red-50 text-red-700";
   if (s.includes("complete") || s.includes("done") || s.includes("xong"))
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (s.includes("progress") || s.includes("checkin"))
+  if (s.includes("progress"))
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  if (s.includes("checkin"))
     return "border-indigo-200 bg-indigo-50 text-indigo-700";
   if (s.includes("confirm"))
     return "border-emerald-200 bg-emerald-50 text-emerald-700";

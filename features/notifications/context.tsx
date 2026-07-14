@@ -25,6 +25,7 @@ interface NotificationContextProps {
   toasts: NotificationItem[];
   loading: boolean;
   error: string | null;
+  showToast: (toast: Pick<NotificationItem, "title" | "message" | "type" | "tone">) => void;
   dismissToast: (id: string) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
@@ -283,6 +284,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [promotions, setPromotions] = useState<any[]>([]);
   const promotionsRef = useRef<any[]>([]);
+  const toastTimeoutsRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     promotionsRef.current = promotions;
@@ -411,7 +413,37 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Đóng Toast thông báo nổi
   const dismissToast = useCallback((id: string) => {
+    const timeoutId = toastTimeoutsRef.current.get(id);
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+      toastTimeoutsRef.current.delete(id);
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const showToast = useCallback(
+    (toast: Pick<NotificationItem, "title" | "message" | "type" | "tone">) => {
+      const id = `client-toast-${crypto.randomUUID()}`;
+      const item: NotificationItem = {
+        ...toast,
+        id,
+        isRead: true,
+        createdAt: new Date().toISOString(),
+      };
+
+      setToasts((prev) => [...prev, item]);
+      const timeoutId = window.setTimeout(() => dismissToast(id), 5000);
+      toastTimeoutsRef.current.set(id, timeoutId);
+    },
+    [dismissToast],
+  );
+
+  useEffect(() => {
+    const timeoutIds = toastTimeoutsRef.current;
+    return () => {
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      timeoutIds.clear();
+    };
   }, []);
 
   // Lắng nghe sự kiện đồng bộ Token của ứng dụng
@@ -564,6 +596,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         toasts,
         loading,
         error,
+        showToast,
         dismissToast,
         markAsRead,
         markAllAsRead,

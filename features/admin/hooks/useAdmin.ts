@@ -23,6 +23,7 @@ import {
 import type {
   AccountStatus,
   AdminBooking,
+  AdminCheckInResult,
   AdminBookingSlot,
   AdminBranch,
   AdminUser,
@@ -263,12 +264,12 @@ export function useCompleteBookingMutation(token: string) {
 export function useCheckInAdminBookingMutation(token: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ApiError, string>({
+  return useMutation<AdminCheckInResult, ApiError, string>({
     mutationFn: async (id) => {
       if (!token) throw new Error("No token provided");
-      await checkInAdminBooking(token, id);
+      return await checkInAdminBooking(token, id);
     },
-    onSuccess: () => {
+    onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: ["admin-bookings", token],
       });

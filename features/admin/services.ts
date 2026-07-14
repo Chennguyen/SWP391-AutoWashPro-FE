@@ -21,6 +21,7 @@ import type {
   AdminBranch,
   AdminUser,
   AdminBooking,
+  AdminCheckInResult,
   AdminBookingSlot,
   DashboardStats,
   RevenueReport,
@@ -34,6 +35,7 @@ export type {
   AdminBranch,
   AdminUser,
   AdminBooking,
+  AdminCheckInResult,
   AdminBookingSlot,
   DashboardStats,
   RevenueReport,
@@ -884,14 +886,28 @@ export async function completeBooking(token: string, id: string, note: string): 
 
 /**
  * Thực hiện check-in cho một lịch đặt chỗ từ giao diện quản trị viên.
- * Nhắm mục tiêu chính xác đến endpoint đặt lịch của khách hàng thay vì namespace quản trị để tránh lỗi 404.
+ * Sử dụng endpoint Admin để Backend tự lấy thông tin Customer từ booking.
  * 
  * @param token Token xác thực của Admin.
  * @param id ID của lịch đặt.
- * @returns Hứa giải quyết khi check-in hoàn tất.
+ * @returns Kết quả nghiệp vụ sau khi Backend xử lý check-in.
  */
-export async function checkInAdminBooking(token: string, id: string): Promise<void> {
-  await axiosInstance.post(`/api/v1/bookings/${encodeURIComponent(id)}/check-in`, {});
+export async function checkInAdminBooking(
+  token: string,
+  id: string,
+): Promise<AdminCheckInResult> {
+  const res = await axiosInstance.post<ApiRecord<unknown>>(
+    `/api/v1/admin/bookings/${encodeURIComponent(id)}/check-in`,
+  );
+  const result = asRecord(unwrapRecord(res.data));
+
+  return {
+    id: readString(result, ["id", "Id"]),
+    status: readString(result, ["status", "Status"]) as BookingStatus,
+    checkedInAt: readString(result, ["checkedInAt", "CheckedInAt"]),
+    estimatedCompletedAt: readString(result, ["estimatedCompletedAt", "EstimatedCompletedAt"]),
+    message: readString(result, ["message", "Message"]),
+  };
 }
 
 /**

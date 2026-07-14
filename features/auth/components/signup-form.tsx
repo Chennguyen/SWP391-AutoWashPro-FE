@@ -374,16 +374,17 @@ export function SignupForm() {
                 >
                   <svg
                     className="h-6 w-6 text-[#d8bd84]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                    fill="currentColor"
+                    viewBox="0 0 16 16"
                     aria-hidden="true"
                   >
                     <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.338 0A4.5 4.5 0 0 1 17.25 19.5H6.75Z"
+                      fillRule="evenodd"
+                      d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"
+                    />
+                    <path
+                      fillRule="evenodd"
+                      d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"
                     />
                   </svg>
                   <div className="text-center">

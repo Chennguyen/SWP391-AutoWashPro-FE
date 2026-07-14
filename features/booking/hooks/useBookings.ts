@@ -4,7 +4,6 @@ import {
   createBooking,
   getBookings,
   getBooking,
-  checkInBooking,
   cancelBooking,
 } from "../booking-service";
 import type {
@@ -78,22 +77,6 @@ export function useGetBookingQuery(token: string, id: string, options?: { enable
       return await getBooking(token, id);
     },
     enabled: options?.enabled !== false && !!token && !!id,
-  });
-}
-
-export function useCheckInBookingMutation(token: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation<void, ApiError, string>({
-    mutationFn: async (id) => {
-      if (!token) throw new Error("Authentication token is required");
-      return await checkInBooking(token, id);
-    },
-    onSuccess: (_, id) => {
-      void queryClient.invalidateQueries({ queryKey: ["customer-bookings"] });
-      void queryClient.invalidateQueries({ queryKey: ["booking-detail", id] });
-      void queryClient.invalidateQueries({ queryKey: ["loyalty-info"] });
-    },
   });
 }
 

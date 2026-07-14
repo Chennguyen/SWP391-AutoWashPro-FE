@@ -6,7 +6,6 @@ import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import { getLoyaltySettings, type LoyaltyPointsConfig } from "@/features/loyalty/loyalty-admin-service";
 import {
   useCancelBookingMutation,
-  useCheckInBookingMutation,
   useGetBookingQuery,
 } from "@/features/booking/hooks/useBookings";
 import { ApiError } from "@/lib/api-error";
@@ -16,9 +15,8 @@ import {
   statusStyle,
   isCancelledStatus,
   isCompletedStatus,
-  canCheckIn,
 } from "@/features/booking/utils";
-import { CheckInConfirmModal, CancelModal } from "./upcoming-booking-panel";
+import { CancelModal } from "./upcoming-booking-panel";
 import { BookingPriceSummary } from "./booking-price-summary";
 
 interface BookingDetailModalProps {
@@ -43,13 +41,10 @@ export function BookingDetailModal({
 }: BookingDetailModalProps) {
   const [configs, setConfigs] = useState<LoyaltyPointsConfig | null>(null);
 
-  const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [checkingIn, setCheckingIn] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const checkInMutation = useCheckInBookingMutation(token);
   const cancelMutation = useCancelBookingMutation(token);
   const detailQuery = useGetBookingQuery(token, booking.id);
   const resolvedBooking = detailQuery.data ?? booking;
@@ -93,28 +88,6 @@ export function BookingDetailModal({
     canCancelByTime &&
     !isCancelledStatus(booking.status) &&
     !isCompletedStatus(booking.status);
-
-  const showCheckInBtn = canCheckIn(booking);
-
-  async function handleCheckIn() {
-    if (!token) return;
-    setCheckingIn(true);
-    setActionError(null);
-    try {
-      await checkInMutation.mutateAsync(booking.id);
-      setShowCheckInModal(false);
-      onClose();
-      if (onChanged) await onChanged();
-    } catch (err) {
-      if (err instanceof ApiError && err.status >= 500) {
-        setActionError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
-      } else {
-        setActionError(err instanceof Error ? err.message : "Không thể check-in booking.");
-      }
-    } finally {
-      setCheckingIn(false);
-    }
-  }
 
   async function handleConfirmCancel(reason: string) {
     if (!token || !reason) return;
@@ -162,7 +135,7 @@ export function BookingDetailModal({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
         onClick={(e) => {
-          if (e.target === e.currentTarget && !checkingIn && !cancelling) onClose();
+          if (e.target === e.currentTarget && !cancelling) onClose();
         }}
         role="dialog"
         aria-modal="true"
@@ -180,7 +153,7 @@ export function BookingDetailModal({
             <button
               type="button"
               onClick={onClose}
-              disabled={checkingIn || cancelling}
+              disabled={cancelling}
               aria-label="Đóng"
               className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
             >
@@ -194,11 +167,20 @@ export function BookingDetailModal({
             <div>
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
-                  booking.status
+                  resolvedBooking.status
                 )}`}
               >
-                <CheckCircle2 size={12} aria-hidden />
-                {booking.status}
+                {(() => {
+                  const s = resolvedBooking.status.toLowerCase();
+                  if (s.includes("cancel") || s.includes("hủy") || s.includes("huy")) {
+                    return <XCircle size={12} aria-hidden />;
+                  }
+                  if (s.includes("progress")) {
+                    return <Clock size={12} aria-hidden />;
+                  }
+                  return <CheckCircle2 size={12} aria-hidden />;
+                })()}
+                {resolvedBooking.status}
               </span>
             </div>
 
@@ -251,25 +233,12 @@ export function BookingDetailModal({
 
           {/* Footer Actions (Image 3 logic) */}
           <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 flex flex-col gap-2 shrink-0">
-            {/* Check-in action button */}
-            {showCheckInBtn ? (
-              <button
-                type="button"
-                onClick={() => setShowCheckInModal(true)}
-                disabled={checkingIn || cancelling}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <CheckCircle2 size={16} aria-hidden />
-                Check-in
-              </button>
-            ) : null}
-
             {/* Cancel action button */}
             {canCancelByLifecycle ? (
               <button
                 type="button"
                 onClick={() => setShowCancelModal(true)}
-                disabled={checkingIn || cancelling}
+                disabled={cancelling}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <XCircle size={16} aria-hidden />
@@ -281,7 +250,7 @@ export function BookingDetailModal({
             <button
               type="button"
               onClick={onClose}
-              disabled={checkingIn || cancelling}
+              disabled={cancelling}
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
             >
               Đóng
@@ -291,19 +260,6 @@ export function BookingDetailModal({
       </div>
 
       {/* Sub-modals */}
-      {showCheckInModal && (
-        <CheckInConfirmModal
-          booking={resolvedBooking}
-          onConfirm={handleCheckIn}
-          onClose={() => {
-            setShowCheckInModal(false);
-            setActionError(null);
-          }}
-          loading={checkingIn}
-          token={token}
-        />
-      )}
-
       {showCancelModal && (
         <CancelModal
           onConfirm={handleConfirmCancel}
