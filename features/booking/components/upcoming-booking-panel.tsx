@@ -530,7 +530,16 @@ function BookingDetailPanel({
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(booking.status)}`}
           >
-            <CheckCircle2 size={12} aria-hidden />
+            {(() => {
+              const s = booking.status.toLowerCase();
+              if (s.includes("cancel") || s.includes("hủy") || s.includes("huy")) {
+                return <XCircle size={12} aria-hidden />;
+              }
+              if (s.includes("progress")) {
+                return <Clock size={12} aria-hidden />;
+              }
+              return <CheckCircle2 size={12} aria-hidden />;
+            })()}
             {booking.status}
           </span>
           <h3 className="mt-2 text-xl font-black text-slate-950">

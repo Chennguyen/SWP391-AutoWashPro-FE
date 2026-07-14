@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Clock, XCircle, CheckCircle2 } from "lucide-react";
 import { ApiError } from "@/lib/api-error";
 import { getBookings } from "@/features/booking/booking-service";
 import type { CustomerBooking } from "@/features/booking/types/booking-types";
@@ -15,14 +15,33 @@ import {
   isUpcomingStatus,
   isCompletedStatus,
   isCancelledStatus,
+  statusStyle,
+  getBookingStartDate,
+  getBookingEndDate,
 } from "@/features/booking/utils";
 import { BookingDetailModal } from "@/features/booking/components/booking-detail-modal";
 import { CancelBookingModal } from "@/features/booking/components/cancel-booking-modal";
 import { BookingHistoryFilter } from "@/features/booking/components/booking-history-filter";
 import { BookingHistoryList } from "@/features/booking/components/booking-history-list";
 import { BookingCustomerSummary } from "@/features/booking/components/booking-customer-summary";
+import { Calendar, dateFnsLocalizer } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay } from "date-fns";
+import { vi } from "date-fns/locale/vi";
+import "react-big-calendar/lib/css/react-big-calendar.css";
 
 const PAGE_SIZE = 5;
+
+const locales = {
+  "vi": vi,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 /**
  * Trang (Page) BookingHistoryPage
@@ -35,6 +54,40 @@ export default function BookingHistoryPage() {
     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Đang tải lịch sử...</div>}>
       <BookingHistoryPageContent />
     </Suspense>
+  );
+}
+
+interface CustomToolbarProps {
+  label: string;
+  onNavigate: (action: "PREV" | "NEXT" | "TODAY") => void;
+}
+
+function CustomToolbar({ label, onNavigate }: CustomToolbarProps) {
+  return (
+    <div className="flex items-center justify-between mb-4 gap-4 w-full">
+      {/* Tiêu đề tháng/năm căn trái, viết hoa chữ cái đầu, thêm dấu phẩy trước năm */}
+      <span className="text-slate-100 font-bold text-lg capitalize">
+        {label.replace(/\s+(\d{4})$/, ", $1")}
+      </span>
+      
+      {/* Nút điều hướng (Chỉ giữ Trước / Tiếp, bỏ Hôm nay) */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onNavigate("PREV")}
+          className="border border-white/10 text-slate-300 hover:text-white hover:border-[#bca374] hover:bg-white/5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+        >
+          Trước
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate("NEXT")}
+          className="border border-white/10 text-slate-300 hover:text-white hover:border-[#bca374] hover:bg-white/5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+        >
+          Tiếp
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -65,6 +118,14 @@ function BookingHistoryPageContent() {
   // Modal state
   const [detailBooking, setDetailBooking] = useState<CustomerBooking | null>(null);
   const [cancelBooking, setCancelBooking] = useState<CustomerBooking | null>(null);
+
+  // Calendar states (initialize on mount to avoid Next.js SSR timezone/date hydration mismatch)
+  const [calendarDate, setCalendarDate] = useState<Date | null>(null);
+  const [calendarView, setCalendarView] = useState<any>("month");
+
+  useEffect(() => {
+    setCalendarDate(new Date());
+  }, []);
 
   // Date filter defaults: last 3 months → today
   const today = toISODate(new Date());
@@ -100,6 +161,18 @@ function BookingHistoryPageContent() {
     }
 
     return true;
+  });
+
+  const calendarEvents = filtered.map((b) => {
+    const start = getBookingStartDate(b) || new Date();
+    const end = getBookingEndDate(b) || new Date(start.getTime() + 30 * 60_000);
+    return {
+      id: b.id,
+      title: `${b.branchName} - ${b.vehicleLicensePlate}`,
+      start,
+      end,
+      resource: b,
+    };
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -177,14 +250,26 @@ function BookingHistoryPageContent() {
 
         {/* Cột phải: Nội dung lịch sử */}
         <div className="lg:col-span-3 space-y-6">
-          {/* Header */}
-          <div>
-            <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
-            <p className="mt-1 text-sm text-slate-500">{pageDescription}</p>
+          {/* Header & Refresh row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900">{pageTitle}</h1>
+              <p className="mt-1 text-sm text-slate-500">{pageDescription}</p>
+            </div>
+            {subTab === "active" && (
+              <button
+                onClick={loadBookings}
+                disabled={loading || !token}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50 shrink-0 self-start sm:self-auto"
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
+                Tải lại
+              </button>
+            )}
           </div>
 
-          {/* Date filter / Refresh bar */}
-          {subTab === "history" ? (
+          {/* Date filter (Only for history tab) */}
+          {subTab === "history" && (
             <BookingHistoryFilter
               fromDate={fromDate}
               toDate={toDate}
@@ -194,38 +279,81 @@ function BookingHistoryPageContent() {
               onToDateChange={setToDate}
               onRefresh={loadBookings}
             />
-          ) : (
-            <div className="flex justify-end">
-              <button
-                onClick={loadBookings}
-                disabled={loading || !token}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-              >
-                <RefreshCw size={14} className={loading ? "animate-spin" : ""} aria-hidden />
-                Tải lại
-              </button>
-            </div>
           )}
 
           {/* Booking list (handles all states: not-logged-in / loading / error / empty / list) */}
-          <BookingHistoryList
-            authChecked={authChecked}
-            token={token}
-            loading={loading}
-            error={error}
-            filtered={filtered}
-            paginated={paginated}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={PAGE_SIZE}
-            onBookingClick={(clicked) => setDetailBooking(clicked)}
-            onPageChange={handlePageChange}
-            emptyMessage={
-              subTab === "active"
-                ? "Bạn không có lịch hẹn nào đang hoạt động."
-                : "Không có lịch đặt nào trong khoảng thời gian này."
-            }
-          />
+          {subTab === "active" && authChecked && token && !loading && !error ? (
+            <div className="h-[600px] w-full bg-[#161619] border border-white/10 rounded-2xl p-4 overflow-visible">
+              {calendarDate && (
+                <Calendar
+                  localizer={localizer}
+                  events={calendarEvents}
+                  startAccessor="start"
+                  endAccessor="end"
+                  culture="vi"
+                  date={calendarDate}
+                  onNavigate={(date) => setCalendarDate(date)}
+                  view={calendarView}
+                  onView={(view) => setCalendarView(view)}
+                  views={["month"]}
+                  messages={{
+                    next: "Tiếp",
+                    previous: "Trước",
+                    today: "Hôm nay",
+                    month: "Tháng",
+                    noEventsInRange: "Không có lịch đặt nào.",
+                  }}
+                  components={{
+                    toolbar: CustomToolbar,
+                    event: ({ event }) => {
+                      const booking = event.resource as CustomerBooking;
+                      const isProgress = booking.status.toLowerCase().includes("progress");
+                      const isCancel = isCancelledStatus(booking.status);
+                      const timeStr = booking.startTime.split("T")[1]?.slice(0, 5) || booking.startTime.slice(0, 5);
+                      return (
+                        <div
+                          className={`w-fit max-w-full h-fit rounded-md px-1.5 py-0.5 text-[9px] font-semibold border truncate flex items-center gap-1 ${statusStyle(booking.status)}`}
+                          title={`${booking.branchName} - ${booking.vehicleLicensePlate} (${timeStr})`}
+                        >
+                          {isCancel ? (
+                            <XCircle size={10} className="shrink-0" />
+                          ) : isProgress ? (
+                            <Clock size={10} className="shrink-0" />
+                          ) : (
+                            <CheckCircle2 size={10} className="shrink-0" />
+                          )}
+                          <span className="truncate">
+                            {timeStr} - {booking.vehicleLicensePlate}
+                          </span>
+                        </div>
+                      );
+                    }
+                  }}
+                  onSelectEvent={(event) => setDetailBooking(event.resource)}
+                  className="w-full h-full text-sm"
+                />
+              )}
+            </div>
+          ) : (
+            <BookingHistoryList
+              authChecked={authChecked}
+              token={token}
+              loading={loading}
+              error={error}
+              filtered={filtered}
+              paginated={paginated}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={PAGE_SIZE}
+              onBookingClick={(clicked) => setDetailBooking(clicked)}
+              onPageChange={handlePageChange}
+              emptyMessage={
+                subTab === "active"
+                  ? "Bạn không có lịch hẹn nào đang hoạt động."
+                  : "Không có lịch đặt nào trong khoảng thời gian này."
+              }
+            />
+          )}
         </div>
       </div>
 

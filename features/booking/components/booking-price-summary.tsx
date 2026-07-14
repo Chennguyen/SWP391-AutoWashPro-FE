@@ -14,7 +14,8 @@ interface BookingPriceSummaryProps {
   isLoading: boolean;
   error: Error | null;
   depositRate?: number;
-  onRetry: () => void;
+  onRetry?: () => void;
+  className?: string;
 }
 
 function formatVND(amount: number) {
@@ -71,14 +72,15 @@ export function BookingPriceSummary({
   error,
   depositRate = 30,
   onRetry,
+  className,
 }: BookingPriceSummaryProps) {
   if (isLoading) {
     return (
-      <Card size="sm" aria-label="Đang tải chi tiết thanh toán">
-        <CardHeader>
-          <CardTitle>Chi tiết thanh toán</CardTitle>
+      <Card size="sm" aria-label="Đang tải chi tiết thanh toán" className={cn("bg-transparent border-none shadow-none ring-0 p-0 overflow-visible", className)}>
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="text-slate-950 font-bold">Chi tiết thanh toán</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-3 px-0 pb-0">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-4/5" />
           <Skeleton className="h-4 w-full" />
@@ -98,10 +100,12 @@ export function BookingPriceSummary({
             {error?.message ??
               "Backend chưa trả đủ basePrice, discountAmount và finalPrice cho booking này."}
           </span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RefreshCw data-icon="inline-start" aria-hidden />
-            Thử lại
-          </Button>
+          {onRetry && (
+            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+              <RefreshCw data-icon="inline-start" aria-hidden />
+              Thử lại
+            </Button>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -117,15 +121,14 @@ export function BookingPriceSummary({
   const remainingAmount = Math.max(finalPrice - depositAmount, 0);
 
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>Chi tiết thanh toán</CardTitle>
+    <Card size="sm" className={cn("bg-transparent border-none shadow-none ring-0 p-0 overflow-visible", className)}>
+      <CardHeader className="px-0 pt-0">
+        <CardTitle className="text-slate-950 font-bold">Chi tiết thanh toán</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-3 px-0 pb-0">
         <PriceRow label="Giá gốc" value={formatVND(basePrice)} />
         <PriceRow label="Tổng giảm giá" value={`-${formatVND(discountAmount)}`} />
         <PriceRow label="Thành tiền" value={formatVND(finalPrice)} emphasized />
-        <Separator />
         <PriceRow
           label={`Số tiền đã cọc (${normalizedDepositRate}%)`}
           value={formatVND(depositAmount)}

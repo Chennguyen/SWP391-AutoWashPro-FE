@@ -274,7 +274,7 @@ export function statusStyle(status: string): string {
   if (s.includes("complete") || s.includes("done") || s.includes("xong"))
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (s.includes("progress"))
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    return "border-amber-200 bg-amber-50 text-amber-700";
   if (s.includes("checkin"))
     return "border-indigo-200 bg-indigo-50 text-indigo-700";
   if (s.includes("confirm"))
