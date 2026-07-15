@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Branch } from "@/features/booking/types/booking-types";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Clock, MapPin } from "lucide-react";
+import { CheckCircle2, MapPin } from "lucide-react";
 
 interface BranchStepProps {
   branches: Branch[];
@@ -134,12 +134,6 @@ export function BranchStep({
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MapPin className="shrink-0" aria-hidden />
                       <span className="truncate">{branch.address}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="shrink-0" aria-hidden />
-                      <span>
-                        {branch.openTime} - {branch.closeTime}
-                      </span>
                     </div>
                   </CardContent>
                 </Card>

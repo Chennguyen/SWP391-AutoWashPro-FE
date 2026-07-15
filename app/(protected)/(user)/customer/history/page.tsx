@@ -18,6 +18,7 @@ import {
   statusStyle,
   getBookingStartDate,
   getBookingEndDate,
+  formatTimeRange,
 } from "@/features/booking/utils";
 import { BookingDetailModal } from "@/features/booking/components/booking-detail-modal";
 import { CancelBookingModal } from "@/features/booking/components/cancel-booking-modal";
@@ -58,34 +59,64 @@ export default function BookingHistoryPage() {
 }
 
 interface CustomToolbarProps {
+  date: Date;
   label: string;
   onNavigate: (action: "PREV" | "NEXT" | "TODAY") => void;
+  view: string;
+  onView: (view: string) => void;
 }
 
-function CustomToolbar({ label, onNavigate }: CustomToolbarProps) {
+function CustomToolbar({ date, label, onNavigate, view, onView }: CustomToolbarProps) {
+  let displayLabel = label.replace(/\s+(\d{4})$/, ", $1");
+
+  if (view === "day") {
+    const days = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+    const dayName = days[date.getDay()];
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const y = date.getFullYear();
+    displayLabel = `${dayName}, ngày ${d}, tháng ${m}, năm ${y}`;
+  }
+
   return (
-    <div className="flex items-center justify-between mb-4 gap-4 w-full">
-      {/* Tiêu đề tháng/năm căn trái, viết hoa chữ cái đầu, thêm dấu phẩy trước năm */}
-      <span className="text-slate-100 font-bold text-lg capitalize">
-        {label.replace(/\s+(\d{4})$/, ", $1")}
-      </span>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4 w-full">
+      {/* Tiêu đề */}
+      <div className="flex items-center gap-3.5 flex-wrap">
+        <span className="text-slate-100 font-bold text-lg capitalize shrink-0">
+          {displayLabel}
+        </span>
+      </div>
       
-      {/* Nút điều hướng (Chỉ giữ Trước / Tiếp, bỏ Hôm nay) */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onNavigate("PREV")}
-          className="border border-white/10 text-slate-300 hover:text-white hover:border-[#bca374] hover:bg-white/5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
-        >
-          Trước
-        </button>
-        <button
-          type="button"
-          onClick={() => onNavigate("NEXT")}
-          className="border border-white/10 text-slate-300 hover:text-white hover:border-[#bca374] hover:bg-white/5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
-        >
-          Tiếp
-        </button>
+      {/* Nút điều hướng */}
+      <div className="flex items-center gap-3 self-end sm:self-auto">
+        {view === "day" && (
+          <button
+            type="button"
+            onClick={() => onView("month")}
+            className="text-[#bca374] hover:text-white border border-[#bca374]/30 hover:border-[#bca374] bg-[#bca374]/10 hover:bg-[#bca374]/20 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+          >
+            Quay lại
+          </button>
+        )}
+
+        {view !== "day" && (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => onNavigate("PREV")}
+              className="border border-white/10 text-slate-300 hover:text-white hover:border-[#bca374] hover:bg-white/5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+            >
+              Trước
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate("NEXT")}
+              className="border border-white/10 text-slate-300 hover:text-white hover:border-[#bca374] hover:bg-white/5 px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer"
+            >
+              Tiếp
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -283,7 +314,7 @@ function BookingHistoryPageContent() {
 
           {/* Booking list (handles all states: not-logged-in / loading / error / empty / list) */}
           {subTab === "active" && authChecked && token && !loading && !error ? (
-            <div className="h-[600px] w-full bg-[#161619] border border-white/10 rounded-2xl p-4 overflow-visible">
+            <div className="h-auto min-h-[600px] w-full bg-[#161619] border border-white/10 rounded-2xl p-4 overflow-visible">
               {calendarDate && (
                 <Calendar
                   localizer={localizer}
@@ -295,33 +326,57 @@ function BookingHistoryPageContent() {
                   onNavigate={(date) => setCalendarDate(date)}
                   view={calendarView}
                   onView={(view) => setCalendarView(view)}
-                  views={["month"]}
+                  views={["month", "day"]}
+                  onDrillDown={(date) => {
+                    setCalendarDate(date);
+                    setCalendarView("day");
+                  }}
                   messages={{
                     next: "Tiếp",
                     previous: "Trước",
                     today: "Hôm nay",
                     month: "Tháng",
+                    day: "Ngày",
                     noEventsInRange: "Không có lịch đặt nào.",
                   }}
                   components={{
-                    toolbar: CustomToolbar,
+                    toolbar: (props) => (
+                      <CustomToolbar
+                        {...props}
+                        view={calendarView}
+                        onView={setCalendarView}
+                      />
+                    ),
                     event: ({ event }) => {
                       const booking = event.resource as CustomerBooking;
                       const isProgress = booking.status.toLowerCase().includes("progress");
                       const isCancel = isCancelledStatus(booking.status);
                       const timeStr = booking.startTime.split("T")[1]?.slice(0, 5) || booking.startTime.slice(0, 5);
+                      
+                      if (calendarView === "day") {
+                        const timeRange = formatTimeRange(booking);
+                        return (
+                          <div
+                            className={`w-full h-full rounded-lg py-1.5 px-3 border flex flex-col justify-center gap-1 ${statusStyle(booking.status)}`}
+                            title={`${booking.branchName} - ${booking.vehicleLicensePlate} (${timeRange})`}
+                          >
+                            <div className="flex items-center">
+                              <span className="font-bold text-slate-100 text-xs truncate">
+                                {timeRange} — {booking.vehicleLicensePlate}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-400 font-medium truncate">
+                              {booking.branchName}
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
-                          className={`w-fit max-w-full h-fit rounded-md px-1.5 py-0.5 text-[9px] font-semibold border truncate flex items-center gap-1 ${statusStyle(booking.status)}`}
+                          className={`w-fit max-w-full h-fit rounded-lg px-2.5 py-1 text-xs font-semibold border truncate flex items-center ${statusStyle(booking.status)}`}
                           title={`${booking.branchName} - ${booking.vehicleLicensePlate} (${timeStr})`}
                         >
-                          {isCancel ? (
-                            <XCircle size={10} className="shrink-0" />
-                          ) : isProgress ? (
-                            <Clock size={10} className="shrink-0" />
-                          ) : (
-                            <CheckCircle2 size={10} className="shrink-0" />
-                          )}
                           <span className="truncate">
                             {timeStr} - {booking.vehicleLicensePlate}
                           </span>

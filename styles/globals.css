@@ -478,7 +478,7 @@ main.bg-background-outer {
 .bg-background-outer .bg-red-100,
 .bg-background-outer div[class*="bg-red-"],
 .bg-background-outer span[class*="bg-red-"] {
-  background-color: rgba(239, 68, 68, 0.1) !important;
+  background-color: rgba(239, 68, 68, 0.18) !important;
   border: 1px solid rgba(239, 68, 68, 0.25) !important;
 }
 
@@ -502,7 +502,7 @@ main.bg-background-outer {
 .bg-background-outer div[class*="bg-green-"],
 .bg-background-outer span[class*="bg-emerald-"],
 .bg-background-outer span[class*="bg-green-"] {
-  background-color: rgba(16, 185, 129, 0.1) !important;
+  background-color: rgba(16, 185, 129, 0.18) !important;
   border: 1px solid rgba(16, 185, 129, 0.25) !important;
 }
 
@@ -525,7 +525,7 @@ main.bg-background-outer {
 .bg-background-outer div[class*="bg-yellow-"],
 .bg-background-outer span[class*="bg-amber-"],
 .bg-background-outer span[class*="bg-yellow-"] {
-  background-color: rgba(245, 158, 11, 0.1) !important;
+  background-color: rgba(245, 158, 11, 0.18) !important;
   border: 1px solid rgba(245, 158, 11, 0.25) !important;
 }
 
@@ -917,11 +917,10 @@ input[type="password"] {
    React Big Calendar Dark Theme Overrides
    ========================================================================== */
 .bg-background-outer .rbc-calendar {
-  background-color: var(--background-main) !important;
+  background-color: transparent !important;
   color: var(--text-light) !important;
-  border-radius: 16px;
-  border: 1px solid var(--border-box) !important;
-  padding: 20px;
+  border: none !important;
+  padding: 0 !important;
 }
 
 .bg-background-outer .rbc-header {
@@ -931,7 +930,14 @@ input[type="password"] {
   padding: 8px 0 !important;
 }
 
-.bg-background-outer .rbc-month-view,
+.bg-background-outer .rbc-month-view {
+  border: 1px solid var(--border-box) !important;
+  background-color: var(--background-main) !important;
+  border-radius: 12px;
+  height: auto !important;
+  flex: none !important;
+}
+
 .bg-background-outer .rbc-time-view,
 .bg-background-outer .rbc-agenda-view {
   border: 1px solid var(--border-box) !important;
@@ -946,6 +952,10 @@ input[type="password"] {
 
 .bg-background-outer .rbc-month-row {
   border-top: 1px solid var(--border-box) !important;
+  height: auto !important;
+  min-height: 100px;
+  flex: none !important;
+  overflow: visible !important;
 }
 
 .bg-background-outer .rbc-off-range-bg {
@@ -963,6 +973,13 @@ input[type="password"] {
   border: none !important;
   display: flex !important;
   justify-content: flex-start !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+.bg-background-outer .rbc-event:hover {
+  filter: brightness(1.15) !important;
+  transform: translateY(-0.5px) !important;
 }
 
 .bg-background-outer .rbc-event-content {
@@ -1005,14 +1022,125 @@ input[type="password"] {
   font-size: 18px;
 }
 
-/* Pull first event row up to align with day numbers */
-.bg-background-outer .rbc-row-content > .rbc-row:nth-child(2) {
-  margin-top: -18px !important;
-}
+/* Events naturally sit below day numbers to use full width */
 
 /* Adjust date cell line-height/padding so events align nicely next to them */
 .bg-background-outer .rbc-date-cell {
   padding-top: 4px !important;
   padding-bottom: 2px !important;
   line-height: 1 !important;
+}
+
+/* ==========================================================================
+   React Big Calendar Day / Time View Dark Theme Overrides
+   ========================================================================== */
+.bg-background-outer .rbc-time-view {
+  background-color: var(--background-main) !important;
+  border: 1px solid var(--border-box) !important;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.bg-background-outer .rbc-time-header {
+  background-color: var(--background-main) !important;
+}
+
+.bg-background-outer .rbc-time-header-content {
+  border-left: 1px solid var(--border-box) !important;
+}
+
+.bg-background-outer .rbc-time-content {
+  border-top: 1px solid var(--border-box) !important;
+  background-color: var(--background-main) !important;
+}
+
+.bg-background-outer .rbc-time-gutter {
+  color: var(--text-secondary) !important;
+  font-size: 11px;
+}
+
+.bg-background-outer .rbc-timeslot-group {
+  border-bottom: 1px solid var(--border-box) !important;
+  min-height: 60px;
+}
+
+.bg-background-outer .rbc-time-slot {
+  border-top: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+/* 30-minute dashed sub-grid lines */
+.bg-background-outer .rbc-timeslot-group .rbc-time-slot:nth-child(2) {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
+}
+
+.bg-background-outer .rbc-day-slot {
+  background-color: transparent !important;
+}
+
+/* Day slot grid lines (keep 30-minute mark dashed inside day columns too) */
+.bg-background-outer .rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-timeslot-group .rbc-time-slot:nth-child(2) {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Event container spacing in Day slot */
+.bg-background-outer .rbc-day-slot .rbc-events-container {
+  margin-right: 0 !important;
+}
+
+/* Event card inside Day view slot */
+.bg-background-outer .rbc-day-slot .rbc-event {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  padding: 4px 10px 4px 12px !important; /* balanced padding for left-border */
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  border-width: 1px !important;
+  border-left-width: 4px !important; /* Thick left border! */
+  min-height: 38px !important; /* minimum height for short events */
+}
+
+/* High-contrast opaque left borders for Day view cards */
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-red-"] {
+  border-left-color: #ef4444 !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-emerald-"],
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-green-"] {
+  border-left-color: #10b981 !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-amber-"],
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-yellow-"] {
+  border-left-color: #f59e0b !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-indigo-"] {
+  border-left-color: #6366f1 !important;
+}
+
+.bg-background-outer .rbc-day-slot .rbc-event-label {
+  display: none !important;
+}
+
+/* Current Time Indicator dot & glowing line */
+.bg-background-outer .rbc-current-time-indicator {
+  background-color: #22c55e !important;
+  height: 2px !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6) !important;
+  position: absolute !important;
+  z-index: 5 !important;
+}
+.bg-background-outer .rbc-current-time-indicator::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #22c55e !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.8) !important;
+  border: 1.5px solid #161619 !important;
 }
