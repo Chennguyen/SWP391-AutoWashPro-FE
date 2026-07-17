@@ -3,7 +3,7 @@ import { HeroSection }         from "@/components/landing/hero-section";
 import { AboutSection }        from "@/components/landing/about-section";
 import { HowItWorks }          from "@/components/landing/how-it-works";
 import { BenefitsSection }     from "@/components/landing/benefits-section";
-
+import { LoyaltyCampaign }     from "@/components/landing/loyalty-campaign";
 import { FinalCTA }            from "@/components/landing/final-cta";
 import { Footer }              from "@/components/landing/footer";
 
@@ -15,12 +15,13 @@ import { Footer }              from "@/components/landing/footer";
  */
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#050505] text-[#F5F5F2]">
+    <main className="landing-page min-h-[100dvh] overflow-x-clip bg-[var(--background-outer)] text-[#fffdf9]">
       <Header />
       <HeroSection />
       <AboutSection />
       <HowItWorks />
       <BenefitsSection />
+      <LoyaltyCampaign />
       <FinalCTA />
       <Footer />
     </main>

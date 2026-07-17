@@ -2,6 +2,7 @@ export type CustomerProfile = {
   firstName: string;
   lastName: string;
   cccd: string;
+  dateOfBirth: string | null;
   email?: string;
   phone?: string;
   status?: string;
@@ -11,8 +12,8 @@ export type CustomerProfile = {
 export type UpdateCustomerProfilePayload = {
   firstName: string;
   lastName: string;
-  cccd: string;
   phone?: string;
+  dateOfBirth?: string;
 };
 
 export interface Wallet {

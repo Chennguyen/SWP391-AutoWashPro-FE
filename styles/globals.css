@@ -478,7 +478,7 @@ main.bg-background-outer {
 .bg-background-outer .bg-red-100,
 .bg-background-outer div[class*="bg-red-"],
 .bg-background-outer span[class*="bg-red-"] {
-  background-color: rgba(239, 68, 68, 0.1) !important;
+  background-color: rgba(239, 68, 68, 0.18) !important;
   border: 1px solid rgba(239, 68, 68, 0.25) !important;
 }
 
@@ -502,7 +502,7 @@ main.bg-background-outer {
 .bg-background-outer div[class*="bg-green-"],
 .bg-background-outer span[class*="bg-emerald-"],
 .bg-background-outer span[class*="bg-green-"] {
-  background-color: rgba(16, 185, 129, 0.1) !important;
+  background-color: rgba(16, 185, 129, 0.18) !important;
   border: 1px solid rgba(16, 185, 129, 0.25) !important;
 }
 
@@ -525,7 +525,7 @@ main.bg-background-outer {
 .bg-background-outer div[class*="bg-yellow-"],
 .bg-background-outer span[class*="bg-amber-"],
 .bg-background-outer span[class*="bg-yellow-"] {
-  background-color: rgba(245, 158, 11, 0.1) !important;
+  background-color: rgba(245, 158, 11, 0.18) !important;
   border: 1px solid rgba(245, 158, 11, 0.25) !important;
 }
 
@@ -664,6 +664,40 @@ main.bg-background-outer {
 .bg-background-outer .notif-item-button .notif-item-time {
   color: var(--text-secondary) !important;
   font-weight: 500 !important;
+}
+
+/* Customer shell: neutral graphite surfaces with the existing gold accent. */
+.bg-background-outer .notif-customer .notif-dropdown-panel {
+  background-color: #141416 !important;
+  border-color: rgba(216, 196, 159, 0.18) !important;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.bg-background-outer .notif-customer .notif-list-container > * + * {
+  border-color: rgba(216, 196, 159, 0.08) !important;
+}
+
+.bg-background-outer .notif-customer .notif-item-button {
+  background-color: #1b1b1e !important;
+}
+
+.bg-background-outer .notif-customer .notif-item-button:hover {
+  background-color: #242327 !important;
+}
+
+.bg-background-outer .notif-customer .notif-item-button.unread {
+  background-color: rgba(188, 163, 116, 0.09) !important;
+  box-shadow: inset 2px 0 0 rgba(216, 196, 159, 0.72) !important;
+}
+
+.bg-background-outer .notif-customer .notif-item-button.unread:hover {
+  background-color: rgba(188, 163, 116, 0.14) !important;
+}
+
+.bg-background-outer .notif-customer .notif-unread-dot {
+  background-color: var(--gold-light) !important;
 }
 
 /* Toast Cards Container & Popup */
@@ -917,11 +951,10 @@ input[type="password"] {
    React Big Calendar Dark Theme Overrides
    ========================================================================== */
 .bg-background-outer .rbc-calendar {
-  background-color: var(--background-main) !important;
+  background-color: transparent !important;
   color: var(--text-light) !important;
-  border-radius: 16px;
-  border: 1px solid var(--border-box) !important;
-  padding: 20px;
+  border: none !important;
+  padding: 0 !important;
 }
 
 .bg-background-outer .rbc-header {
@@ -931,7 +964,14 @@ input[type="password"] {
   padding: 8px 0 !important;
 }
 
-.bg-background-outer .rbc-month-view,
+.bg-background-outer .rbc-month-view {
+  border: 1px solid var(--border-box) !important;
+  background-color: var(--background-main) !important;
+  border-radius: 12px;
+  height: auto !important;
+  flex: none !important;
+}
+
 .bg-background-outer .rbc-time-view,
 .bg-background-outer .rbc-agenda-view {
   border: 1px solid var(--border-box) !important;
@@ -946,6 +986,10 @@ input[type="password"] {
 
 .bg-background-outer .rbc-month-row {
   border-top: 1px solid var(--border-box) !important;
+  height: auto !important;
+  min-height: 100px;
+  flex: none !important;
+  overflow: visible !important;
 }
 
 .bg-background-outer .rbc-off-range-bg {
@@ -963,6 +1007,13 @@ input[type="password"] {
   border: none !important;
   display: flex !important;
   justify-content: flex-start !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+.bg-background-outer .rbc-event:hover {
+  filter: brightness(1.15) !important;
+  transform: translateY(-0.5px) !important;
 }
 
 .bg-background-outer .rbc-event-content {
@@ -1005,14 +1056,296 @@ input[type="password"] {
   font-size: 18px;
 }
 
-/* Pull first event row up to align with day numbers */
-.bg-background-outer .rbc-row-content > .rbc-row:nth-child(2) {
-  margin-top: -18px !important;
-}
+/* Events naturally sit below day numbers to use full width */
 
 /* Adjust date cell line-height/padding so events align nicely next to them */
 .bg-background-outer .rbc-date-cell {
   padding-top: 4px !important;
   padding-bottom: 2px !important;
   line-height: 1 !important;
+}
+
+/* ==========================================================================
+   React Big Calendar Day / Time View Dark Theme Overrides
+   ========================================================================== */
+.bg-background-outer .rbc-time-view {
+  background-color: var(--background-main) !important;
+  border: 1px solid var(--border-box) !important;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.bg-background-outer .rbc-time-header {
+  background-color: var(--background-main) !important;
+}
+
+.bg-background-outer .rbc-time-header-content {
+  border-left: 1px solid var(--border-box) !important;
+}
+
+.bg-background-outer .rbc-time-content {
+  border-top: 1px solid var(--border-box) !important;
+  background-color: var(--background-main) !important;
+}
+
+.bg-background-outer .rbc-time-gutter {
+  color: var(--text-secondary) !important;
+  font-size: 11px;
+}
+
+.bg-background-outer .rbc-timeslot-group {
+  border-bottom: 1px solid var(--border-box) !important;
+  min-height: 60px;
+}
+
+.bg-background-outer .rbc-time-slot {
+  border-top: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+/* 30-minute dashed sub-grid lines */
+.bg-background-outer .rbc-timeslot-group .rbc-time-slot:nth-child(2) {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
+}
+
+.bg-background-outer .rbc-day-slot {
+  background-color: transparent !important;
+}
+
+/* Day slot grid lines (keep 30-minute mark dashed inside day columns too) */
+.bg-background-outer .rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-timeslot-group .rbc-time-slot:nth-child(2) {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Event container spacing in Day slot */
+.bg-background-outer .rbc-day-slot .rbc-events-container {
+  margin-right: 0 !important;
+}
+
+/* Event card inside Day view slot */
+.bg-background-outer .rbc-day-slot .rbc-event {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  padding: 4px 10px 4px 12px !important; /* balanced padding for left-border */
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  border-width: 1px !important;
+  border-left-width: 4px !important; /* Thick left border! */
+  min-height: 38px !important; /* minimum height for short events */
+}
+
+/* High-contrast opaque left borders for Day view cards */
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-red-"] {
+  border-left-color: #ef4444 !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-emerald-"],
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-green-"] {
+  border-left-color: #10b981 !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-amber-"],
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-yellow-"] {
+  border-left-color: #f59e0b !important;
+}
+.bg-background-outer .rbc-day-slot .rbc-event[class*="bg-indigo-"] {
+  border-left-color: #6366f1 !important;
+}
+
+.bg-background-outer .rbc-day-slot .rbc-event-label {
+  display: none !important;
+}
+
+/* Current Time Indicator dot & glowing line */
+.bg-background-outer .rbc-current-time-indicator {
+  background-color: #22c55e !important;
+  height: 2px !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6) !important;
+  position: absolute !important;
+  z-index: 5 !important;
+}
+.bg-background-outer .rbc-current-time-indicator::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #22c55e !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.8) !important;
+  border: 1.5px solid #161619 !important;
+}
+
+/* Admin operations dashboard: scoped tokens and typography only. */
+.admin-app-shell {
+  --background-outer: #0d0e10;
+  --background-main: #121316;
+  --background-secondary: #1d1e22;
+  --text-light: #f5f2ea;
+  --text-body: #d0ccc3;
+  --text-secondary: #aaa69e;
+  --border-box: #2b2c31;
+  --border-step: #383940;
+  --background: #0d0e10;
+  --foreground: #f5f2ea;
+  --card: #17181c;
+  --card-foreground: #f5f2ea;
+  --popover: #17181c;
+  --popover-foreground: #f5f2ea;
+  --primary: #bca374;
+  --primary-foreground: #17130f;
+  --secondary: #222329;
+  --secondary-foreground: #f5f2ea;
+  --muted: #202126;
+  --muted-foreground: #aaa69e;
+  --accent: #27251f;
+  --accent-foreground: #dbc9a5;
+  --destructive: #ef7168;
+  --border: #2b2c31;
+  --input: #383940;
+  --ring: #bca374;
+  --sidebar: #111215;
+  --sidebar-foreground: #ece8df;
+  --sidebar-primary: #bca374;
+  --sidebar-primary-foreground: #17130f;
+  --sidebar-accent: #202126;
+  --sidebar-accent-foreground: #dbc9a5;
+  --sidebar-border: #292a2f;
+  --sidebar-ring: #bca374;
+  --admin-success: #55bd8a;
+  --admin-danger: #ef7168;
+  --admin-warning: #d8a24f;
+  --admin-info: #83a9d9;
+  color-scheme: dark;
+  font-family: Arial, Helvetica, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-app-shell :where(h1, h2, h3, h4, h5, h6, button, input, select, textarea, .font-heading, .font-sans, .font-mono) {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.admin-app-shell .admin-brand-wordmark,
+.admin-app-shell .admin-brand-wordmark :where(p, span) {
+  font-family: var(--font-utm-forum), Georgia, serif;
+}
+
+.admin-app-shell .admin-brand-wordmark span,
+.admin-app-shell .text-primary {
+  color: var(--primary) !important;
+}
+
+.admin-app-shell .admin-brand-wordmark > p:first-child {
+  color: var(--foreground) !important;
+}
+
+.admin-app-shell .text-foreground {
+  color: var(--foreground) !important;
+}
+
+.admin-app-shell nav a[data-active="true"] span,
+.admin-app-shell nav a:hover span {
+  color: var(--sidebar-accent-foreground) !important;
+}
+
+.admin-app-shell .text-muted-foreground {
+  color: var(--muted-foreground) !important;
+}
+
+.admin-app-shell .text-destructive {
+  color: var(--destructive) !important;
+}
+
+.admin-app-shell aside[data-admin-sidebar] {
+  border-top-width: 0 !important;
+  box-shadow: none !important;
+}
+
+.admin-app-shell [data-slot="card"] {
+  box-shadow:
+    0 14px 32px rgba(3, 4, 6, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.admin-app-shell [data-admin-kpi="gold"] {
+  box-shadow:
+    inset 0 2px 0 rgba(188, 163, 116, 0.75),
+    0 14px 32px rgba(3, 4, 6, 0.18);
+}
+
+.admin-app-shell [data-admin-kpi="success"] {
+  box-shadow:
+    inset 0 2px 0 rgba(85, 189, 138, 0.7),
+    0 14px 32px rgba(3, 4, 6, 0.18);
+}
+
+.admin-app-shell [data-admin-kpi="danger"] {
+  box-shadow:
+    inset 0 2px 0 rgba(239, 113, 104, 0.72),
+    0 14px 32px rgba(3, 4, 6, 0.18);
+}
+
+.admin-app-shell [data-admin-tone="gold"],
+.admin-app-shell [data-admin-kpi="gold"] [data-admin-number] {
+  color: var(--primary) !important;
+}
+
+.admin-app-shell [data-admin-tone="success"],
+.admin-app-shell [data-admin-kpi="success"] [data-admin-number] {
+  color: var(--admin-success) !important;
+}
+
+.admin-app-shell [data-admin-tone="danger"],
+.admin-app-shell [data-admin-kpi="danger"] [data-admin-number] {
+  color: var(--admin-danger) !important;
+}
+
+.admin-app-shell [data-admin-tone="neutral"],
+.admin-app-shell [data-admin-kpi="neutral"] [data-admin-number] {
+  color: var(--foreground) !important;
+}
+
+.admin-app-shell [data-admin-status] {
+  background-color: transparent !important;
+  font-weight: 600;
+}
+
+.admin-app-shell [data-admin-status="success"] {
+  color: var(--admin-success) !important;
+  border-color: rgba(85, 189, 138, 0.35) !important;
+  background-color: rgba(85, 189, 138, 0.09) !important;
+}
+
+.admin-app-shell [data-admin-status="danger"] {
+  color: var(--admin-danger) !important;
+  border-color: rgba(239, 113, 104, 0.38) !important;
+  background-color: rgba(239, 113, 104, 0.1) !important;
+}
+
+.admin-app-shell [data-admin-status="warning"] {
+  color: var(--admin-warning) !important;
+  border-color: rgba(216, 162, 79, 0.35) !important;
+  background-color: rgba(216, 162, 79, 0.09) !important;
+}
+
+.admin-app-shell [data-admin-status="info"] {
+  color: var(--admin-info) !important;
+  border-color: rgba(131, 169, 217, 0.34) !important;
+  background-color: rgba(131, 169, 217, 0.08) !important;
+}
+
+.admin-app-shell [data-admin-status="neutral"] {
+  color: var(--muted-foreground) !important;
+  border-color: var(--border) !important;
+}
+
+.admin-app-shell [data-admin-chart="operations"] [data-slot="card-footer"] {
+  background-color: rgba(255, 255, 255, 0.018);
+}
+
+.admin-app-shell [data-admin-chart="operations"] [data-admin-number] {
+  color: var(--foreground) !important;
 }

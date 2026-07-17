@@ -84,7 +84,24 @@ export type DashboardStats = {
   lockedCustomers?: number;
   totalBranches?: number;
   activeBranches?: number;
+  todayBookings: DashboardTodayBooking[];
+  topBranches: DashboardTopBranch[];
   [key: string]: unknown;
+};
+
+export type DashboardTodayBooking = {
+  id: string;
+  startTime: string;
+  status: string;
+  branchName: string;
+  licensePlate: string;
+};
+
+export type DashboardTopBranch = {
+  branchId: string;
+  branchName: string;
+  completedBookings: number;
+  revenue: number;
 };
 
 export type RevenueReport = {
@@ -95,7 +112,15 @@ export type RevenueReport = {
 };
 
 export type LoyaltyReport = {
-  totalPoints: number;
-  details: UnknownRecord[];
+  summary: {
+    totalPointsEarned: number;
+    totalPointsRedeemed: number;
+    totalRewardsRedeemed: number;
+    tierUpgradeCount: number;
+  };
+  tierDistribution: Array<{
+    tierName: string;
+    customerCount: number;
+  }>;
   [key: string]: unknown;
 };

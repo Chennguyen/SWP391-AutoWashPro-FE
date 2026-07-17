@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { AuthInput } from "@/features/auth/components/auth-input";
 import { ApiError } from "@/lib/api-error";
+import { getTodayUtcDateString } from "@/lib/date-of-birth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -86,6 +87,7 @@ export function SignupForm() {
   const [faceImagesError, setFaceImagesError] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [maxDateOfBirth] = useState(getTodayUtcDateString);
 
   const {
     register,
@@ -101,6 +103,7 @@ export function SignupForm() {
       email: "",
       phone: "",
       cccd: "",
+      dateOfBirth: "",
       password: "",
       confirmPassword: "",
     },
@@ -177,6 +180,7 @@ export function SignupForm() {
         phone: data.phone,
         password: data.password,
         cccd: data.cccd,
+        dateOfBirth: data.dateOfBirth || undefined,
         faceImages: faceImages.map((img) => img.file),
       });
 
@@ -322,6 +326,20 @@ export function SignupForm() {
             {...register("cccd")}
           />
         </div>
+
+        {/* ── Ngày sinh ── */}
+        <AuthInput
+          className="h-11 scheme-dark"
+          id="signup-date-of-birth"
+          label="Ngày sinh"
+          rightLabel="Không bắt buộc"
+          description="Nếu cung cấp, ngày sinh sẽ không thể tự chỉnh sửa sau khi đăng ký."
+          type="date"
+          autoComplete="bday"
+          max={maxDateOfBirth}
+          error={errors.dateOfBirth?.message}
+          {...register("dateOfBirth")}
+        />
 
         {/* ── Mật khẩu & Xác nhận mật khẩu ── */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-start sm:gap-3">

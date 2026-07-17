@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalDateOfBirthSchema } from "@/lib/date-of-birth";
 
 export const profileSchema = z.object({
   firstName: z.string().min(1, "Vui lòng nhập tên."),
@@ -7,7 +8,7 @@ export const profileSchema = z.object({
     .string()
     .min(1, "Vui lòng nhập số điện thoại.")
     .regex(/^(0|\+84)[0-9]{8,10}$/, "Số điện thoại không hợp lệ."),
-  cccd: z.string().min(1, "Vui lòng nhập số CCCD."),
+  dateOfBirth: optionalDateOfBirthSchema,
 });
 
 export type ProfileFields = z.infer<typeof profileSchema>;

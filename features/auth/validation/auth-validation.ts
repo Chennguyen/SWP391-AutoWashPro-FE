@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalDateOfBirthSchema } from "@/lib/date-of-birth";
 
 export const loginSchema = z.object({
   email: z
@@ -28,7 +29,8 @@ export const signupSchema = z
     cccd: z
       .string()
       .min(1, "Vui lòng nhập số CCCD.")
-      .regex(/^[0-9]{9,12}$/, "Số CCCD phải từ 9–12 chữ số."),
+      .regex(/^[0-9]{9,12}$/, "Số CCCD phải từ 9-12 chữ số."),
+    dateOfBirth: optionalDateOfBirthSchema,
     password: z
       .string()
       .min(1, "Vui lòng nhập mật khẩu.")

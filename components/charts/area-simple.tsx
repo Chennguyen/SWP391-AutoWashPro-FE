@@ -16,12 +16,15 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { AlertCircle, BarChart3 } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 export type RevenueChartPoint = {
   date: string;
   revenue: number;
+  bookingCount?: number;
+  completedBookingCount?: number;
 };
 
 export type AreaSimpleProps = {
@@ -31,6 +34,7 @@ export type AreaSimpleProps = {
   totalRevenue: number;
   loading?: boolean;
   error?: string | null;
+  variant?: "default" | "admin-operations";
 };
 
 const chartConfig = {
@@ -61,36 +65,62 @@ export function AreaSimple({
   totalRevenue,
   loading = false,
   error = null,
+  variant = "default",
 }: AreaSimpleProps) {
+  const isAdminOperations = variant === "admin-operations";
+  const allRevenueZero = data.length > 0 && data.every((point) => point.revenue === 0);
+  const bookingCount = data.reduce((total, point) => total + (point.bookingCount ?? 0), 0);
+  const completedBookingCount = data.reduce(
+    (total, point) => total + (point.completedBookingCount ?? 0),
+    0,
+  );
+
   return (
-    <Card className="bg-white border border-slate-200 rounded-lg shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-slate-950 font-bold">Xu hướng doanh thu</CardTitle>
+    <Card
+      size={isAdminOperations ? "sm" : "default"}
+      className={cn(!isAdminOperations && "rounded-lg border border-slate-200 bg-white shadow-sm")}
+      data-admin-chart={isAdminOperations ? "operations" : undefined}
+    >
+      <CardHeader className={cn(isAdminOperations && "pb-0")}>
+        <CardTitle className={cn(!isAdminOperations && "font-bold text-slate-950")}>Xu hướng doanh thu</CardTitle>
         <CardDescription>
-          Doanh thu theo ngày trong khoảng thời gian.
+          {isAdminOperations
+            ? "Doanh thu theo ngày trong khoảng đã chọn."
+            : "Doanh thu theo ngày trong khoảng thời gian."}
         </CardDescription>
       </CardHeader>
 
       <CardContent>
         {loading ? (
-          <Skeleton className="h-60 w-full sm:h-70" />
+          <Skeleton className={cn("w-full", isAdminOperations ? "h-[300px] sm:h-[336px]" : "h-60 sm:h-70")} />
         ) : error ? (
-          <Alert variant="destructive" className="min-h-60 content-center bg-slate-50 border-slate-200">
+          <Alert
+            variant="destructive"
+            className={cn("content-center", isAdminOperations ? "min-h-[300px] sm:min-h-[336px]" : "min-h-60 border-slate-200 bg-slate-50")}
+          >
             <AlertCircle aria-hidden />
             <AlertTitle>Không thể tải biểu đồ</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-        ) : data.length === 0 ? (
-          <Alert className="min-h-60 content-center border-dashed bg-slate-50 border-slate-200">
+        ) : data.length === 0 || (isAdminOperations && allRevenueZero) ? (
+          <Alert
+            className={cn("content-center border-dashed", isAdminOperations ? "min-h-[300px] sm:min-h-[336px]" : "min-h-60 border-slate-200 bg-slate-50")}
+          >
             <BarChart3 aria-hidden />
-            <AlertTitle>Chưa có dữ liệu doanh thu</AlertTitle>
+            <AlertTitle>
+              {allRevenueZero ? "Chưa phát sinh doanh thu" : "Chưa có dữ liệu doanh thu"}
+            </AlertTitle>
             <AlertDescription>
-              Hãy chọn khoảng thời gian hoặc chi nhánh khác để xem biểu đồ.
+              {isAdminOperations && allRevenueZero
+                ? `${bookingCount} lịch đặt, ${completedBookingCount} lịch hoàn thành trong khoảng đã chọn.`
+                : isAdminOperations
+                  ? "Hãy chọn khoảng thời gian khác để xem biểu đồ."
+                  : "Hãy chọn khoảng thời gian hoặc chi nhánh khác để xem biểu đồ."}
             </AlertDescription>
           </Alert>
         ) : (
           <ChartContainer
-            className="h-60 w-full text-slate-500 sm:h-70"
+            className={cn("w-full", isAdminOperations ? "h-[300px] text-muted-foreground sm:h-[336px]" : "h-60 text-slate-500 sm:h-70")}
             config={chartConfig}
           >
             <AreaChart
@@ -117,20 +147,42 @@ export function AreaSimple({
                 cursor={false}
                 content={
                   <ChartTooltipContent
-                    className="border-slate-200 bg-white text-slate-950"
+                    className={cn(
+                      !isAdminOperations && "border-slate-200 bg-white text-slate-950",
+                      isAdminOperations && "border-border bg-popover text-popover-foreground",
+                    )}
                     hideIndicator
                     labelFormatter={(_, payload) => {
                       const date = String(payload[0]?.payload?.date ?? "");
                       return formatDate(date, true);
                     }}
-                    formatter={(value) => (
-                      <div className="flex min-w-40 items-center justify-between gap-4">
-                        <span className="text-slate-500">Doanh thu</span>
-                        <span className="font-mono font-semibold text-slate-950">
-                          {formatVND(Number(value))}
-                        </span>
-                      </div>
-                    )}
+                    formatter={(value, _name, item) => {
+                      const point = item.payload as RevenueChartPoint;
+                      return (
+                        <div className="flex min-w-48 flex-col gap-1.5">
+                          <div className="flex items-center justify-between gap-4">
+                            <span className={cn(isAdminOperations ? "text-muted-foreground" : "text-slate-500")}>
+                              Doanh thu
+                            </span>
+                            <span data-admin-number className={cn("font-semibold", !isAdminOperations && "font-mono text-slate-950")}>
+                              {formatVND(Number(value))}
+                            </span>
+                          </div>
+                          {isAdminOperations ? (
+                            <>
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-muted-foreground">Lịch đặt</span>
+                                <span data-admin-number className="font-semibold">{point.bookingCount ?? 0}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-muted-foreground">Hoàn thành</span>
+                                <span data-admin-number className="font-semibold">{point.completedBookingCount ?? 0}</span>
+                              </div>
+                            </>
+                          ) : null}
+                        </div>
+                      );
+                    }}
                   />
                 }
               />
@@ -140,18 +192,18 @@ export function AreaSimple({
                 fillOpacity={0.2}
                 stroke="var(--color-revenue)"
                 strokeWidth={2.5}
-                type="monotone"
+                type={isAdminOperations ? "linear" : "monotone"}
               />
             </AreaChart>
           </ChartContainer>
         )}
       </CardContent>
 
-      <CardFooter className="flex flex-col items-start justify-between gap-1 bg-slate-50 sm:flex-row sm:items-center">
-        <p className="font-medium text-slate-700">
+      <CardFooter className={cn("flex flex-col items-start justify-between gap-1 sm:flex-row sm:items-center", !isAdminOperations && "bg-slate-50")}>
+        <p data-admin-number className={cn("font-medium", !isAdminOperations && "text-slate-700")}>
           Tổng trong kỳ: {formatVND(totalRevenue)}
         </p>
-        <p className="text-xs text-slate-500">
+        <p className={cn("text-xs", isAdminOperations ? "text-muted-foreground" : "text-slate-500")}>
           {formatDate(fromDate, true)} - {formatDate(toDate, true)}
         </p>
       </CardFooter>
