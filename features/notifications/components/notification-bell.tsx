@@ -15,12 +15,13 @@ import {
   Info,
   Check,
   Percent,
+  type LucideIcon,
 } from "lucide-react";
 import { useNotifications } from "../hooks/useNotifications";
 import { cn } from "@/lib/utils";
 import type { NotificationType } from "@/features/notifications/services";
 
-const ICON_MAP: Record<NotificationType, any> = {
+const ICON_MAP: Record<NotificationType, LucideIcon> = {
   BookingCreated: CalendarPlus,
   BookingReminder: Clock,
   BookingCancelled: Ban,
@@ -103,17 +104,20 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString("vi-VN");
 }
 
-export function NotificationBell() {
+type NotificationBellProps = {
+  align?: "start" | "end";
+  tone?: "default" | "customer";
+};
+
+export function NotificationBell({
+  align = "end",
+  tone = "default",
+}: NotificationBellProps) {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Đóng dropdown khi click bên ngoài
   useEffect(() => {
@@ -154,7 +158,10 @@ export function NotificationBell() {
   }
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div
+      className={cn("relative", tone === "customer" && "notif-customer")}
+      ref={dropdownRef}
+    >
       {/* Nút quả chuông */}
       <button
         type="button"
@@ -163,7 +170,7 @@ export function NotificationBell() {
         aria-label="Thông báo"
       >
         <Bell size={20} />
-        {mounted && unreadCount > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute right-1.5 top-1.5 flex h-2.5 w-2.5">
             <span className="notif-red-dot-ping absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"></span>
             <span className="notif-red-dot relative inline-flex h-2.5 w-2.5 rounded-full"></span>
@@ -173,7 +180,12 @@ export function NotificationBell() {
 
       {/* Bảng thông báo dropdown */}
       {isOpen && (
-        <div className="notif-dropdown-panel absolute right-0 mt-2 z-50 w-80 sm:w-96 rounded-xl p-2 shadow-2xl animate-in fade-in-50 slide-in-from-top-1 duration-200">
+        <div
+          className={cn(
+            "notif-dropdown-panel absolute z-50 mt-2 w-[calc(100vw-2rem)] max-w-96 rounded-xl p-2 shadow-2xl animate-in fade-in-50 slide-in-from-top-1 duration-200",
+            align === "start" ? "left-0" : "right-0",
+          )}
+        >
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
             <h4 className="notif-dropdown-title text-sm font-bold">Thông báo</h4>
             {unreadCount > 0 && (

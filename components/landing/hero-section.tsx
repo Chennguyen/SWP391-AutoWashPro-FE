@@ -1,5 +1,5 @@
-import Image from 'next/image';
-import Link from 'next/link';
+import { marketingBanners } from './marketing-banner-data';
+import { LandingActionLink, MarketingImage } from './marketing-image';
 
 /**
  * Thành phần (Component) HeroSection
@@ -9,56 +9,34 @@ import Link from 'next/link';
  */
 export function HeroSection() {
   return (
-    <section className="relative h-screen min-h-[680px] flex items-end pb-24 md:pb-32 bg-[#050505] overflow-hidden">
-      {/* Cinematic background image */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="/images/hero-car.png"
-          alt="AutoWash Pro — Chăm sóc xe đẳng cấp"
-          fill
-          priority
-          loading="eager"
-          sizes="100vw"
-          className="object-cover object-center opacity-70"
-        />
-        {/* Left-to-right dark gradient so left text is clearly readable */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#050505] via-[#050505]/70 to-transparent" />
-        {/* Subtle overall darkening veil */}
-        <div className="absolute inset-0 bg-[#050505]/30" />
-      </div>
+    <section className="relative flex h-[78dvh] min-h-[620px] max-h-[720px] items-center overflow-hidden bg-[#0e0e10] pt-[72px] md:h-[82dvh] md:min-h-[640px] md:max-h-[760px]">
+      <MarketingImage
+        banner={marketingBanners.hero}
+        priority
+        sizes="100vw"
+        className="absolute inset-0"
+        imageClassName="opacity-90"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(14,14,16,0.96)_0%,rgba(14,14,16,0.84)_34%,rgba(14,14,16,0.28)_68%,rgba(14,14,16,0.12)_100%)]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0e0e10]/70 via-transparent to-[#0e0e10]/20" />
 
-      {/* Hero content */}
-      <div className="relative z-10 w-full px-8 md:px-16 max-w-7xl mx-auto">
-        {/* Eyebrow label */}
-        <p className="text-sm tracking-[0.3em] uppercase text-white/80 mb-6 font-medium">
-          Smart Car Wash Management
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
+        <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#d8c49f]">
+          Đặt lịch rửa xe trực tuyến
         </p>
-
-        {/* Main headline */}
-        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-medium text-white leading-[1.1] tracking-tight mb-8 max-w-3xl">
-          Đặt lịch rửa xe<br />
-          <span className="font-bold">dễ dàng.</span>
+        <h1 className="max-w-2xl text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.035em] text-white sm:text-5xl md:text-6xl lg:text-[4.25rem]">
+          <span className="block">Đặt trước.</span>
+          <span className="block font-bold">Đến là rửa.</span>
         </h1>
-
-        {/* Subheadline */}
-        <p className="text-lg md:text-xl lg:text-2xl text-white/90 max-w-2xl leading-relaxed mb-12">
-          AutoWash Pro giúp bạn đặt lịch trước, theo dõi lịch sử chăm sóc xe và nhận quyền lợi thành viên theo từng hạng.
+        <p className="mt-6 max-w-[36rem] text-base leading-7 text-white/80 md:text-lg">
+          Chủ động chọn thời gian, chăm sóc xe nhanh hơn và nhận quyền lợi sau mỗi lần rửa.
         </p>
-
-        {/* Single CTA */}
-        <Link
-          href="/sign-in"
-          style={{ color: '#000000' }}
-          className="inline-block text-sm md:text-base font-bold tracking-[0.2em] uppercase bg-white border border-white rounded-full px-10 py-5 hover:bg-white/90 hover:scale-105 transition-all duration-300"
+        <LandingActionLink
+          customerHref="/customer/booking"
+          className="mt-8 inline-flex min-h-12 items-center justify-center whitespace-nowrap rounded-full bg-[#d8c49f] px-8 py-3 text-sm font-bold uppercase tracking-[0.14em] !text-[#17130f] transition-colors duration-200 hover:bg-[#ead8b4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e0e10] active:translate-y-px"
         >
           Đặt lịch ngay
-        </Link>
-      </div>
-
-      {/* Bottom scroll hint */}
-      <div className="absolute bottom-8 right-8 md:right-16 z-10 flex items-center gap-3 text-white/80">
-        <div className="w-12 h-[1px] bg-white/80" />
-        <span className="text-xs tracking-[0.25em] uppercase font-medium">Cuộn xuống</span>
+        </LandingActionLink>
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { LandingActionLink } from './marketing-image';
 
 /**
  * Thành phần (Component) FinalCTA
@@ -8,32 +8,23 @@ import Link from 'next/link';
  */
 export function FinalCTA() {
   return (
-    <section className="relative bg-white py-36 px-8 md:px-16 overflow-hidden border-t border-black/[0.06]">
-      {/* Subtle wide decorative line across middle */}
-      <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[1px] bg-black/[0.04] pointer-events-none" />
-
-      <div className="relative max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-12">
-        {/* Text block */}
-        <div>
-          <p className="text-sm tracking-[0.3em] uppercase text-black/60 mb-6 font-medium">Bắt đầu ngay</p>
-          <h2 className="text-5xl md:text-6xl lg:text-7xl font-bold text-black tracking-tight leading-tight max-w-2xl">
-            Sẵn sàng đặt lịch<br />
-            <span className="font-extrabold">rửa xe tiếp theo?</span>
+    <section className="border-t border-white/[0.08] bg-[var(--background-outer)] px-5 py-16 sm:px-8 md:py-20 lg:px-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 border-l-2 border-[#bca374] pl-6 sm:pl-9 md:flex-row md:items-end md:justify-between md:gap-12">
+        <div className="max-w-3xl">
+          <h2 className="text-4xl font-bold leading-[1.08] tracking-[-0.03em] text-white md:text-5xl">
+            Sẵn sàng cho lần rửa tiếp theo?
           </h2>
-          <p className="text-xl text-black/80 mt-6 max-w-lg leading-relaxed">
-            Tạo tài khoản, đặt lịch trước và bắt đầu tích điểm thành viên ngay hôm nay.
+          <p className="mt-4 max-w-[52ch] text-base leading-7 text-[#c4c0b6]">
+            Chọn chi nhánh và thời gian phù hợp để bắt đầu lịch hẹn.
           </p>
         </div>
 
-        {/* CTA */}
-        <div className="shrink-0">
-          <Link
-            href="/sign-in"
-            className="inline-block text-base font-bold tracking-[0.2em] uppercase text-white bg-[#050505] border border-[#050505] rounded-full px-12 py-6 hover:bg-black hover:scale-105 transition-all duration-300 shadow-xl shadow-black/10"
-          >
-            Đặt lịch ngay
-          </Link>
-        </div>
+        <LandingActionLink
+          customerHref="/customer/booking"
+          className="inline-flex min-h-12 w-fit shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-[#d8c49f] px-8 py-3 text-sm font-bold uppercase tracking-[0.14em] !text-[#17130f] transition-colors duration-200 hover:bg-[#ead8b4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e0e10] active:translate-y-px"
+        >
+          Đặt lịch ngay
+        </LandingActionLink>
       </div>
     </section>
   );

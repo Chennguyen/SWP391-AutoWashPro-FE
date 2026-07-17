@@ -279,6 +279,7 @@ function normalizeReward(raw: unknown): Reward {
 function normalizeVoucher(raw: unknown): MyVoucher {
   const r = rec(raw);
   const code = str(r, ["code", "Code"]);
+  const promotionName = str(r, ["promotionName", "PromotionName", "promotion_name"]);
   const statusRaw = r.status ?? r.Status;
   const discountTypeRaw = r.discountType ?? r.DiscountType ?? r.discount_type;
   const status = typeof statusRaw === "number"
@@ -297,6 +298,7 @@ function normalizeVoucher(raw: unknown): MyVoucher {
     code,
     rewardName:
       str(r, ["rewardName", "RewardName", "reward_name", "name", "Name"]) ||
+      promotionName ||
       `Voucher ${code}`,
     status,
     discountType,
@@ -409,22 +411,22 @@ export async function getRewards(token: string): Promise<Reward[]> {
 }
 
 /**
- * Lấy danh sách các voucher giảm giá đã đổi thuộc sở hữu của khách hàng cụ thể.
+ * Lấy danh sách voucher thuộc tài khoản khách hàng đang đăng nhập.
  * 
  * @param token Token xác thực.
- * @param userId ID của khách hàng đích.
  * @returns Một promise giải quyết thành mảng MyVoucher.
  */
 export async function getMyVouchers(
   token: string,
-  userId: string,
+  userId?: string,
 ): Promise<MyVoucher[]> {
+  // Endpoint mới xác định customer từ token; tham số chỉ được giữ để tương thích caller cũ.
+  void userId;
   const params = new URLSearchParams({
-    userId,
     pageIndex: "1",
     pageSize: "50",
   });
-  const res = await fetch(`${apiBase()}/Voucher/vouchers?${params.toString()}`, {
+  const res = await fetch(`${apiBase()}/api/v1/vouchers?${params.toString()}`, {
     cache: "no-store",
     headers: authHeaders(token),
   });

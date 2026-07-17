@@ -8,32 +8,38 @@ import { Logo } from '@/shared/components/logo';
  */
 export function Footer() {
   return (
-    <footer id="ho-tro" className="bg-[#000000] px-8 md:px-16 pt-16 pb-10 border-t border-white/[0.06]">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-start md:justify-between gap-10">
-        {/* Brand block */}
+    <footer
+      id="ho-tro"
+      className="scroll-mt-20 border-t border-white/[0.06] bg-[#09090b] px-5 pb-8 pt-12 sm:px-8 lg:px-10"
+    >
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
         <div className="max-w-xs">
           <Logo />
-          <p className="mt-5 text-xs text-[#555] leading-relaxed">
-            Nền tảng đặt lịch rửa xe thông minh và chương trình thành viên tích điểm đa hạng — hiện đại, chuyên nghiệp và lấy trải nghiệm người dùng làm trung tâm.
+          <p className="mt-4 text-xs leading-5 text-[#a09c94]">
+            Đặt lịch rửa xe trực tuyến và quản lý quyền lợi thành viên trong một nền tảng thống nhất.
           </p>
         </div>
 
-        {/* Contact / support */}
         <div>
-          <h4 className="text-[10px] tracking-[0.3em] uppercase text-[#444] mb-5">Hỗ trợ</h4>
-          <p className="text-xs text-[#555] leading-relaxed">
+          <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#d8c49f]">
+            Hỗ trợ
+          </h4>
+          <p className="text-xs leading-5 text-[#a09c94]">
             Mọi thắc mắc vui lòng liên hệ:<br />
-            <span className="text-[#888]">support@autowashpro.vn</span>
+            <a
+              href="mailto:support@autowashpro.vn"
+              className="!text-[#d8c49f] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f]"
+            >
+              support@autowashpro.vn
+            </a>
           </p>
         </div>
       </div>
 
-      {/* Bottom copyright */}
-      <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row justify-between items-center gap-3">
-        <p className="text-[10px] tracking-wider text-[#444] uppercase">
+      <div className="mx-auto mt-10 flex max-w-7xl flex-col items-start justify-between gap-2 border-t border-white/[0.06] pt-5 sm:flex-row sm:items-center">
+        <p className="text-[10px] uppercase tracking-wider text-[#77736c]">
           &copy; {new Date().getFullYear()} AutoWash Pro. All rights reserved.
         </p>
-        <p className="text-[10px] text-[#333] uppercase tracking-widest">Vietnam</p>
       </div>
     </footer>
   );

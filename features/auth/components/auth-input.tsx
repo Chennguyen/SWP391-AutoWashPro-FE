@@ -7,6 +7,7 @@ import { InputHTMLAttributes, ReactNode, forwardRef, useState } from "react";
 interface AuthInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
+  description?: ReactNode;
   rightLabel?: ReactNode;
   showRequiredAsterisk?: boolean;
 }
@@ -16,11 +17,14 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
     {
       label,
       error,
+      description,
       rightLabel,
       showRequiredAsterisk,
       className,
       type,
       id,
+      "aria-describedby": ariaDescribedBy,
+      "aria-invalid": ariaInvalid,
       ...props
     },
     ref,
@@ -28,6 +32,11 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
     const [showPassword, setShowPassword] = useState(false);
     const isPassword = type === "password";
     const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+    const descriptionId = id && description ? `${id}-description` : undefined;
+    const errorId = id && error ? `${id}-error` : undefined;
+    const describedBy = [ariaDescribedBy, descriptionId, errorId]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
     return (
       <div className="flex flex-col gap-2.5">
@@ -55,6 +64,8 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
             ref={ref}
             id={id}
             type={inputType}
+            aria-describedby={describedBy}
+            aria-invalid={ariaInvalid ?? Boolean(error)}
             className={cn(
               "h-14 w-full rounded-full border border-white/20 bg-transparent px-5 text-sm text-[#fffaf0] placeholder:text-[#777168]",
               "outline-none ring-0 transition-all duration-200",
@@ -81,10 +92,19 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
           )}
         </div>
 
+        {description && (
+          <p
+            id={descriptionId}
+            className="text-xs leading-relaxed text-[#9b9488]"
+          >
+            {description}
+          </p>
+        )}
+
         {/* Error message */}
         {error && (
           <p
-            id={id ? `${id}-error` : undefined}
+            id={errorId}
             role="alert"
             className="mt-1 text-xs font-medium !text-red-400"
           >

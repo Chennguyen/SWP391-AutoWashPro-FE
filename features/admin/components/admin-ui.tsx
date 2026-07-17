@@ -1,6 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Thành phần (Component) AdminPageHeader
@@ -12,19 +13,47 @@ export function AdminPageHeader({
   title,
   description,
   actions,
+  eyebrow,
+  variant = "default",
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
+  eyebrow?: string;
+  variant?: "default" | "dashboard";
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <header
+      className={cn(
+        "mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between",
+        variant === "dashboard" && "mb-5 lg:items-center",
+      )}
+    >
       <div>
-        <h1 className="text-2xl font-black text-slate-950 md:text-3xl">{title}</h1>
-        <p className="mt-1 text-sm text-slate-500">{description}</p>
+        {eyebrow ? (
+          <p className="mb-1 text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+            {eyebrow}
+          </p>
+        ) : null}
+        <h1
+          className={cn(
+            "text-2xl font-black text-slate-950 md:text-3xl",
+            variant === "dashboard" && "text-foreground tracking-[-0.035em]",
+          )}
+        >
+          {title}
+        </h1>
+        <p
+          className={cn(
+            "mt-1 text-sm text-slate-500",
+            variant === "dashboard" && "max-w-2xl text-muted-foreground",
+          )}
+        >
+          {description}
+        </p>
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-    </div>
+    </header>
   );
 }
 
@@ -105,6 +134,22 @@ export function MetricCard({
  * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
-export function AdminShell({ children }: { children: ReactNode }) {
-  return <main className="mx-auto w-full max-w-7xl p-4 md:p-6 lg:p-8">{children}</main>;
+export function AdminShell({
+  children,
+  variant = "default",
+}: {
+  children: ReactNode;
+  variant?: "default" | "dashboard";
+}) {
+  return (
+    <main
+      id="admin-main"
+      className={cn(
+        "mx-auto w-full max-w-7xl p-4 md:p-6 lg:p-8",
+        variant === "dashboard" && "max-w-[1440px] pb-10 md:pt-5 lg:pt-6",
+      )}
+    >
+      {children}
+    </main>
+  );
 }

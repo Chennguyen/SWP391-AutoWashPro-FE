@@ -6,7 +6,6 @@ import {
   getPendingUsers,
   getUser,
   getUsers,
-  updateUserStatus,
   verifyUser,
   rejectUser,
   type AdminUser,
@@ -14,6 +13,7 @@ import {
 
 import { AdminError, AdminPageHeader, AdminShell } from "@/features/admin/components/admin-ui";
 import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
+import { useUpdateUserStatusMutation } from "@/features/admin/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 
 type UserTab = "all" | "pending";
@@ -44,6 +44,7 @@ function formatStatus(status?: string): string {
  */
 export function AdminUsersPage() {
   const token = useAdminToken();
+  const updateStatusMutation = useUpdateUserStatusMutation(token);
   const [tab, setTab] = useState<UserTab>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -85,10 +86,6 @@ export function AdminUsersPage() {
       setLoading(false);
     }
   }, [searchTerm, tab, token, pageIndex]);
-
-  useEffect(() => {
-    setPageIndex(1);
-  }, [tab, searchTerm]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadUsers(pageIndex), 0);
@@ -142,7 +139,7 @@ export function AdminUsersPage() {
     const nextStatus = user.status === "Locked" ? "Active" : "Locked";
     setActionLoading(user.id);
     try {
-      await updateUserStatus(token, user.id, nextStatus);
+      await updateStatusMutation.mutateAsync({ id: user.id, status: nextStatus });
       await loadUsers(pageIndex);
     } catch (statusError) {
       window.alert(statusError instanceof Error ? statusError.message : "Không thể cập nhật trạng thái.");
@@ -193,7 +190,10 @@ export function AdminUsersPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
           <input
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              setPageIndex(1);
+            }}
             placeholder="Tìm theo email hoặc tên"
             className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
@@ -263,19 +263,40 @@ export function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{formatStatus(user.status)}</td>
                     <td className="px-4 py-3 text-right">
-                      {!user.isVerified ? (
-                        <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
-                            Duyệt
+                      <div className="flex justify-end gap-1">
+                        {!user.isVerified ? (
+                          <>
+                            <button type="button" onClick={() => void handleVerify(user)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100" title="Xác minh">
+                              Duyệt
+                            </button>
+                            <button type="button" onClick={() => void handleReject(user)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100" title="Từ chối">
+                              Từ chối
+                            </button>
+                          </>
+                        ) : null}
+                        {user.isVerified ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleStatus(user)}
+                            disabled={actionLoading === user.id}
+                            className={cn(
+                              "rounded-lg border px-2.5 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                              user.status === "Locked"
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+                            )}
+                            title={user.status === "Locked" ? "Mở khóa tài khoản" : "Khóa tài khoản"}
+                          >
+                            {actionLoading === user.id ? (
+                              <RefreshCw className="inline animate-spin" size={13} aria-hidden />
+                            ) : user.status === "Locked" ? (
+                              "Unbanned"
+                            ) : (
+                              "Ban"
+                            )}
                           </button>
-                          <button type="button" onClick={() => void handleReject(user)} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100" title="Từ chối">
-                            Từ chối
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">-</span>
-                      )}
-                      {actionLoading === user.id ? <RefreshCw className="ml-1 inline animate-spin text-blue-600" size={14} aria-hidden /> : null}
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))

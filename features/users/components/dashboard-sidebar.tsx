@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
+import { useLogoutMutation } from "@/features/auth/hooks/useLogout";
 import { cn } from "@/lib/utils";
 import {
   CalendarPlus,
@@ -16,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
 const NAV_ITEMS = [
@@ -34,17 +35,6 @@ const NAV_ITEMS = [
     href: "/customer/history?tab=history",
   },
 ];
-
-/**
- * Remove every auth key from localStorage then notify all useSyncExternalStore
- * subscribers listening on the "autowash-auth" custom event.
- */
-function clearAuthSession() {
-  ["token", "role", "userId", "email", "firstName", "lastName"].forEach((k) =>
-    window.localStorage.removeItem(k),
-  );
-  window.dispatchEvent(new Event("autowash-auth"));
-}
 
 function subscribeAuthState(onStoreChange: () => void) {
   if (typeof window === "undefined") {
@@ -81,8 +71,8 @@ function getServerIsUnverifiedSnapshot() {
 export function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const logoutMutation = useLogoutMutation();
   const currentTab = searchParams.get("tab") || "active";
   const isUnverified = useSyncExternalStore(
     subscribeAuthState,
@@ -91,11 +81,7 @@ export function DashboardSidebar() {
   );
 
   function handleLogout() {
-    clearAuthSession();
-    // router.refresh() invalidates Next.js Router Cache so the next user
-    // always gets a fresh React tree, not a cached version of the previous session.
-    router.refresh();
-    router.replace("/sign-in");
+    logoutMutation.mutate();
   }
 
   return (
@@ -188,16 +174,19 @@ export function DashboardSidebar() {
 
           {/* Right: logout + hamburger */}
           <div className="flex items-center gap-2">
-            <NotificationBell />
+            <NotificationBell tone="customer" />
             <Button
               type="button"
               variant="ghost"
               onClick={handleLogout}
+              disabled={logoutMutation.isPending}
               className="hidden h-10 gap-2 px-3 leading-none text-red-400 duration-150 hover:bg-red-500/10 hover:text-red-300 lg:flex"
               style={{ color: "#f87171" }}
             >
               <LogOut data-icon="inline-start" aria-hidden />
-              <span className="block leading-none">Đăng xuất</span>
+              <span className="block leading-none">
+                {logoutMutation.isPending ? "Đang đăng xuất..." : "Đăng xuất"}
+              </span>
             </Button>
 
             <Button
@@ -333,10 +322,13 @@ export function DashboardSidebar() {
               setMobileOpen(false);
               handleLogout();
             }}
+            disabled={logoutMutation.isPending}
             className="h-10 w-full justify-start gap-3 px-3 leading-none text-red-400 duration-150 hover:bg-red-500/10 hover:text-red-300"
           >
             <LogOut data-icon="inline-start" aria-hidden />
-            <span className="block leading-none">Đăng xuất</span>
+            <span className="block leading-none">
+              {logoutMutation.isPending ? "Đang đăng xuất..." : "Đăng xuất"}
+            </span>
           </Button>
         </div>
       </aside>

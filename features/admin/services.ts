@@ -24,6 +24,8 @@ import type {
   AdminCheckInResult,
   AdminBookingSlot,
   DashboardStats,
+  DashboardTodayBooking,
+  DashboardTopBranch,
   RevenueReport,
   LoyaltyReport,
 } from "./types/admin-types";
@@ -464,6 +466,8 @@ function normalizeBooking(raw: unknown): AdminBooking {
   const record = asRecord(raw);
   const branch = asRecord(record.branch);
   const branchUpper = asRecord(record.Branch);
+  const customer = asRecord(record.customer);
+  const customerUpper = asRecord(record.Customer);
   const user = asRecord(record.user);
   const userUpper = asRecord(record.User);
   const vehicle = asRecord(record.vehicle);
@@ -478,10 +482,14 @@ function normalizeBooking(raw: unknown): AdminBooking {
       readString(branchUpper, ["name", "Name"], "Chi nhánh"),
     customerName:
       readString(record, ["customerName", "CustomerName", "userName", "UserName"]) ||
+      readString(customer, ["fullName", "FullName", "name", "Name", "email", "Email"]) ||
+      readString(customerUpper, ["fullName", "FullName", "name", "Name", "email", "Email"]) ||
       readString(user, ["fullName", "FullName", "email", "Email"]) ||
       readString(userUpper, ["fullName", "FullName", "email", "Email"], "Khách hàng"),
     customerEmail:
       readOptionalString(record, ["customerEmail", "CustomerEmail", "userEmail", "UserEmail"]) ??
+      readOptionalString(customer, ["email", "Email"]) ??
+      readOptionalString(customerUpper, ["email", "Email"]) ??
       readOptionalString(user, ["email", "Email"]) ??
       readOptionalString(userUpper, ["email", "Email"]),
     vehiclePlate:
@@ -529,12 +537,41 @@ function normalizeDashboard(raw: unknown): DashboardStats {
   const dataRecord = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
   const summaryVal = dataRecord.summary ?? dataRecord.Summary;
   const summary = summaryVal && typeof summaryVal === "object" ? asRecord(summaryVal) : {};
+  const todayBookingsRaw = dataRecord.todayBookings ?? dataRecord.TodayBookings;
+  const topBranchesRaw = dataRecord.topBranches ?? dataRecord.TopBranches;
 
   const getValue = (keys: string[]) => {
     return readNumber(summary, keys, readNumber(dataRecord, keys, 0));
   };
 
+  const todayBookings: DashboardTodayBooking[] = Array.isArray(todayBookingsRaw)
+    ? todayBookingsRaw.map((item) => {
+        const booking = asRecord(item);
+        return {
+          id: readString(booking, ["id", "Id"]),
+          startTime: readString(booking, ["startTime", "StartTime"]),
+          status: readString(booking, ["status", "Status"]),
+          branchName: readString(booking, ["branchName", "BranchName"], "Chi nhánh"),
+          licensePlate: readString(booking, ["licensePlate", "LicensePlate"], "Chưa có biển số"),
+        };
+      })
+    : [];
+
+  const topBranches: DashboardTopBranch[] = Array.isArray(topBranchesRaw)
+    ? topBranchesRaw.map((item) => {
+        const branch = asRecord(item);
+        return {
+          branchId: readString(branch, ["branchId", "BranchId"]),
+          branchName: readString(branch, ["branchName", "BranchName"], "Chi nhánh"),
+          completedBookings: readNumber(branch, ["completedBookings", "CompletedBookings"]),
+          revenue: readNumber(branch, ["revenue", "Revenue"]),
+        };
+      })
+    : [];
+
   return {
+    ...dataRecord,
+    ...summary,
     totalBookings: getValue([
       "totalBookings", "TotalBookings",
       "bookingCount", "BookingCount",
@@ -561,8 +598,8 @@ function normalizeDashboard(raw: unknown): DashboardStats {
     lockedCustomers: getValue(["lockedCustomers", "LockedCustomers"]),
     totalBranches: getValue(["totalBranches", "TotalBranches"]),
     activeBranches: getValue(["activeBranches", "ActiveBranches"]),
-    ...dataRecord,
-    ...summary,
+    todayBookings,
+    topBranches,
   };
 }
 
@@ -636,11 +673,26 @@ function normalizeRevenue(raw: unknown): RevenueReport {
  */
 function normalizeLoyalty(raw: unknown): LoyaltyReport {
   const record = asRecord(unwrapRecord(raw as ApiRecord<unknown>));
-  const details = record.details ?? record.Details ?? record.items ?? record.Items ?? [];
+  const summary = asRecord(record.summary ?? record.Summary);
+  const tierDistributionRaw = record.tierDistribution ?? record.TierDistribution ?? [];
+
   return {
-    totalPoints: readNumber(record, ["totalPoints", "TotalPoints", "points", "Points"]),
-    details: Array.isArray(details) ? (details as UnknownRecord[]) : [],
     ...record,
+    summary: {
+      totalPointsEarned: readNumber(summary, ["totalPointsEarned", "TotalPointsEarned"]),
+      totalPointsRedeemed: readNumber(summary, ["totalPointsRedeemed", "TotalPointsRedeemed"]),
+      totalRewardsRedeemed: readNumber(summary, ["totalRewardsRedeemed", "TotalRewardsRedeemed"]),
+      tierUpgradeCount: readNumber(summary, ["tierUpgradeCount", "TierUpgradeCount"]),
+    },
+    tierDistribution: Array.isArray(tierDistributionRaw)
+      ? tierDistributionRaw.map((item) => {
+          const tier = asRecord(item);
+          return {
+            tierName: readString(tier, ["tierName", "TierName"], "Chưa rõ"),
+            customerCount: readNumber(tier, ["customerCount", "CustomerCount"]),
+          };
+        })
+      : [],
   };
 }
 

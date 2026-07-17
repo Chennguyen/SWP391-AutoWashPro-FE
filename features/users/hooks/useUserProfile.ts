@@ -28,8 +28,8 @@ export function useUpdateProfileMutation(token: string) {
       if (!token) throw new Error("No auth token provided");
       return await updateCustomerProfile(token, payload);
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["user-profile", token] });
+    onSuccess: (updatedProfile) => {
+      queryClient.setQueryData(["user-profile", token], updatedProfile);
       void queryClient.invalidateQueries({ queryKey: ["verification-status", token] });
     },
   });

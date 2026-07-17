@@ -3,7 +3,7 @@ import { apiBase, handleApiResponse } from "@/lib/api-error";
 import { CustomerProfile, UpdateCustomerProfilePayload } from "./types/user-types";
 export { type CustomerProfile, type UpdateCustomerProfilePayload };
 
-type CustomerProfileRecord = {
+type CustomerProfileDataRecord = {
   firstName?: string;
   FirstName?: string;
   lastName?: string;
@@ -11,16 +11,28 @@ type CustomerProfileRecord = {
   cccd?: string;
   Cccd?: string;
   CCCD?: string;
+  dateOfBirth?: string | null;
+  DateOfBirth?: string | null;
   status?: string;
   Status?: string;
   rejectReason?: string;
   RejectReason?: string;
 };
 
+type CustomerProfileRecord = CustomerProfileDataRecord & {
+  profileData?: CustomerProfileDataRecord;
+  ProfileData?: CustomerProfileDataRecord;
+  email?: string;
+  Email?: string;
+  phone?: string;
+  Phone?: string;
+};
+
 type CustomerProfileResponse =
   | CustomerProfileRecord
   | {
       data?: CustomerProfileRecord;
+      Data?: CustomerProfileRecord;
     };
 
 /**
@@ -40,7 +52,9 @@ function customerEndpoint(path = "") {
  * @returns Bản ghi dữ liệu hồ sơ khách hàng thô.
  */
 function unwrapProfile(body: CustomerProfileResponse): CustomerProfileRecord {
-  return "data" in body && body.data ? body.data : (body as CustomerProfileRecord);
+  if ("data" in body && body.data) return body.data;
+  if ("Data" in body && body.Data) return body.Data;
+  return body as CustomerProfileRecord;
 }
 
 /**
@@ -51,13 +65,19 @@ function unwrapProfile(body: CustomerProfileResponse): CustomerProfileRecord {
  * @returns Đối tượng CustomerProfile đã chuẩn hóa.
  */
 function normalizeProfile(body: CustomerProfileResponse): CustomerProfile {
-  const data = unwrapProfile(body) as any;
+  const data = unwrapProfile(body);
   const profileData = data.profileData ?? data.ProfileData ?? data;
 
   return {
     firstName: profileData.firstName ?? profileData.FirstName ?? data.firstName ?? data.FirstName ?? "",
     lastName: profileData.lastName ?? profileData.LastName ?? data.lastName ?? data.LastName ?? "",
     cccd: profileData.cccd ?? profileData.Cccd ?? profileData.CCCD ?? data.cccd ?? data.Cccd ?? data.CCCD ?? "",
+    dateOfBirth:
+      profileData.dateOfBirth ??
+      profileData.DateOfBirth ??
+      data.dateOfBirth ??
+      data.DateOfBirth ??
+      null,
     email: data.email ?? data.Email ?? "",
     phone: data.phone ?? data.Phone ?? "",
     status: profileData.status ?? profileData.Status ?? data.status ?? data.Status,
@@ -91,7 +111,7 @@ export async function getCustomerProfile(token: string): Promise<CustomerProfile
  * Cập nhật thông tin hồ sơ của khách hàng đang đăng nhập.
  * 
  * @param token Token xác thực.
- * @param payload Các trường cập nhật (firstName, lastName, số CCCD).
+ * @param payload Các trường cập nhật (firstName, lastName, phone, dateOfBirth).
  * @returns Một promise giải quyết thành CustomerProfile đã được cập nhật.
  */
 export async function updateCustomerProfile(
@@ -108,8 +128,8 @@ export async function updateCustomerProfile(
     body: JSON.stringify(payload),
   });
 
-  const body = await handleApiResponse<CustomerProfileResponse>(res);
-  return normalizeProfile(body);
+  await handleApiResponse<unknown>(res);
+  return getCustomerProfile(token);
 }
 
 /**

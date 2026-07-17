@@ -174,7 +174,7 @@ export function RankPanel({ token, onUnauthorized }: RankPanelProps) {
 
               return (
                 <article
-                  key={tierLevel}
+                  key={tierData.id}
                   className={cn(
                     "rank-tier-card rounded-lg border p-4 transition duration-500",
                     reached ? "rank-tier-card-reached" : "rank-tier-card-locked",

@@ -9,6 +9,7 @@ import {
   Gift,
   RefreshCw,
   Sparkles,
+  TicketPercent,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { useGetMyVouchersQuery } from "@/features/loyalty/hooks/useLoyalty";
+import type { MyVoucher } from "@/features/loyalty/types/loyalty-types";
 import type { ApiError } from "@/lib/api-error";
 import { useGetRewardsQuery } from "../hooks/useGetRewardsQuery";
 import { useRedeemRewardMutation } from "../hooks/useRedeemRewardMutation";
@@ -56,6 +60,78 @@ interface RewardCardProps {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("vi-VN").format(value);
+}
+
+function formatVoucherDiscount(voucher: MyVoucher) {
+  if (voucher.discountType.toLowerCase() === "percentage") {
+    return `Giảm ${formatNumber(voucher.discountValue)}%`;
+  }
+
+  return `Giảm ${formatNumber(voucher.discountValue)}đ`;
+}
+
+function getVoucherAvailability(voucher: MyVoucher) {
+  const status = voucher.status.toLowerCase();
+  const expiresAt = voucher.expiresAt
+    ? new Date(voucher.expiresAt).getTime()
+    : null;
+
+  if (voucher.isUsed || status === "used") {
+    return { label: "Đã sử dụng", available: false };
+  }
+  if (
+    status === "expired" ||
+    (expiresAt !== null && Number.isFinite(expiresAt) && expiresAt <= Date.now())
+  ) {
+    return { label: "Đã hết hạn", available: false };
+  }
+
+  return { label: "Có thể sử dụng", available: true };
+}
+
+function CustomerVoucherCard({ voucher }: { voucher: MyVoucher }) {
+  const availability = getVoucherAvailability(voucher);
+
+  return (
+    <Card
+      size="sm"
+      className="min-h-36 gap-2 border border-white/10 bg-[#1d1d20] py-3 text-[#fffdf9] ring-0 shadow-[0_14px_34px_rgba(8,8,10,0.16)]"
+    >
+      <CardHeader className="gap-2 px-4">
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="min-w-0 text-base font-semibold text-[#fffdf9]">
+            <h3 className="line-clamp-2">{voucher.rewardName}</h3>
+          </CardTitle>
+          <Badge
+            className={
+              availability.available
+                ? "border-[#bca374]/25 bg-[#bca374]/10 text-[#d8c49f]"
+                : "border-white/10 bg-white/[0.05] text-[#8f8b84]"
+            }
+          >
+            {availability.label}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex flex-1 flex-col gap-3 px-4">
+        <div>
+          <p className="text-lg font-semibold text-[#d8c49f]">
+            {formatVoucherDiscount(voucher)}
+          </p>
+          <p className="mt-1 font-mono text-xs tracking-[0.14em] text-[#c4c0b8]">
+            {voucher.code}
+          </p>
+        </div>
+
+        <p className="mt-auto text-xs leading-5 text-[#8f8b84]">
+          {voucher.expiresAt
+            ? `Hạn dùng ${new Date(voucher.expiresAt).toLocaleDateString("vi-VN")}`
+            : "Không giới hạn ngày sử dụng"}
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function getRedeemErrorMessage(error: ApiError) {
@@ -248,6 +324,9 @@ export function RewardRedeemSection({
 }: RewardRedeemSectionProps) {
   const queryClient = useQueryClient();
   const rewardsQuery = useGetRewardsQuery(token, { enabled });
+  const vouchersQuery = useGetMyVouchersQuery(token, userId, {
+    enabled: enabled && Boolean(userId),
+  });
   const [toast, setToast] = useState<RewardToast | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
@@ -287,6 +366,7 @@ export function RewardRedeemSection({
   const showLoading =
     rewardsQuery.isLoading || (rewardsQuery.isFetching && rewardsQuery.isError);
   const rewards = rewardsQuery.data ?? [];
+  const vouchers = vouchersQuery.data ?? [];
 
   return (
     <section
@@ -335,7 +415,7 @@ export function RewardRedeemSection({
         </div>
       </header>
 
-      <div className="p-4 sm:p-6">
+      <div className="space-y-8 p-4 sm:p-6">
         {!enabled ? (
           <div className="rounded-xl border border-dashed border-white/10 px-4 py-12 text-center">
             <Gift className="mx-auto size-8 text-[#bca374]/70" strokeWidth={1.5} aria-hidden />
@@ -347,76 +427,186 @@ export function RewardRedeemSection({
             </p>
           </div>
         ) : (
-          <div aria-live="polite">
-            {showLoading ? (
-              <div
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
-                aria-label="Đang tải phần thưởng"
-              >
-                {[1, 2, 3, 4, 5, 6].map((item) => (
-                  <Card
-                    key={item}
-                    size="sm"
-                    className="min-h-64 gap-4 border border-white/10 bg-[#1d1d20] py-4 ring-0"
-                  >
-                    <CardHeader className="px-4">
-                      <Skeleton className="h-5 w-2/3 bg-white/10" />
-                    </CardHeader>
-                    <CardContent className="space-y-3 px-4">
-                      <Skeleton className="h-4 w-full bg-white/10" />
-                      <Skeleton className="h-4 w-4/5 bg-white/10" />
-                      <Skeleton className="h-6 w-28 bg-white/10" />
-                    </CardContent>
-                    <CardFooter className="mt-auto border-white/10 bg-white/[0.02] px-4 py-4">
-                      <Skeleton className="h-7 w-full bg-white/10" />
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : rewardsQuery.isError ? (
-              <div className="rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-10 text-center">
-                <AlertCircle className="mx-auto size-7 text-red-300" strokeWidth={1.6} aria-hidden />
-                <p className="mt-3 text-sm font-medium text-[#fffdf9]">
-                  Chưa thể tải danh sách phần thưởng
-                </p>
-                <p className="mt-1 text-sm leading-6 text-[#b8aaa5]">
-                  {rewardsQuery.error.message || "Vui lòng thử lại sau."}
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void rewardsQuery.refetch()}
-                  className="mt-4 text-[#d8c49f] hover:bg-white/5 hover:text-[#fffdf9]"
+          <div className="space-y-8" aria-live="polite">
+            <section aria-labelledby="customer-vouchers-title">
+              <div>
+                <h3
+                  id="customer-vouchers-title"
+                  className="text-lg font-semibold text-[#fffdf9]"
                 >
-                  <RefreshCw data-icon="inline-start" aria-hidden />
-                  Thử lại
-                </Button>
-              </div>
-            ) : rewards.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-white/10 px-4 py-12 text-center">
-                <Gift className="mx-auto size-8 text-[#bca374]/70" strokeWidth={1.5} aria-hidden />
-                <p className="mt-3 text-sm font-medium text-[#fffdf9]">
-                  Chưa có phần thưởng nào để đổi
-                </p>
+                  Voucher của bạn
+                </h3>
                 <p className="mt-1 text-sm leading-6 text-[#8f8b84]">
-                  Các phần thưởng mới sẽ xuất hiện tại đây.
+                  Những voucher đang có trong tài khoản của bạn.
                 </p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {rewards.map((reward) => (
-                  <RewardCard
-                    key={reward.id}
-                    reward={reward}
-                    customerId={customerId}
-                    currentPoints={currentPoints}
-                    onSuccess={handleRedeemSuccess}
-                    onError={handleRedeemError}
-                  />
-                ))}
+
+              <div className="mt-4">
+                {vouchersQuery.isLoading ? (
+                  <div
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                    aria-label="Đang tải voucher của bạn"
+                  >
+                    {[1, 2, 3].map((item) => (
+                      <Card
+                        key={item}
+                        size="sm"
+                        className="min-h-36 gap-3 border border-white/10 bg-[#1d1d20] py-3 ring-0"
+                      >
+                        <CardHeader className="px-4">
+                          <Skeleton className="h-5 w-2/3 bg-white/10" />
+                        </CardHeader>
+                        <CardContent className="space-y-3 px-4">
+                          <Skeleton className="h-6 w-28 bg-white/10" />
+                          <Skeleton className="h-4 w-36 bg-white/10" />
+                          <Skeleton className="h-4 w-32 bg-white/10" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : vouchersQuery.isError ? (
+                  <div className="rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-8 text-center">
+                    <AlertCircle
+                      className="mx-auto size-7 text-red-300"
+                      strokeWidth={1.6}
+                      aria-hidden
+                    />
+                    <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                      Chưa thể tải voucher của bạn
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#b8aaa5]">
+                      {vouchersQuery.error.message || "Vui lòng thử lại sau."}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void vouchersQuery.refetch()}
+                      className="mt-4 text-[#d8c49f] hover:bg-white/5 hover:text-[#fffdf9]"
+                    >
+                      <RefreshCw data-icon="inline-start" aria-hidden />
+                      Thử lại
+                    </Button>
+                  </div>
+                ) : vouchers.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 px-4 py-10 text-center">
+                    <TicketPercent
+                      className="mx-auto size-8 text-[#bca374]/70"
+                      strokeWidth={1.5}
+                      aria-hidden
+                    />
+                    <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                      Bạn chưa có voucher nào
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#8f8b84]">
+                      Đổi điểm ở phần bên dưới để nhận voucher mới.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {vouchers.map((voucher) => (
+                      <CustomerVoucherCard key={voucher.id} voucher={voucher} />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </section>
+
+            <Separator className="bg-white/10" />
+
+            <section aria-labelledby="available-rewards-title">
+              <div>
+                <h3
+                  id="available-rewards-title"
+                  className="text-lg font-semibold text-[#fffdf9]"
+                >
+                  Voucher hiện hành
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-[#8f8b84]">
+                  Chọn voucher phù hợp và dùng điểm hiện có để quy đổi.
+                </p>
+              </div>
+
+              <div className="mt-4">
+                {showLoading ? (
+                  <div
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                    aria-label="Đang tải phần thưởng"
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((item) => (
+                      <Card
+                        key={item}
+                        size="sm"
+                        className="min-h-64 gap-4 border border-white/10 bg-[#1d1d20] py-4 ring-0"
+                      >
+                        <CardHeader className="px-4">
+                          <Skeleton className="h-5 w-2/3 bg-white/10" />
+                        </CardHeader>
+                        <CardContent className="space-y-3 px-4">
+                          <Skeleton className="h-4 w-full bg-white/10" />
+                          <Skeleton className="h-4 w-4/5 bg-white/10" />
+                          <Skeleton className="h-6 w-28 bg-white/10" />
+                        </CardContent>
+                        <CardFooter className="mt-auto border-white/10 bg-white/[0.02] px-4 py-4">
+                          <Skeleton className="h-7 w-full bg-white/10" />
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                ) : rewardsQuery.isError ? (
+                  <div className="rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-10 text-center">
+                    <AlertCircle
+                      className="mx-auto size-7 text-red-300"
+                      strokeWidth={1.6}
+                      aria-hidden
+                    />
+                    <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                      Chưa thể tải danh sách phần thưởng
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#b8aaa5]">
+                      {rewardsQuery.error.message || "Vui lòng thử lại sau."}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void rewardsQuery.refetch()}
+                      className="mt-4 text-[#d8c49f] hover:bg-white/5 hover:text-[#fffdf9]"
+                    >
+                      <RefreshCw data-icon="inline-start" aria-hidden />
+                      Thử lại
+                    </Button>
+                  </div>
+                ) : rewards.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 px-4 py-12 text-center">
+                    <Gift
+                      className="mx-auto size-8 text-[#bca374]/70"
+                      strokeWidth={1.5}
+                      aria-hidden
+                    />
+                    <p className="mt-3 text-sm font-medium text-[#fffdf9]">
+                      Chưa có phần thưởng nào để đổi
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#8f8b84]">
+                      Các phần thưởng mới sẽ xuất hiện tại đây.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {rewards.map((reward) => (
+                      <RewardCard
+                        key={reward.id}
+                        reward={reward}
+                        customerId={customerId}
+                        currentPoints={currentPoints}
+                        onSuccess={handleRedeemSuccess}
+                        onError={handleRedeemError}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
         )}
       </div>

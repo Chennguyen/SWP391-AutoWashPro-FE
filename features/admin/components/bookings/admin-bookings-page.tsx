@@ -170,7 +170,9 @@ function BookingDetailModal({
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Khách hàng</p>
             <p className="mt-1 font-semibold text-slate-950">{booking.customerName || "-"}</p>
-            <p className="text-sm text-slate-500">{booking.customerEmail || "-"}</p>
+            {booking.customerEmail?.trim() ? (
+              <p className="text-sm text-slate-500">{booking.customerEmail}</p>
+            ) : null}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Biển số xe</p>
@@ -196,16 +198,20 @@ function BookingDetailModal({
                 : formatTime(booking.startTime)}
             </p>
           </div>
-          <div className="sm:col-span-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ghi chú</p>
-            <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              {booking.note || "-"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thời gian tạo</p>
-            <p className="mt-1 text-slate-800">{formatDateTime(booking.createdAt)}</p>
-          </div>
+          {booking.note?.trim() ? (
+            <div className="sm:col-span-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ghi chú</p>
+              <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {booking.note}
+              </p>
+            </div>
+          ) : null}
+          {booking.createdAt?.trim() ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thời gian tạo</p>
+              <p className="mt-1 text-slate-800">{formatDateTime(booking.createdAt)}</p>
+            </div>
+          ) : null}
         </div>
         {booking.status === "Confirmed" ? (
           <div className="flex justify-end border-t border-slate-200 px-5 py-4">
@@ -532,7 +538,9 @@ export function AdminBookingsPage() {
                   >
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-950">{booking.customerName}</p>
-                      <p className="text-xs text-slate-500">{booking.customerEmail || "-"}</p>
+                      {booking.customerEmail?.trim() ? (
+                        <p className="text-xs text-slate-500">{booking.customerEmail}</p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{booking.branchName}</td>
                     <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-700">{booking.vehiclePlate || "-"}</td>

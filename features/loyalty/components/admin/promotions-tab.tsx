@@ -79,8 +79,8 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
   const isEdit = !!initial;
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [discountType, setDiscountType] = useState(initial?.discountType ?? "FixedAmount"); // default: fixed amount
-  const [discountValueStr, setDiscountValueStr] = useState(initial ? String(initial.discountValue) : "15000");
+  const discountType = initial?.discountType ?? "Percentage";
+  const [discountValueStr, setDiscountValueStr] = useState(initial ? String(initial.discountValue) : "10");
   
   const formatDateForInput = (iso: string) => {
     if (!iso) return "";
@@ -120,16 +120,6 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
     }
     loadTiers();
   }, [token]);
-
-  useEffect(() => {
-    if (!initial) {
-      if (discountType === "Percentage") {
-        setDiscountValueStr("10");
-      } else {
-        setDiscountValueStr("15000");
-      }
-    }
-  }, [discountType, initial]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -230,16 +220,12 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Loại giảm giá</label>
-              <select
-                disabled={readOnly || isEdit}
-                value={discountType}
-                onChange={(e) => setDiscountType(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+              <div
+                aria-readonly="true"
+                className="flex min-h-10 w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
               >
-                {DISCOUNT_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                {DISCOUNT_TYPE_OPTIONS.find((option) => option.value === discountType)?.label ?? "Giảm theo %"}
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
