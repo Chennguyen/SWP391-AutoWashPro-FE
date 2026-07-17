@@ -8,14 +8,12 @@ import {
 } from "@/features/admin/components/admin-ui";
 import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
 import {
-  getBranches,
   getLoyaltyReport,
   getRevenueReport,
-  type AdminBranch,
   type LoyaltyReport,
   type RevenueReport,
 } from "@/features/admin/services";
-import { BarChart3, RefreshCw, Trophy, WalletCards } from "lucide-react";
+import { BarChart3, RefreshCw, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AreaSimple, type RevenueChartPoint } from "@/components/charts/area-simple";
 
@@ -161,7 +159,7 @@ export function AdminReportsPage() {
 
       {error ? <AdminError message={error} onRetry={loadReports} /> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <MetricCard
           label="Doanh thu"
           value={formatVND(revenue?.totalRevenue ?? 0)}
@@ -173,12 +171,6 @@ export function AdminReportsPage() {
           value={revenue?.totalBookings ?? 0}
           icon={BarChart3}
           tone="text-blue-600"
-        />
-        <MetricCard
-          label="Điểm loyalty"
-          value={loyalty?.totalPoints ?? 0}
-          icon={Trophy}
-          tone="text-amber-500"
         />
       </div>
 
@@ -202,7 +194,7 @@ export function AdminReportsPage() {
                     Điểm tích lũy
                   </span>
                   <span className="text-lg font-bold text-slate-800">
-                    {(loyalty as any).summary?.totalPointsEarned ?? 0}
+                    {loyalty.summary.totalPointsEarned}
                   </span>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
@@ -210,7 +202,7 @@ export function AdminReportsPage() {
                     Điểm đã đổi
                   </span>
                   <span className="text-lg font-bold text-slate-800">
-                    {(loyalty as any).summary?.totalPointsRedeemed ?? 0}
+                    {loyalty.summary.totalPointsRedeemed}
                   </span>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
@@ -218,7 +210,7 @@ export function AdminReportsPage() {
                     Quà đã nhận
                   </span>
                   <span className="text-lg font-bold text-slate-800">
-                    {(loyalty as any).summary?.totalRewardsRedeemed ?? 0}
+                    {loyalty.summary.totalRewardsRedeemed}
                   </span>
                 </div>
                 <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
@@ -226,14 +218,13 @@ export function AdminReportsPage() {
                     Lượt nâng hạng
                   </span>
                   <span className="text-lg font-bold text-slate-800">
-                    {(loyalty as any).summary?.tierUpgradeCount ?? 0}
+                    {loyalty.summary.tierUpgradeCount}
                   </span>
                 </div>
               </div>
 
               {/* Tier Distribution Table */}
-              {Array.isArray((loyalty as any).tierDistribution) &&
-              ((loyalty as any).tierDistribution as any[]).length > 0 ? (
+              {loyalty.tierDistribution.length > 0 ? (
                 <div className="mt-4">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                     Phân bố hạng thành viên
@@ -251,10 +242,10 @@ export function AdminReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {((loyalty as any).tierDistribution as any[]).map(
-                          (tier: any, idx: number) => (
+                        {loyalty.tierDistribution.map(
+                          (tier) => (
                             <tr
-                              key={idx}
+                              key={tier.tierName}
                               className="hover:bg-slate-50 transition-colors"
                             >
                               <td className="px-4 py-2 font-medium text-slate-900">

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { User, Package, LogOut } from "lucide-react";
+import { useLogoutMutation } from "@/features/auth/hooks/useLogout";
 
 interface UserMenuProps {
   user: {
@@ -21,6 +22,7 @@ interface UserMenuProps {
 export function UserMenu({ user }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const logoutMutation = useLogoutMutation();
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -71,14 +73,18 @@ export function UserMenu({ user }: UserMenuProps) {
           
           <div className="border-t border-slate-100 my-1"></div>
           
-          <Link
-            href="/sign-in"
-            className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-            onClick={() => setIsOpen(false)}
+          <button
+            type="button"
+            disabled={logoutMutation.isPending}
+            className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+            onClick={() => {
+              setIsOpen(false);
+              logoutMutation.mutate();
+            }}
           >
             <LogOut size={15} />
-            Đăng xuất
-          </Link>
+            {logoutMutation.isPending ? "Đang đăng xuất..." : "Đăng xuất"}
+          </button>
         </div>
       )}
     </div>

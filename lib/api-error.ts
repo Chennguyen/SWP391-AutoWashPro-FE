@@ -109,6 +109,16 @@ export function translateErrorMessage(message: string): string {
     return "Số CCCD này đã được đăng ký. Vui lòng kiểm tra lại.";
   }
 
+  if (raw.includes("date of birth") && raw.includes("future")) {
+    return "Ngày sinh không được lớn hơn ngày hiện tại.";
+  }
+  if (
+    raw.includes("date of birth can only be set once") ||
+    (raw.includes("date of birth") && raw.includes("administrator"))
+  ) {
+    return "Ngày sinh chỉ được cập nhật một lần. Vui lòng liên hệ quản trị viên nếu cần điều chỉnh.";
+  }
+
   // 3. Lỗi thay đổi mật khẩu
   if (
     raw.includes("incorrect password") ||

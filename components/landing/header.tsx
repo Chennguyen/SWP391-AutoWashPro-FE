@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { Logo } from '@/shared/components/logo';
+import { LandingActionLink } from './marketing-image';
 
-// Server Component — no interactivity needed
+// Server Component - interactivity is isolated inside LandingActionLink.
 export function Header() {
   const navLinks = [
     { label: 'Giới thiệu', href: '#gioi-thieu' },
@@ -11,38 +12,33 @@ export function Header() {
   ];
 
   return (
-    <header className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-8 md:px-16 py-7">
-      {/* Brand */}
-      <div className="flex-1">
-        <Logo />
-      </div>
+    <header className="absolute inset-x-0 top-0 z-30 h-[72px] border-b border-white/[0.08] bg-[#0e0e10]/65 backdrop-blur-md">
+      <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:px-10">
+        <div className="shrink-0">
+          <Logo />
+        </div>
 
-      {/* Center Navigation */}
-      <nav className="hidden lg:flex items-center justify-center gap-10 flex-1" aria-label="Menu chính">
-        {navLinks.map(({ label, href }) => (
-          <Link
-            key={label}
-            href={href}
-            className="relative text-[11px] font-semibold tracking-[0.2em] uppercase text-white/80 hover:text-white transition-colors duration-300 group"
-          >
-            {label}
-            <span
-              aria-hidden="true"
-              className="absolute -bottom-1.5 left-0 w-0 h-[1px] bg-white/90 transition-all duration-300 group-hover:w-full"
-            />
-          </Link>
-        ))}
-      </nav>
-
-      {/* Right CTA */}
-      <div className="flex-1 flex justify-end">
-        <Link
-          href="/sign-in"
-          style={{ color: '#000000' }}
-          className="text-xs font-bold tracking-[0.2em] uppercase bg-white border border-white rounded-full px-6 py-2.5 hover:bg-white/90 hover:scale-105 transition-all duration-300"
+        <nav
+          className="hidden min-w-0 items-center justify-center gap-5 lg:flex xl:gap-8"
+          aria-label="Menu chính"
         >
-          Đặt lịch
-        </Link>
+          {navLinks.map(({ label, href }) => (
+            <Link
+              key={label}
+              href={href}
+              className="relative whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.16em] !text-white/80 transition-colors duration-200 hover:!text-[#d8c49f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bca374]"
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <LandingActionLink
+          customerHref="/customer/booking"
+          className="shrink-0 whitespace-nowrap rounded-full border border-[#d8c49f] bg-[#d8c49f] px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] !text-[#17130f] transition-colors duration-200 hover:bg-[#ead8b4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e0e10] active:translate-y-px sm:px-6"
+        >
+          Đặt lịch ngay
+        </LandingActionLink>
       </div>
     </header>
   );

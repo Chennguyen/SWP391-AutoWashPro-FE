@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   AtSign,
   BadgeCheck,
+  CalendarDays,
   Eye,
   EyeOff,
   Fingerprint,
@@ -18,7 +19,13 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 import { ApiError } from "@/lib/api-error";
+import {
+  formatDateOfBirth,
+  getTodayUtcDateString,
+} from "@/lib/date-of-birth";
 import { CustomerProfile } from "../types/user-types";
 import {
   useGetProfileQuery,
@@ -27,16 +34,37 @@ import {
   useChangePasswordMutation,
   useResubmitVerificationMutation,
 } from "../hooks/useUserProfile";
-import { profileSchema, passwordSchema } from "../validation/user-validation";
+import {
+  type ProfileFields,
+  passwordSchema,
+  profileSchema,
+} from "../validation/user-validation";
 import { AlertTriangle, Info, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { useGetLoyaltyInfoQuery } from "@/features/loyalty/hooks/useLoyalty";
 import { resolveRankTier } from "@/features/loyalty/utils";
 
 interface ProfilePanelProps {
   token: string;
   onUnauthorized: () => void;
+}
+
+function profileToFormValues(profile: CustomerProfile | null): ProfileFields {
+  return {
+    firstName: profile?.firstName ?? "",
+    lastName: profile?.lastName ?? "",
+    phone: profile?.phone ?? "",
+    dateOfBirth: profile?.dateOfBirth ?? "",
+  };
 }
 
 function ProfileInfoItem({
@@ -82,6 +110,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [phone, setPhone] = useState("");
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [maxDateOfBirth] = useState(getTodayUtcDateString);
 
   // Trạng thái Đổi mật khẩu
   const [oldPassword, setOldPassword] = useState("");
@@ -99,6 +128,21 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [faceImages, setFaceImages] = useState<{ file: File; preview: string }[]>([]);
   const [resubmitSuccess, setResubmitSuccess] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
+
+  const {
+    register: registerProfile,
+    handleSubmit: handleProfileSubmit,
+    reset: resetProfileForm,
+    setError: setProfileFieldError,
+    clearErrors: clearProfileFieldErrors,
+    formState: {
+      errors: profileFieldErrors,
+      isDirty: isProfileDirty,
+    },
+  } = useForm<ProfileFields>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: profileToFormValues(null),
+  });
 
   // Queries & Mutations
   const verificationQuery = useGetVerificationStatusQuery(token);
@@ -177,6 +221,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
         setFirstName(officialProfile.firstName || "");
         setLastName(officialProfile.lastName || "");
         setPhone(officialProfile.phone || "");
+        if (!isEditing) {
+          resetProfileForm(profileToFormValues(officialProfile));
+        }
 
         window.localStorage.setItem("firstName", officialProfile.firstName || "");
         window.localStorage.setItem("lastName", officialProfile.lastName || "");
@@ -184,7 +231,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       }, 0);
       return () => window.clearTimeout(id);
     }
-  }, [profileQuery.data]);
+  }, [isEditing, profileQuery.data, resetProfileForm]);
 
   // Bật/tắt chế độ chỉnh sửa
   const toggleEditing = () => {
@@ -193,10 +240,14 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       setFirstName(profile?.firstName || "");
       setLastName(profile?.lastName || "");
       setPhone(profile?.phone || "");
+      resetProfileForm(profileToFormValues(profile));
+      clearProfileFieldErrors();
       setProfileError(null);
       setProfileSuccess(false);
       setIsEditing(false);
     } else {
+      resetProfileForm(profileToFormValues(profile));
+      clearProfileFieldErrors();
       setProfileSuccess(false);
       setProfileError(null);
       setIsEditing(true);
@@ -251,44 +302,26 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
     }
   };
 
-  // Xác thực dữ liệu cập nhật hồ sơ
-  function validateProfileFields(): string | null {
-    const parse = profileSchema.safeParse({
-      firstName,
-      lastName,
-      phone,
-      cccd: profile?.cccd || "123456789", // dummy for validation
-    });
-    if (!parse.success) {
-      return parse.error.issues[0].message;
-    }
-    return null;
-  }
-
   // Cập nhật thông tin cá nhân
-  async function handleUpdateProfile(e: React.FormEvent) {
-    e.preventDefault();
-    const errorMsg = validateProfileFields();
-    if (errorMsg) {
-      setProfileError(errorMsg);
-      return;
-    }
-
+  async function handleUpdateProfile(data: ProfileFields) {
     setProfileError(null);
     setProfileSuccess(false);
 
     try {
       const updated = await updateProfileMutation.mutateAsync({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        cccd: profile?.cccd || "",
-        phone: phone.trim(),
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        phone: data.phone.trim(),
+        ...(profile?.dateOfBirth === null && data.dateOfBirth
+          ? { dateOfBirth: data.dateOfBirth }
+          : {}),
       });
 
       setProfile(updated);
       setFirstName(updated.firstName);
       setLastName(updated.lastName);
       setPhone(updated.phone || "");
+      resetProfileForm(profileToFormValues(updated));
 
       window.localStorage.setItem("firstName", updated.firstName);
       window.localStorage.setItem("lastName", updated.lastName);
@@ -301,9 +334,25 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
         onUnauthorized();
         return;
       }
-      setProfileError(
-        error instanceof Error ? error.message : "Lỗi cập nhật thông tin cá nhân.",
-      );
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Lỗi cập nhật thông tin cá nhân.";
+      const normalizedMessage = message.toLowerCase();
+
+      if (
+        normalizedMessage.includes("số điện thoại") ||
+        normalizedMessage.includes("phone")
+      ) {
+        setProfileFieldError("phone", { type: "server", message });
+      } else if (
+        normalizedMessage.includes("ngày sinh") ||
+        normalizedMessage.includes("date of birth")
+      ) {
+        setProfileFieldError("dateOfBirth", { type: "server", message });
+      } else {
+        setProfileError(message);
+      }
     }
   }
 
@@ -434,7 +483,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                     <button
                       type="submit"
                       form="profile-details-form"
-                      disabled={savingProfile}
+                      disabled={savingProfile || !isProfileDirty}
                       className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#bca374] px-3.5 text-sm font-semibold text-[#17130f] transition hover:bg-[#d8c49f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8c49f] disabled:opacity-60 active:translate-y-px"
                     >
                       <Save className="size-4" aria-hidden />
@@ -637,7 +686,11 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                 </div>
              </form>
           ) : (
-            <form id="profile-details-form" onSubmit={handleUpdateProfile} noValidate>
+            <form
+              id="profile-details-form"
+              onSubmit={handleProfileSubmit(handleUpdateProfile)}
+              noValidate
+            >
               <section aria-labelledby="personal-info-title" className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
                 <div className="border-b border-white/10 px-4 py-4 sm:px-5">
                   <h3 id="personal-info-title" className="text-lg font-semibold text-[#fffdf9]">Thông tin cá nhân</h3>
@@ -647,41 +700,74 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                 </div>
 
                 {isEditing ? (
-                  <div className="grid gap-5 p-4 sm:grid-cols-2 sm:p-5">
-                    <div className="space-y-2">
-                      <label htmlFor="profile-first-name" className="block text-sm font-medium text-[#c8c2b8]">Tên đệm / tên</label>
-                      <input
+                  <FieldGroup className="grid gap-5 p-4 sm:grid-cols-2 sm:p-5">
+                    <Field data-invalid={Boolean(profileFieldErrors.firstName)}>
+                      <FieldLabel htmlFor="profile-first-name">Tên đệm / tên</FieldLabel>
+                      <Input
                         id="profile-first-name"
-                        name="firstName"
-                        value={firstName}
-                        onChange={(event) => setFirstName(event.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-[#bca374]/35 bg-[#222226] px-3.5 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
+                        className="min-h-11"
                         placeholder="Nhập tên đệm và tên"
+                        autoComplete="given-name"
+                        aria-invalid={Boolean(profileFieldErrors.firstName)}
+                        {...registerProfile("firstName")}
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor="profile-last-name" className="block text-sm font-medium text-[#c8c2b8]">Họ / tên chính</label>
-                      <input
+                      <FieldError errors={[profileFieldErrors.firstName]} />
+                    </Field>
+                    <Field data-invalid={Boolean(profileFieldErrors.lastName)}>
+                      <FieldLabel htmlFor="profile-last-name">Họ / tên chính</FieldLabel>
+                      <Input
                         id="profile-last-name"
-                        name="lastName"
-                        value={lastName}
-                        onChange={(event) => setLastName(event.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-[#bca374]/35 bg-[#222226] px-3.5 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
+                        className="min-h-11"
                         placeholder="Nhập họ và tên chính"
+                        autoComplete="family-name"
+                        aria-invalid={Boolean(profileFieldErrors.lastName)}
+                        {...registerProfile("lastName")}
                       />
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <label htmlFor="profile-phone" className="block text-sm font-medium text-[#c8c2b8]">Số điện thoại</label>
-                      <input
+                      <FieldError errors={[profileFieldErrors.lastName]} />
+                    </Field>
+                    <Field
+                      className="sm:col-span-2"
+                      data-invalid={Boolean(profileFieldErrors.phone)}
+                    >
+                      <FieldLabel htmlFor="profile-phone">Số điện thoại</FieldLabel>
+                      <Input
                         id="profile-phone"
-                        name="phone"
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-[#bca374]/35 bg-[#222226] px-3.5 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
+                        className="min-h-11"
                         placeholder="Nhập số điện thoại"
-                        inputMode="tel"
+                        type="tel"
+                        autoComplete="tel"
+                        aria-invalid={Boolean(profileFieldErrors.phone)}
+                        {...registerProfile("phone")}
                       />
-                    </div>
+                      <FieldError errors={[profileFieldErrors.phone]} />
+                    </Field>
+                    <Field
+                      className="sm:col-span-2"
+                      data-disabled={profile.dateOfBirth !== null}
+                      data-invalid={Boolean(profileFieldErrors.dateOfBirth)}
+                    >
+                      <FieldLabel htmlFor="profile-date-of-birth">Ngày sinh</FieldLabel>
+                      <Input
+                        id="profile-date-of-birth"
+                        className="min-h-11 scheme-dark"
+                        type="date"
+                        autoComplete="bday"
+                        max={maxDateOfBirth}
+                        disabled={profile.dateOfBirth !== null}
+                        readOnly={profile.dateOfBirth !== null}
+                        aria-readonly={profile.dateOfBirth !== null}
+                        data-disabled={profile.dateOfBirth !== null}
+                        aria-invalid={Boolean(profileFieldErrors.dateOfBirth)}
+                        aria-describedby="profile-date-of-birth-description"
+                        {...registerProfile("dateOfBirth")}
+                      />
+                      <FieldDescription id="profile-date-of-birth-description">
+                        {profile.dateOfBirth
+                          ? "Ngày sinh đã được lưu và không thể tự chỉnh sửa."
+                          : "Không bắt buộc. Sau khi lưu, ngày sinh sẽ không thể tự chỉnh sửa."}
+                      </FieldDescription>
+                      <FieldError errors={[profileFieldErrors.dateOfBirth]} />
+                    </Field>
                     <div className="rounded-xl bg-white/[0.035] px-4 py-3">
                       <p className="flex items-center gap-2 text-xs text-[#8f8b84]"><AtSign className="size-3.5 text-[#bca374]" aria-hidden />Email, chỉ đọc</p>
                       <p className="mt-1 break-words text-sm font-medium text-[#b8b3aa]">{profile.email || "Chưa cập nhật"}</p>
@@ -690,13 +776,14 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                       <p className="flex items-center gap-2 text-xs text-[#8f8b84]"><IdCard className="size-3.5 text-[#bca374]" aria-hidden />Số CCCD, chỉ đọc</p>
                       <p className="mt-1 text-sm font-medium text-[#b8b3aa]">{profile.cccd || "Chưa cập nhật"}</p>
                     </div>
-                  </div>
+                  </FieldGroup>
                 ) : (
                   <dl className="px-4 sm:px-5">
                     <ProfileInfoItem icon={UserRound} label="Tên đệm / tên" value={profile.firstName || "Chưa cập nhật"} />
                     <ProfileInfoItem icon={UserRound} label="Họ / tên chính" value={profile.lastName || "Chưa cập nhật"} />
                     <ProfileInfoItem icon={Mail} label="Email" value={profile.email || "Chưa cập nhật"} quiet />
                     <ProfileInfoItem icon={Phone} label="Số điện thoại" value={profile.phone || "Chưa cập nhật"} />
+                    <ProfileInfoItem icon={CalendarDays} label="Ngày sinh" value={formatDateOfBirth(profile.dateOfBirth)} />
                     <ProfileInfoItem icon={IdCard} label="Số CCCD" value={profile.cccd || "Chưa cập nhật"} quiet />
                   </dl>
                 )}
