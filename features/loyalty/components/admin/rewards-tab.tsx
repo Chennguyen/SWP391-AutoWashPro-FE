@@ -10,10 +10,10 @@ import {
   getAdminTiers,
   type AdminReward,
   type AdminRewardTypeEnum,
+  type AdminDiscountType,
   type CreateRewardPayload,
   type AdminTier,
   REWARD_TYPE_MAP,
-  REWARD_TYPE_REVERSE,
 } from "@/features/loyalty/loyalty-admin-service";
 import { AdminError } from "@/features/admin/components/admin-ui";
 
@@ -24,7 +24,11 @@ interface Props {
 const REWARD_TYPE_OPTIONS: { value: AdminRewardTypeEnum; label: string }[] = [
   { value: 0, label: "Rửa xe miễn phí" },
   { value: 1, label: "Voucher giảm giá" },
-  { value: 2, label: "Quà tặng" },
+];
+
+const DISCOUNT_TYPE_OPTIONS: { value: AdminDiscountType; label: string }[] = [
+  { value: "Percentage", label: "Phần trăm (%)" },
+  { value: "FixedAmount", label: "Số tiền cố định (VNĐ)" },
 ];
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
@@ -65,6 +69,12 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
       ? String(initial.validDays)
       : "30"
   );
+  const [discountType, setDiscountType] = useState<AdminDiscountType>(
+    initial?.discountType ?? "Percentage",
+  );
+  const [discountValueStr, setDiscountValueStr] = useState(
+    initial ? String(initial.discountValue) : "10",
+  );
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +88,12 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
       setLoadingTiers(true);
       try {
         const data = await getAdminTiers(token);
-        setTiers(data.sort((a, b) => a.level - b.level));
+        const sortedTiers = [...data].sort((a, b) => a.level - b.level);
+        const activeTierIds = new Set(sortedTiers.map((tier) => tier.id));
+        setTiers(sortedTiers);
+        setSelectedTierIds((currentIds) =>
+          currentIds.filter((tierId) => activeTierIds.has(tierId)),
+        );
       } catch (err) {
         console.error("Failed to load Tiers:", err);
       } finally {
@@ -101,6 +116,16 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
     const pointsRequired = Number(pointsRequiredStr || 0);
     const quantityAvailable = Number(quantityAvailableStr || 0);
     const validDays = Number(validDaysStr || 0);
+    const discountValue = Number(discountValueStr || 0);
+
+    if (discountValue <= 0) {
+      setError("Giá trị giảm phải lớn hơn 0.");
+      return;
+    }
+    if (discountType === "Percentage" && discountValue > 100) {
+      setError("Giá trị giảm theo phần trăm không được vượt quá 100%.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -112,6 +137,9 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
           pointsRequired,
           quantityAvailable: quantityAvailable,
           validDays: validDays,
+          rewardType: rewardTypeEnum,
+          discountType,
+          discountValue,
           isActive,
           tierIds: selectedTierIds,
         });
@@ -123,6 +151,8 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
           rewardType: rewardTypeEnum,   // integer enum
           quantityAvailable: quantityAvailable,
           validDays: validDays,
+          discountType,
+          discountValue,
           isActive,
           tierIds: selectedTierIds,
         };
@@ -139,7 +169,7 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-950">
             {readOnly ? "Chi tiết phần thưởng" : isEdit ? "Sửa phần thưởng" : "Thêm phần thưởng mới"}
@@ -224,6 +254,36 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
             </div>
           )}
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Kiểu giảm giá</label>
+              <select
+                disabled={readOnly}
+                value={discountType}
+                onChange={(e) => setDiscountType(e.target.value as AdminDiscountType)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+              >
+                {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Giá trị giảm</label>
+              <input
+                required
+                type="number"
+                min="0.01"
+                max={discountType === "Percentage" ? "100" : undefined}
+                step="0.01"
+                disabled={readOnly}
+                value={discountValueStr}
+                onChange={(e) => setDiscountValueStr(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Hiệu lực sau khi đổi (ngày)
@@ -270,9 +330,9 @@ function RewardFormModal({ initial, readOnly = false, onClose, onSaved, token }:
                         checked={isChecked}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedTierIds([...selectedTierIds, t.id]);
+                            setSelectedTierIds((currentIds) => [...currentIds, t.id]);
                           } else {
-                            setSelectedTierIds(selectedTierIds.filter((id) => id !== t.id));
+                            setSelectedTierIds((currentIds) => currentIds.filter((id) => id !== t.id));
                           }
                         }}
                         className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"

@@ -8,6 +8,7 @@ import type {
   LoyaltyPointsConfigRaw,
   AdminRewardTypeEnum,
   AdminRewardType,
+  AdminDiscountType,
   AdminReward,
   CreateRewardPayload,
   UpdateRewardPayload,
@@ -26,6 +27,7 @@ export type {
   LoyaltyPointsConfigRaw,
   AdminRewardTypeEnum,
   AdminRewardType,
+  AdminDiscountType,
   AdminReward,
   CreateRewardPayload,
   UpdateRewardPayload,
@@ -39,13 +41,13 @@ export type {
 export const REWARD_TYPE_MAP: Record<AdminRewardTypeEnum, AdminRewardType> = {
   0: "FREE_WASH",
   1: "VOUCHER",
-  2: "GIFT",
 };
 
 export const REWARD_TYPE_REVERSE: Record<string, AdminRewardTypeEnum> = {
   FREE_WASH: 0,
+  FreeWash: 0,
   VOUCHER: 1,
-  GIFT: 2,
+  Voucher: 1,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -370,6 +372,12 @@ function normalizeReward(raw: unknown): AdminReward {
     rewardTypeEnum,
     quantityAvailable: optNum(r, ["quantityAvailable", "QuantityAvailable", "stockQuantity", "StockQuantity", "stock_quantity"]),
     validDays: optNum(r, ["validDays", "ValidDays", "validDaysAfterRedeem", "ValidDaysAfterRedeem", "valid_days_after_redeem"]),
+    discountType: str(
+      r,
+      ["discountType", "DiscountType", "discount_type"],
+      "Percentage",
+    ) as AdminDiscountType,
+    discountValue: num(r, ["discountValue", "DiscountValue", "discount_value"]),
     isActive: bool(r, ["isActive", "IsActive"], str(r, ["status", "Status"]) === "active"),
     tierIds: extractTierIds(r),
   };
@@ -516,6 +524,8 @@ export async function createAdminReward(
     rewardType: data.rewardType,           // integer enum
     quantityAvailable: data.quantityAvailable,
     validDays: data.validDays,
+    discountType: data.discountType,
+    discountValue: data.discountValue,
     isActive: data.isActive,
     tierIds: data.tierIds ?? [],
   };
@@ -547,6 +557,9 @@ export async function updateAdminReward(
   if (data.pointsRequired !== undefined) payload.pointsRequired = data.pointsRequired;
   if (data.quantityAvailable !== undefined) payload.quantityAvailable = data.quantityAvailable;
   if (data.validDays !== undefined) payload.validDays = data.validDays;
+  if (data.rewardType !== undefined) payload.rewardType = data.rewardType;
+  if (data.discountType !== undefined) payload.discountType = data.discountType;
+  if (data.discountValue !== undefined) payload.discountValue = data.discountValue;
   if (data.isActive !== undefined) payload.isActive = data.isActive;
   if (data.tierIds !== undefined) payload.tierIds = data.tierIds;
 
