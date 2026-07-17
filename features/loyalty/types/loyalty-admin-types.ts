@@ -42,8 +42,9 @@ export type LoyaltyPointsConfigRaw = {
   configValue: string;
 };
 
-export type AdminRewardTypeEnum = 0 | 1 | 2;
-export type AdminRewardType = "FREE_WASH" | "VOUCHER" | "GIFT" | string;
+export type AdminRewardTypeEnum = 0 | 1;
+export type AdminRewardType = "FREE_WASH" | "VOUCHER" | string;
+export type AdminDiscountType = "Percentage" | "FixedAmount";
 
 export type AdminReward = {
   id: string;
@@ -54,6 +55,8 @@ export type AdminReward = {
   rewardTypeEnum: AdminRewardTypeEnum;
   quantityAvailable: number | null;
   validDays: number | null;
+  discountType: AdminDiscountType;
+  discountValue: number;
   isActive: boolean;
   tierIds?: string[];
 };
@@ -65,6 +68,8 @@ export type CreateRewardPayload = {
   rewardType: AdminRewardTypeEnum;   // integer enum
   quantityAvailable: number;
   validDays: number;
+  discountType: AdminDiscountType;
+  discountValue: number;
   isActive: boolean;
   tierIds?: string[];
 };
@@ -75,6 +80,9 @@ export type UpdateRewardPayload = Partial<{
   pointsRequired: number;
   quantityAvailable: number;
   validDays: number;
+  rewardType: AdminRewardTypeEnum;
+  discountType: AdminDiscountType;
+  discountValue: number;
   isActive: boolean;
   tierIds: string[];
 }>;

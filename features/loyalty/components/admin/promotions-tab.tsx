@@ -28,7 +28,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("vi-VN");
 }
 
-function PromotionStatusBadge({ promotion }: { promotion: AdminPromotion }) {
+function PromotionStatusBadge({ promotion, now }: { promotion: AdminPromotion; now: number }) {
   if (promotion.isActive === false) {
     return (
       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
@@ -37,7 +37,6 @@ function PromotionStatusBadge({ promotion }: { promotion: AdminPromotion }) {
     );
   }
 
-  const now = Date.now();
   const startDateObj = new Date(promotion.startDate);
   startDateObj.setHours(0, 0, 0, 0);
   const start = startDateObj.getTime();
@@ -111,7 +110,12 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
       setLoadingTiers(true);
       try {
         const data = await getAdminTiers(token);
-        setTiers(data.sort((a, b) => a.level - b.level));
+        const sortedTiers = [...data].sort((a, b) => a.level - b.level);
+        const activeTierIds = new Set(sortedTiers.map((tier) => tier.id));
+        setTiers(sortedTiers);
+        setSelectedTierIds((currentIds) =>
+          currentIds.filter((tierId) => activeTierIds.has(tierId)),
+        );
       } catch (err) {
         console.error("Failed to load tiers:", err);
       } finally {
@@ -171,7 +175,7 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
       }
       onSaved();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể lưu chương trình khuyến mãi.");
     } finally {
       setSaving(false);
@@ -316,9 +320,9 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
                           checked={isChecked}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedTierIds([...selectedTierIds, t.id]);
+                              setSelectedTierIds((currentIds) => [...currentIds, t.id]);
                             } else {
-                              setSelectedTierIds(selectedTierIds.filter((id) => id !== t.id));
+                              setSelectedTierIds((currentIds) => currentIds.filter((id) => id !== t.id));
                             }
                           }}
                           className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
@@ -390,6 +394,7 @@ function PromotionFormModal({ initial, readOnly = false, onClose, onSaved, token
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
 export function PromotionsTab({ token }: Props) {
+  const [renderedAt] = useState(() => Date.now());
   const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -475,10 +480,9 @@ export function PromotionsTab({ token }: Props) {
               </tr>
             ) : (
               promotions.map((p) => {
-                const now = Date.now();
                 const endDateObj = new Date(p.endDate);
                 endDateObj.setHours(23, 59, 59, 999);
-                const hasEnded = now > endDateObj.getTime();
+                const hasEnded = renderedAt > endDateObj.getTime();
 
                 return (
                   <tr
@@ -517,7 +521,7 @@ export function PromotionsTab({ token }: Props) {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <PromotionStatusBadge promotion={p} />
+                      <PromotionStatusBadge promotion={p} now={renderedAt} />
                     </td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-2">
