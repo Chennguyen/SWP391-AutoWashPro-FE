@@ -4,9 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-
-import { AuthInput } from "@/features/auth/components/auth-input";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import {
   getRecoveryErrorMessage,
@@ -20,6 +18,7 @@ import {
   setRecoveryToken,
 } from "../session-storage";
 import { VerifyOtpFields, verifyOtpSchema } from "../validations";
+import { OtpInput } from "./otp-input";
 import { RecoveryFormLoading } from "./recovery-form-loading";
 import { RecoveryNotice } from "./recovery-notice";
 import { RecoverySubmitButton } from "./recovery-submit-button";
@@ -32,7 +31,8 @@ export function VerifyOtpForm() {
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const {
-    register,
+    clearErrors,
+    control,
     handleSubmit,
     setError,
     formState: { errors },
@@ -40,6 +40,7 @@ export function VerifyOtpForm() {
     resolver: zodResolver(verifyOtpSchema),
     defaultValues: { otp: "" },
   });
+  const otpValue = useWatch({ control, name: "otp" });
 
   useEffect(() => {
     if (isClientReady && !email) {
@@ -102,19 +103,25 @@ export function VerifyOtpForm() {
         Mã xác minh đã được gửi đến <strong>{email}</strong>.
       </RecoveryNotice>
 
-      <AuthInput
-        className="h-12 text-center font-mono text-lg tracking-[0.35em]"
-        id="verify-otp-code"
-        label="Mã OTP"
-        type="text"
-        placeholder="000000"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={6}
-        error={errors.otp?.message}
-        aria-invalid={Boolean(errors.otp)}
-        aria-describedby={errors.otp ? "verify-otp-code-error" : undefined}
-        {...register("otp")}
+      <Controller
+        name="otp"
+        control={control}
+        render={({ field }) => (
+          <OtpInput
+            id="verify-otp-code"
+            name={field.name}
+            label="Mã OTP"
+            value={field.value}
+            onChange={(nextValue) => {
+              field.onChange(nextValue);
+              clearErrors("otp");
+            }}
+            onBlur={field.onBlur}
+            length={6}
+            disabled={verifyOtpMutation.isPending}
+            error={errors.otp?.message}
+          />
+        )}
       />
 
       {globalError ? <RecoveryNotice>{globalError}</RecoveryNotice> : null}
@@ -122,6 +129,7 @@ export function VerifyOtpForm() {
       <RecoverySubmitButton
         id="verify-otp-submit-btn"
         isPending={verifyOtpMutation.isPending}
+        disabled={otpValue.length !== 6}
         label="Xác minh OTP"
         pendingLabel="Đang xác minh..."
       />
