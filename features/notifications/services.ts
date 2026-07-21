@@ -80,7 +80,7 @@ export async function updateNotificationStatus(
     cache: "no-store",
     headers: authHeaders(token),
     body: JSON.stringify({
-      ids: ids.length > 0 ? ids : null,
+      ids,
       isRead,
       markAll,
     }),
