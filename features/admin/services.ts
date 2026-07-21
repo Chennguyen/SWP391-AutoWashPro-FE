@@ -6,10 +6,11 @@ type ApiRecord<T> = T | { data?: T; Data?: T };
 type ApiList<T> =
   | T[]
   | {
-      data?: T[] | { items?: T[]; results?: T[]; totalCount?: number; total?: number };
-      Data?: T[] | { items?: T[]; results?: T[]; totalCount?: number; total?: number };
+      data?: T[] | { items?: T[]; results?: T[]; totalItems?: number; totalCount?: number; total?: number };
+      Data?: T[] | { items?: T[]; results?: T[]; totalItems?: number; totalCount?: number; total?: number };
       items?: T[];
       results?: T[];
+      totalItems?: number;
       totalCount?: number;
       total?: number;
     };
@@ -296,12 +297,23 @@ function unwrapPage<T>(body: ApiList<T>): PageResult<T> {
     const items = data.items ?? data.results ?? [];
     return {
       items,
-      totalCount: data.totalCount ?? data.total ?? body.totalCount ?? body.total ?? items.length,
+      totalCount:
+        data.totalItems ??
+        data.totalCount ??
+        data.total ??
+        body.totalItems ??
+        body.totalCount ??
+        body.total ??
+        items.length,
     };
   }
 
   const items = body.items ?? body.results ?? [];
-  return { items, totalCount: body.totalCount ?? body.total ?? items.length };
+  return {
+    items,
+    totalCount:
+      body.totalItems ?? body.totalCount ?? body.total ?? items.length,
+  };
 }
 
 /**
