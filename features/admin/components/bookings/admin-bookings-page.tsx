@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
   Clock3,
   LoaderCircle,
   MapPin,
@@ -300,12 +301,17 @@ export function AdminBookingsPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   function getPageNumbers(): number[] {
-    const delta = 2;
-    const start = Math.max(1, pageIndex - delta);
-    const end = Math.min(totalPages, pageIndex + delta);
-    const pages: number[] = [];
-    for (let i = start; i <= end; i++) pages.push(i);
-    return pages;
+    const visiblePageCount = Math.min(3, totalPages);
+    const maxStartPage = totalPages - visiblePageCount + 1;
+    const startPage = Math.min(
+      Math.max(1, pageIndex - 1),
+      maxStartPage,
+    );
+
+    return Array.from(
+      { length: visiblePageCount },
+      (_, index) => startPage + index,
+    );
   }
 
   const loadBranches = useCallback(async () => {
@@ -564,6 +570,18 @@ export function AdminBookingsPage() {
             className="mt-6 mb-4 flex items-center justify-center gap-1"
             aria-label="Phân trang lịch đặt"
           >
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-lg"
+              onClick={() => goToPage(1)}
+              disabled={pageIndex === 1 || loading}
+              aria-label="Về trang đầu"
+              className="border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            >
+              <ChevronsLeft aria-hidden />
+            </Button>
+
             {/* Prev */}
             <button
               type="button"

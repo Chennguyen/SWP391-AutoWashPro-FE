@@ -402,14 +402,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const currentToken = readToken();
     if (!currentToken) return;
 
+    const unreadIds = notifications
+      .filter((notification) => !notification.isRead && notification.id.trim())
+      .map((notification) => notification.id);
+    if (unreadIds.length === 0) return;
+
     try {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      await updateNotificationStatus(currentToken, [], true, true);
+      await updateNotificationStatus(currentToken, unreadIds, true, true);
     } catch (err) {
       console.error("Lỗi khi đánh dấu đã đọc tất cả:", err);
       void loadNotifications(currentToken);
     }
-  }, [loadNotifications]);
+  }, [loadNotifications, notifications]);
 
   // Đóng Toast thông báo nổi
   const dismissToast = useCallback((id: string) => {

@@ -389,7 +389,19 @@ export function CustomerDashboardOverview() {
   const availableVouchers = (vouchersQuery.data ?? []).filter(
     (voucher) => !voucher.isUsed,
   );
-  const featuredVoucher = availableVouchers[0];
+  const nearestVoucherExpiry = availableVouchers.reduce<number | null>(
+    (nearestExpiry, voucher) => {
+      if (!voucher.expiresAt) return nearestExpiry;
+
+      const expiryTime = new Date(voucher.expiresAt).getTime();
+      if (!Number.isFinite(expiryTime)) return nearestExpiry;
+
+      return nearestExpiry === null || expiryTime < nearestExpiry
+        ? expiryTime
+        : nearestExpiry;
+    },
+    null,
+  );
   const activityLoading =
     pointTransactionsQuery.isLoading || walletTransactionsQuery.isLoading;
   const activityError =
@@ -725,35 +737,19 @@ export function CustomerDashboardOverview() {
                   <Skeleton className="h-6 w-32 bg-white/10" />
                   <Skeleton className="h-4 w-full bg-white/10" />
                 </div>
-              ) : featuredVoucher ? (
+              ) : availableVouchers.length > 0 ? (
                 <div className="mt-5">
-                  <p className="text-2xl font-semibold tracking-tight text-[#fffdf9]">
-                    {featuredVoucher.rewardName}
-                  </p>
-                  <p className="mt-2 font-mono text-sm tracking-[0.16em] text-[#d8c49f]">
-                    {featuredVoucher.code}
+                  <p className="text-3xl font-semibold tracking-tight text-[#fffdf9] tabular-nums">
+                    {formatNumber(availableVouchers.length)}
+                    <span className="ml-2 text-base font-medium tracking-normal text-[#c4c0b8]">
+                      voucher khả dụng
+                    </span>
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[#a09c94]">
-                    {featuredVoucher.expiresAt
-                      ? `Có hiệu lực đến ${new Date(featuredVoucher.expiresAt).toLocaleDateString("vi-VN")}.`
-                      : "Voucher đang sẵn sàng cho lần đặt lịch tiếp theo."}
-                    {availableVouchers.length > 1
-                      ? ` Bạn còn ${formatNumber(availableVouchers.length - 1)} voucher khác.`
-                      : ""}
+                    {nearestVoucherExpiry !== null
+                      ? `Voucher có hạn gần nhất hết hạn vào ngày ${new Date(nearestVoucherExpiry).toLocaleDateString("vi-VN")}.`
+                      : "Các voucher hiện tại không có ngày hết hạn."}
                   </p>
-                  <Link
-                    href="/customer/booking"
-                    className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#bca374] px-3.5 py-2 text-sm font-semibold text-[#17130f] outline-none transition hover:bg-[#d8c49f] focus-visible:ring-2 focus-visible:ring-[#d8c49f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1d1d20] active:translate-y-px"
-                  >
-                    <b className="font-semibold" style={{ color: "#17130f" }}>
-                      Dùng khi đặt lịch
-                    </b>
-                    <ArrowRight
-                      className="size-4"
-                      style={{ color: "#17130f" }}
-                      aria-hidden
-                    />
-                  </Link>
                 </div>
               ) : (
                 <div className="mt-5">
@@ -799,7 +795,7 @@ export function CustomerDashboardOverview() {
                       color: enabled ? "#17130f" : "rgba(255, 255, 255, 0.45)",
                     }}
                   >
-                    Đổi điểm lấy voucher
+                    Xem và đổi voucher
                   </b>
                 </span>
                 <ArrowRight data-icon="inline-end" aria-hidden />
