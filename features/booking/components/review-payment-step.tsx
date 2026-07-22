@@ -425,16 +425,28 @@ export function ReviewPaymentStep({
     : 0;
   const servicePrice = configs.basePrice + surcharge;
   const depositRate = configs.paymentDeposite / 100;
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
+  const [userSelectedPromoId, setUserSelectedPromoId] = useState<string | null>(null);
+  const [isPromoManuallyCleared, setIsPromoManuallyCleared] = useState(false);
 
-  const promotionDiscount = useMemo(() => {
-    const activePromos = promotions.filter((p) => {
+  const eligiblePromotions = useMemo(() => {
+    return promotions.filter((p) => {
       if (p.isActive === false) return false;
-      
+
+      // Check Tier matching
       const isPromoGlobal = p.isGlobal || !p.tierIds || p.tierIds.length === 0;
       if (!isPromoGlobal) {
-        if (!loyalty?.tier?.id) return false;
+        if (!loyalty?.tier) return false;
+        const userTier = loyalty.tier;
         const tierIds = p.tierIds ?? [];
-        if (!tierIds.includes(loyalty.tier.id)) return false;
+        const matchesTier = tierIds.some((tId) => {
+          const idStr = String(tId).trim();
+          if (userTier.id && idStr === userTier.id) return true;
+          if (userTier.name && idStr.toLowerCase() === userTier.name.toLowerCase()) return true;
+          if (userTier.level && idStr === String(userTier.level)) return true;
+          return false;
+        });
+        if (!matchesTier) return false;
       }
 
       // Date range validation against the selected booking date
@@ -470,37 +482,42 @@ export function ReviewPaymentStep({
         }
       }
 
-      console.warn("DEBUG [ReviewPaymentStep] Promotion active check passed:", {
-        name: p.name,
-        isGlobal: p.isGlobal,
-        isActive: p.isActive,
-        loyaltyTier: loyalty?.tier?.name
-      });
-
       return true;
     });
+  }, [promotions, loyalty?.tier, date]);
 
-    console.warn("DEBUG [ReviewPaymentStep] Active promotions found:", activePromos);
-
-    let maxPromoDiscount = 0;
-    activePromos.forEach((p) => {
-      let currentDiscount = 0;
+  const selectedPromo = useMemo(() => {
+    if (isPromoManuallyCleared) return null;
+    if (userSelectedPromoId) {
+      const found = eligiblePromotions.find((p) => p.id === userSelectedPromoId);
+      if (found) return found;
+    }
+    if (eligiblePromotions.length === 0) return null;
+    let bestPromo = eligiblePromotions[0];
+    let maxDiscount = 0;
+    eligiblePromotions.forEach((p) => {
+      let disc = 0;
       if (p.discountType === "Percentage") {
-        if (p.discountValue > 100) {
-          currentDiscount = Math.min(servicePrice, p.discountValue);
-        } else {
-          currentDiscount = Math.min(servicePrice, (servicePrice * p.discountValue) / 100);
-        }
+        disc = (servicePrice * Math.min(100, p.discountValue)) / 100;
       } else {
-        currentDiscount = Math.min(servicePrice, p.discountValue);
+        disc = p.discountValue;
       }
-      if (currentDiscount > maxPromoDiscount) {
-        maxPromoDiscount = currentDiscount;
+      if (disc > maxDiscount) {
+        maxDiscount = disc;
+        bestPromo = p;
       }
     });
+    return bestPromo;
+  }, [eligiblePromotions, userSelectedPromoId, isPromoManuallyCleared, servicePrice]);
 
-    return maxPromoDiscount;
-  }, [promotions, date, servicePrice, loyalty]);
+  const promotionDiscount = useMemo(() => {
+    if (!selectedPromo) return 0;
+    if (selectedPromo.discountType === "Percentage") {
+      const pct = Math.min(100, selectedPromo.discountValue);
+      return Math.min(servicePrice, (servicePrice * pct) / 100);
+    }
+    return Math.min(servicePrice, selectedPromo.discountValue);
+  }, [selectedPromo, servicePrice]);
 
   const loyaltyPoints = loyalty?.points ?? 0;
   const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
@@ -717,6 +734,41 @@ export function ReviewPaymentStep({
           ))}
         </CardContent>
       </Card>
+
+      {/* ── Promotion Selection Card (Shopee style, above Voucher) ── */}
+      <button
+        type="button"
+        onClick={() => setIsPromoModalOpen(true)}
+        className="flex items-center justify-between rounded-xl border bg-card p-4 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
+      >
+        <div className="flex items-center gap-2.5">
+          <Ticket className="shrink-0 text-muted-foreground" aria-hidden />
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Ưu đãi & Khuyến mãi
+            </p>
+            {selectedPromo ? (
+              <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                Đã áp dụng: {selectedPromo.name} (-{formatVND(promotionDiscount)})
+              </p>
+            ) : eligiblePromotions.length > 0 ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Có {eligiblePromotions.length} ưu đãi dành cho bạn
+              </p>
+            ) : (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Không có ưu đãi khả dụng
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="mr-1 text-xs font-medium text-muted-foreground">
+            Áp dụng ưu đãi
+          </span>
+          <span className="text-sm font-bold text-muted-foreground">&gt;</span>
+        </div>
+      </button>
 
       {/* ── Voucher Selection Card (Shopee style, between details and checkout) ── */}
       <button
@@ -1124,6 +1176,119 @@ export function ReviewPaymentStep({
               disabled={!selectedVoucherInModal || voucherValidationLoading}
             >
               {voucherValidationLoading ? "Đang áp dụng..." : "Đồng ý"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Promotion Selection Dialog Modal (Matches Voucher Modal style) ── */}
+      <Dialog open={isPromoModalOpen} onOpenChange={setIsPromoModalOpen}>
+        <DialogContent className="booking-brand-dialog !flex max-h-[86dvh] max-w-2xl flex-col overflow-hidden !p-0">
+          <DialogHeader className="border-b px-4 py-4 pr-12 sm:px-6">
+            <DialogTitle>Chọn ưu đãi & khuyến mãi</DialogTitle>
+            <DialogDescription className="max-w-xl leading-relaxed">
+              Các chương trình ưu đãi khả dụng dành riêng cho lịch đặt này.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6">
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <p className="text-sm font-semibold leading-none text-foreground">
+                Ưu đãi cho bạn
+              </p>
+              {loyalty?.tier?.name ? (
+                <Badge variant="secondary" className="max-w-[55%] shrink-0 truncate px-2.5 py-1 text-[11px] leading-none">
+                  Hạng {loyalty.tier.name}
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 py-1">
+              {eligiblePromotions.length === 0 ? (
+                <Card className="border border-dashed border-border bg-card/70 !ring-0">
+                  <CardContent className="flex min-h-28 items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
+                    Bạn không có ưu đãi nào khả dụng cho hạng {loyalty?.tier?.name ?? "thành viên"}.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {eligiblePromotions.map((p) => {
+                    const isSelected = selectedPromo?.id === p.id;
+                    const discountValueText = p.discountType === "Percentage" ? `${p.discountValue}%` : formatVND(p.discountValue);
+                    const isGlobalPromo = p.isGlobal || !p.tierIds || p.tierIds.length === 0;
+
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setIsPromoManuallyCleared(false);
+                          setUserSelectedPromoId(p.id);
+                        }}
+                        aria-pressed={isSelected}
+                        className={cn(
+                          "grid grid-cols-[88px_minmax(0,1fr)_36px] overflow-hidden rounded-xl border bg-card text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
+                          isSelected ? "border-primary ring-2 ring-ring/30" : "border-border",
+                        )}
+                      >
+                        <div className="flex flex-col items-center justify-center border-r border-dashed bg-muted/40 p-3">
+                          <Ticket className="text-muted-foreground" aria-hidden />
+                          <span className="mt-1.5 w-full truncate text-center text-[10px] font-semibold text-muted-foreground">
+                            Ưu đãi
+                          </span>
+                        </div>
+
+                        <div className="min-w-0 p-3.5">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
+                            <Badge variant="outline" className="shrink-0 text-[10px]">
+                              {isGlobalPromo ? "Toàn hệ thống" : `Hạng ${loyalty?.tier?.name ?? "Thành viên"}`}
+                            </Badge>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">Giảm {discountValueText} - Đơn tối thiểu 0đ</p>
+                          {p.description ? (
+                            <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{p.description}</p>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center justify-center border-l bg-muted/20">
+                          <span
+                            className={cn(
+                              "size-4 rounded-full border",
+                              isSelected && "border-primary bg-primary",
+                            )}
+                            aria-hidden
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="!mx-0 !mb-0 mt-0 flex-col-reverse gap-2 rounded-t-none border-t bg-muted/40 !px-4 !py-3 sm:flex-row sm:items-center sm:justify-end sm:!px-6">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="!h-10 w-full sm:w-28"
+              onClick={() => {
+                setIsPromoManuallyCleared(true);
+                setUserSelectedPromoId(null);
+                setIsPromoModalOpen(false);
+              }}
+            >
+              Bỏ áp dụng
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="!h-10 w-full sm:w-28"
+              onClick={() => setIsPromoModalOpen(false)}
+            >
+              Đồng ý
             </Button>
           </DialogFooter>
         </DialogContent>
