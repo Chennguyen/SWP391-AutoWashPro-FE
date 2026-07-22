@@ -41,16 +41,38 @@ interface TierFormProps {
   saving: boolean;
   error: string | null;
   readOnly?: boolean;
+  minWashes?: number;
+  maxWashes?: number | null;
+  prevTierName?: string;
+  nextTierName?: string;
   onSubmit: (fields: TierFormFields) => void;
   onClose: () => void;
 }
 
-function TierFormModal({ initial, title, saving, error, readOnly = false, onSubmit, onClose }: TierFormProps) {
+function TierFormModal({
+  initial,
+  title,
+  saving,
+  error,
+  readOnly = false,
+  minWashes,
+  maxWashes,
+  prevTierName,
+  nextTierName,
+  onSubmit,
+  onClose,
+}: TierFormProps) {
+  const isDefaultLevel = initial.level === 1;
   const [name, setName] = useState(initial.name);
   const [level, setLevel] = useState(initial.level);
-  const [requiredWashesStr, setRequiredWashesStr] = useState(String(initial.requiredWashes));
+  const [requiredWashesStr, setRequiredWashesStr] = useState(
+    isDefaultLevel ? "0" : String(initial.requiredWashes)
+  );
   const [priorityBookingDaysStr, setPriorityBookingDaysStr] = useState(String(initial.priorityBookingDays));
   const [description, setDescription] = useState(initial.description);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const displayError = localError || error;
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,10 +80,29 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
       onClose();
       return;
     }
+    setLocalError(null);
+
+    const washesNum = isDefaultLevel ? 0 : Number(requiredWashesStr) || 0;
+
+    if (!isDefaultLevel) {
+      if (minWashes !== undefined && washesNum <= minWashes) {
+        setLocalError(
+          `Số lần rửa yêu cầu (${washesNum}) phải lớn hơn hạng ${prevTierName ?? `Cấp ${initial.level - 1}`} (${minWashes} lần).`
+        );
+        return;
+      }
+      if (maxWashes !== undefined && maxWashes !== null && washesNum >= maxWashes) {
+        setLocalError(
+          `Số lần rửa yêu cầu (${washesNum}) phải nhỏ hơn hạng ${nextTierName ?? `Cấp ${initial.level + 1}`} (${maxWashes} lần).`
+        );
+        return;
+      }
+    }
+
     onSubmit({
       name,
       level,
-      requiredWashes: Number(requiredWashesStr) || 0,
+      requiredWashes: washesNum,
       priorityBookingDays: Number(priorityBookingDaysStr) || 0,
       description,
     });
@@ -77,7 +118,11 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
           </button>
         </div>
 
-        {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
+        {displayError ? (
+          <p className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2.5 text-sm font-medium text-red-600">
+            {displayError}
+          </p>
+        ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -86,7 +131,10 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
               required
               disabled={readOnly}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setLocalError(null);
+                setName(e.target.value);
+              }}
               placeholder="VD: Silver, Gold, Platinum"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
@@ -104,7 +152,7 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
                 onChange={(e) => setLevel(Number(e.target.value))}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
               />
-              <p className="mt-0.5 text-xs text-slate-400 font-medium text-slate-500 font-medium">
+              <p className="mt-0.5 text-xs font-medium text-slate-500">
                 Cấp độ được hệ thống gán tự động để đảm bảo tính liên tục.
               </p>
             </div>
@@ -115,16 +163,31 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
                 inputMode="numeric"
                 pattern="[0-9]*"
                 required
-                disabled={readOnly}
-                value={requiredWashesStr}
+                disabled={readOnly || isDefaultLevel}
+                value={isDefaultLevel ? "0" : requiredWashesStr}
                 onChange={(e) => {
+                  setLocalError(null);
                   const val = e.target.value.replace(/[^0-9]/g, "");
                   const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
                   setRequiredWashesStr(cleanVal);
                 }}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-100 disabled:text-slate-500 font-medium"
               />
-              <p className="mt-0.5 text-xs text-slate-400">Lần rửa tích lũy để đạt hạng</p>
+              {isDefaultLevel ? (
+                <p className="mt-0.5 text-xs text-slate-400 font-medium">
+                  Hạng mặc định ban đầu khi đăng ký (Cố định 0 lần rửa).
+                </p>
+              ) : (
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {minWashes !== undefined && maxWashes !== undefined && maxWashes !== null
+                    ? minWashes + 1 === maxWashes - 1
+                      ? `Yêu cầu: chính xác ${minWashes + 1} lần`
+                      : `Yêu cầu: từ ${minWashes + 1} đến ${maxWashes - 1} lần`
+                    : minWashes !== undefined
+                      ? `Yêu cầu: tối thiểu ${minWashes + 1} lần`
+                      : "Lần rửa tích lũy để đạt hạng"}
+                </p>
+              )}
             </div>
           </div>
 
@@ -139,6 +202,7 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
               disabled={readOnly}
               value={priorityBookingDaysStr}
               onChange={(e) => {
+                setLocalError(null);
                 const val = e.target.value.replace(/[^0-9]/g, "");
                 const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
                 setPriorityBookingDaysStr(cleanVal);
@@ -154,7 +218,10 @@ function TierFormModal({ initial, title, saving, error, readOnly = false, onSubm
               rows={2}
               disabled={readOnly}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                setLocalError(null);
+                setDescription(e.target.value);
+              }}
               placeholder="VD: Hạng Platinum với các đặc quyền ưu tiên cao cấp nhất"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50 disabled:text-slate-500"
             />
@@ -405,57 +472,79 @@ export function TiersTab({ token }: Props) {
         </table>
       </div>
 
-      {modal?.kind === "create" && (
-        <TierFormModal
-          title="Thêm tier mới"
-          initial={{
-            name: "",
-            level: tiers.length > 0 ? Math.max(...tiers.map((t) => t.level)) + 1 : 1,
-            requiredWashes: 0,
-            priorityBookingDays: 0,
-            description: "",
-          }}
-          saving={modalSaving}
-          error={modalError}
-          onSubmit={handleCreate}
-          onClose={closeModal}
-        />
-      )}
+      {modal?.kind === "create" && (() => {
+        const nextLevel = tiers.length > 0 ? Math.max(...tiers.map((t) => t.level)) + 1 : 1;
+        const prevTier = tiers.length > 0 ? [...tiers].sort((a, b) => b.level - a.level)[0] : null;
+        return (
+          <TierFormModal
+            title="Thêm tier mới"
+            initial={{
+              name: "",
+              level: nextLevel,
+              requiredWashes: prevTier ? prevTier.requiredWashes : 0,
+              priorityBookingDays: 0,
+              description: "",
+            }}
+            saving={modalSaving}
+            error={modalError}
+            minWashes={prevTier ? prevTier.requiredWashes : 0}
+            prevTierName={prevTier ? `${prevTier.name} (Cấp ${prevTier.level})` : undefined}
+            onSubmit={handleCreate}
+            onClose={closeModal}
+          />
+        );
+      })()}
 
-      {modal?.kind === "edit" && (
-        <TierFormModal
-          title={`Sửa tier: ${modal.tier.name}`}
-          initial={{
-            name: modal.tier.name,
-            level: modal.tier.level,
-            requiredWashes: modal.tier.requiredWashes,
-            priorityBookingDays: modal.tier.priorityBookingDays,
-            description: modal.tier.description ?? "",
-          }}
-          saving={modalSaving}
-          error={modalError}
-          onSubmit={handleEdit}
-          onClose={closeModal}
-        />
-      )}
+      {modal?.kind === "edit" && (() => {
+        const currentLevel = modal.tier.level;
+        const prevTier = tiers.filter((t) => t.level < currentLevel).sort((a, b) => b.level - a.level)[0];
+        const nextTier = tiers.filter((t) => t.level > currentLevel).sort((a, b) => a.level - b.level)[0];
+        return (
+          <TierFormModal
+            title={`Sửa tier: ${modal.tier.name}`}
+            initial={{
+              name: modal.tier.name,
+              level: modal.tier.level,
+              requiredWashes: modal.tier.requiredWashes,
+              priorityBookingDays: modal.tier.priorityBookingDays,
+              description: modal.tier.description ?? "",
+            }}
+            saving={modalSaving}
+            error={modalError}
+            minWashes={prevTier ? prevTier.requiredWashes : (currentLevel === 1 ? 0 : 0)}
+            maxWashes={nextTier ? nextTier.requiredWashes : null}
+            prevTierName={prevTier ? `${prevTier.name} (Cấp ${prevTier.level})` : undefined}
+            nextTierName={nextTier ? `${nextTier.name} (Cấp ${nextTier.level})` : undefined}
+            onSubmit={handleEdit}
+            onClose={closeModal}
+          />
+        );
+      })()}
 
-      {modal?.kind === "view" && (
-        <TierFormModal
-          title={`Chi tiết hạng: ${modal.tier.name}`}
-          initial={{
-            name: modal.tier.name,
-            level: modal.tier.level,
-            requiredWashes: modal.tier.requiredWashes,
-            priorityBookingDays: modal.tier.priorityBookingDays,
-            description: modal.tier.description ?? "",
-          }}
-          saving={false}
-          error={null}
-          readOnly={true}
-          onSubmit={() => {}}
-          onClose={closeModal}
-        />
-      )}
+      {modal?.kind === "view" && (() => {
+        const currentLevel = modal.tier.level;
+        const prevTier = tiers.filter((t) => t.level < currentLevel).sort((a, b) => b.level - a.level)[0];
+        const nextTier = tiers.filter((t) => t.level > currentLevel).sort((a, b) => a.level - b.level)[0];
+        return (
+          <TierFormModal
+            title={`Chi tiết hạng: ${modal.tier.name}`}
+            initial={{
+              name: modal.tier.name,
+              level: modal.tier.level,
+              requiredWashes: modal.tier.requiredWashes,
+              priorityBookingDays: modal.tier.priorityBookingDays,
+              description: modal.tier.description ?? "",
+            }}
+            saving={false}
+            error={null}
+            readOnly={true}
+            minWashes={prevTier ? prevTier.requiredWashes : 0}
+            maxWashes={nextTier ? nextTier.requiredWashes : null}
+            onSubmit={() => {}}
+            onClose={closeModal}
+          />
+        );
+      })()}
     </div>
   );
 }
