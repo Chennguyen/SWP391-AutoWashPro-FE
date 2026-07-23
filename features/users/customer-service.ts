@@ -8,9 +8,6 @@ type CustomerProfileDataRecord = {
   FirstName?: string;
   lastName?: string;
   LastName?: string;
-  cccd?: string;
-  Cccd?: string;
-  CCCD?: string;
   dateOfBirth?: string | null;
   DateOfBirth?: string | null;
   status?: string;
@@ -71,7 +68,6 @@ function normalizeProfile(body: CustomerProfileResponse): CustomerProfile {
   return {
     firstName: profileData.firstName ?? profileData.FirstName ?? data.firstName ?? data.FirstName ?? "",
     lastName: profileData.lastName ?? profileData.LastName ?? data.lastName ?? data.LastName ?? "",
-    cccd: profileData.cccd ?? profileData.Cccd ?? profileData.CCCD ?? data.cccd ?? data.Cccd ?? data.CCCD ?? "",
     dateOfBirth:
       profileData.dateOfBirth ??
       profileData.DateOfBirth ??

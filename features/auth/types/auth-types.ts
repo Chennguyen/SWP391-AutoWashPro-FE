@@ -4,7 +4,6 @@ export interface RegisterPayload {
   email: string;
   phone: string;
   password: string;
-  cccd: string;
   dateOfBirth?: string;
   faceImages: File[];
 }

@@ -1,7 +1,6 @@
 export type CustomerProfile = {
   firstName: string;
   lastName: string;
-  cccd: string;
   dateOfBirth: string | null;
   email?: string;
   phone?: string;
