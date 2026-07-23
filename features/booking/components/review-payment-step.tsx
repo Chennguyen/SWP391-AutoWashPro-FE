@@ -1,17 +1,5 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AlertCircle,
-  Calendar,
-  Car,
-  Clock,
-  MapPin,
-  Plus,
-  Tag,
-  WalletCards,
-  Ticket,
-} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,15 +15,43 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError } from "@/lib/api-error";
 import { createBooking, getSlots } from "@/features/booking/booking-service";
-import { getWallet, topUpWallet, type Wallet } from "@/features/users/wallet-service";
-import { type AdminPromotion, getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
-import { getLoyaltyInfo, getMyVouchers, type LoyaltyInfo, type MyVoucher } from "@/features/loyalty/loyalty-service";
-import { validateVoucher } from "@/features/booking/voucher-service";
-import { cn } from "@/lib/utils";
-import type { BookingResult, Branch, VoucherValidation } from "@/features/booking/types/booking-types";
+import type {
+  BookingResult,
+  Branch,
+  VoucherValidation,
+} from "@/features/booking/types/booking-types";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
+import { validateVoucher } from "@/features/booking/voucher-service";
+import {
+  type AdminPromotion,
+  getLoyaltySettings,
+} from "@/features/loyalty/loyalty-admin-service";
+import {
+  getLoyaltyInfo,
+  getMyVouchers,
+  type LoyaltyInfo,
+  type MyVoucher,
+} from "@/features/loyalty/loyalty-service";
+import {
+  getWallet,
+  topUpWallet,
+  type Wallet,
+} from "@/features/users/wallet-service";
+import { ApiError } from "@/lib/api-error";
+import { cn } from "@/lib/utils";
+import {
+  AlertCircle,
+  Calendar,
+  Car,
+  Clock,
+  MapPin,
+  Plus,
+  Tag,
+  Ticket,
+  WalletCards,
+} from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
 const POINT_REDEMPTION_VALUE_VND = 100;
@@ -52,6 +68,23 @@ function formatVoucherDiscount(voucher: MyVoucher) {
   return voucher.discountType.toLowerCase() === "percentage"
     ? `${voucher.discountValue.toLocaleString("vi-VN")}%`
     : formatVND(voucher.discountValue);
+}
+
+function getPromotionDiscountAmount(
+  promotion: AdminPromotion,
+  servicePrice: number,
+) {
+  if (promotion.discountType === "Percentage") {
+    return (servicePrice * Math.min(100, promotion.discountValue)) / 100;
+  }
+
+  return promotion.discountValue;
+}
+
+function formatPromotionDiscount(promotion: AdminPromotion) {
+  return promotion.discountType === "Percentage"
+    ? `${promotion.discountValue.toLocaleString("vi-VN")}%`
+    : formatVND(promotion.discountValue);
 }
 
 function formatDate(dateStr: string) {
@@ -103,7 +136,11 @@ function unwrapList(body: unknown): Record<string, unknown>[] {
   if (Array.isArray(dataPayload)) return dataPayload.filter(isRecord);
 
   if (isRecord(dataPayload)) {
-    const nestedList = dataPayload.items ?? dataPayload.Items ?? dataPayload.results ?? dataPayload.Results;
+    const nestedList =
+      dataPayload.items ??
+      dataPayload.Items ??
+      dataPayload.results ??
+      dataPayload.Results;
     if (Array.isArray(nestedList)) return nestedList.filter(isRecord);
   }
 
@@ -162,7 +199,10 @@ export function ReviewPaymentStep({
           });
         }
       } catch (err) {
-        console.warn("DEBUG [ReviewPaymentStep] Không thể tải cấu hình từ API, sử dụng cấu hình mặc định:", err);
+        console.warn(
+          "DEBUG [ReviewPaymentStep] Không thể tải cấu hình từ API, sử dụng cấu hình mặc định:",
+          err,
+        );
       }
     }
     void loadConfigs();
@@ -184,16 +224,19 @@ export function ReviewPaymentStep({
   const [detectedDuration, setDetectedDuration] = useState(15);
   const [endTime, setEndTime] = useState<string | undefined>(undefined);
   const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
-  const [, setPromotionsLoading] = useState(false);
-  const [localAppliedVoucher, setLocalAppliedVoucher] = useState<VoucherValidation | null>(appliedVoucher);
+  const [promotionsLoading, setPromotionsLoading] = useState(false);
+  const [localAppliedVoucher, setLocalAppliedVoucher] =
+    useState<VoucherValidation | null>(appliedVoucher);
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
   const [myVouchers, setMyVouchers] = useState<MyVoucher[]>([]);
   const [vouchersLoading, setVouchersLoading] = useState(false);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
-  const [selectedVoucherInModal, setSelectedVoucherInModal] = useState<MyVoucher | null>(null);
+  const [selectedVoucherInModal, setSelectedVoucherInModal] =
+    useState<MyVoucher | null>(null);
   const [voucherCodeInput, setVoucherCodeInput] = useState("");
   const [voucherError, setVoucherError] = useState<string | null>(null);
-  const [voucherValidationLoading, setVoucherValidationLoading] = useState(false);
+  const [voucherValidationLoading, setVoucherValidationLoading] =
+    useState(false);
   const [redeemPoint, setRedeemPoint] = useState(false);
 
   // Sync prop changes to local state
@@ -210,7 +253,10 @@ export function ReviewPaymentStep({
     let active = true;
     async function loadLoyaltyAndVouchers() {
       if (!token) return;
-      const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
+      const userId =
+        typeof window !== "undefined"
+          ? (window.localStorage.getItem("userId") ?? "")
+          : "";
       if (!userId) return;
 
       setVouchersLoading(true);
@@ -223,7 +269,11 @@ export function ReviewPaymentStep({
         const list = await getMyVouchers(token, userId);
         const now = Date.now();
         const validVouchers = list.filter((v) => {
-          if (v.status.toLowerCase() !== "active" || v.isUsed || v.discountValue <= 0) {
+          if (
+            v.status.toLowerCase() !== "active" ||
+            v.isUsed ||
+            v.discountValue <= 0
+          ) {
             return false;
           }
           if (v.expiresAt) {
@@ -264,7 +314,7 @@ export function ReviewPaymentStep({
           if (currentSlot?.endTime) {
             const [sh, sm] = currentSlot.time.split(":").map(Number);
             const [eh, em] = currentSlot.endTime.split(":").map(Number);
-            const diff = (eh * 60 + em) - (sh * 60 + sm);
+            const diff = eh * 60 + em - (sh * 60 + sm);
             if (diff > 0 && diff <= 120) {
               setDetectedDuration(diff);
               return;
@@ -272,7 +322,7 @@ export function ReviewPaymentStep({
           }
           const [h1, m1] = latestSlots[0].time.split(":").map(Number);
           const [h2, m2] = latestSlots[1].time.split(":").map(Number);
-          const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+          const diff = h2 * 60 + m2 - (h1 * 60 + m1);
           if (diff > 0 && diff <= 120) {
             setDetectedDuration(diff);
           }
@@ -317,45 +367,36 @@ export function ReviewPaymentStep({
       try {
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
         const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
-        
-        let res = await fetch(`${apiBaseUrl}/api/v1/promotions/available?${params.toString()}`, {
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+
+        let res = await fetch(
+          `${apiBaseUrl}/api/v1/promotions/available?${params.toString()}`,
+          {
+            cache: "no-store",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
-        
+        );
+
         let rawList: Record<string, unknown>[] = [];
         if (res.ok) {
           const text = await res.text();
           const body = text ? JSON.parse(text) : null;
           rawList = unwrapList(body);
         }
-        
+
         if (!res.ok || rawList.length === 0) {
-          res = await fetch(`${apiBaseUrl}/Promotion/promotions?${params.toString()}`, {
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+          res = await fetch(
+            `${apiBaseUrl}/Promotion/promotions?${params.toString()}`,
+            {
+              cache: "no-store",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
             },
-          });
-          if (res.ok) {
-            const text = await res.text();
-            const body = text ? JSON.parse(text) : null;
-            rawList = unwrapList(body);
-          }
-        }
-        
-        if (!res.ok || rawList.length === 0) {
-          res = await fetch(`${apiBaseUrl}/api/v1/promotions?${params.toString()}`, {
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          );
           if (res.ok) {
             const text = await res.text();
             const body = text ? JSON.parse(text) : null;
@@ -364,13 +405,34 @@ export function ReviewPaymentStep({
         }
 
         if (!res.ok || rawList.length === 0) {
-          res = await fetch(`${apiBaseUrl}/Promotion/admin/promotions?${params.toString()}`, {
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
+          res = await fetch(
+            `${apiBaseUrl}/api/v1/promotions?${params.toString()}`,
+            {
+              cache: "no-store",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
             },
-          });
+          );
+          if (res.ok) {
+            const text = await res.text();
+            const body = text ? JSON.parse(text) : null;
+            rawList = unwrapList(body);
+          }
+        }
+
+        if (!res.ok || rawList.length === 0) {
+          res = await fetch(
+            `${apiBaseUrl}/Promotion/admin/promotions?${params.toString()}`,
+            {
+              cache: "no-store",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
           if (res.ok) {
             const text = await res.text();
             const body = text ? JSON.parse(text) : null;
@@ -380,16 +442,24 @@ export function ReviewPaymentStep({
 
         const promotionsList = rawList.map((p) => {
           const tierIdsRaw = p.tierIds ?? p.TierIds;
-          const tierIds = Array.isArray(tierIdsRaw) ? tierIdsRaw.map(String) : [];
+          const tierIds = Array.isArray(tierIdsRaw)
+            ? tierIdsRaw.map(String)
+            : [];
 
           return {
             id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
             name: String(p.name ?? p.Name ?? "Khuyến mãi"),
             description: String(p.description ?? p.Description ?? ""),
-            discountType: String(p.discountType ?? p.DiscountType ?? "FixedAmount"),
+            discountType: String(
+              p.discountType ?? p.DiscountType ?? "FixedAmount",
+            ),
             discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
-            startDate: String(p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? ""),
-            endDate: String(p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? ""),
+            startDate: String(
+              p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? "",
+            ),
+            endDate: String(
+              p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? "",
+            ),
             isGlobal: toBoolean(p.isGlobal ?? p.IsGlobal, tierIds.length === 0),
             isActive: toBoolean(p.isActive ?? p.IsActive, true),
             tierIds,
@@ -400,7 +470,10 @@ export function ReviewPaymentStep({
           setPromotions(promotionsList);
         }
       } catch (err) {
-        console.warn("DEBUG [loadPromotions] Không thể tải danh sách khuyến mãi:", err);
+        console.warn(
+          "DEBUG [loadPromotions] Không thể tải danh sách khuyến mãi:",
+          err,
+        );
         if (active) {
           setPromotions([]);
         }
@@ -421,20 +494,33 @@ export function ReviewPaymentStep({
   const surcharge = isSUV
     ? configs.suvBasePrice
     : isSedan
-    ? configs.sedanBasePrice
-    : 0;
+      ? configs.sedanBasePrice
+      : 0;
   const servicePrice = configs.basePrice + surcharge;
   const depositRate = configs.paymentDeposite / 100;
 
-  const promotionDiscount = useMemo(() => {
-    const activePromos = promotions.filter((p) => {
+  const eligiblePromotions = useMemo(() => {
+    return promotions.filter((p) => {
       if (p.isActive === false) return false;
-      
+
+      // Check Tier matching
       const isPromoGlobal = p.isGlobal || !p.tierIds || p.tierIds.length === 0;
       if (!isPromoGlobal) {
-        if (!loyalty?.tier?.id) return false;
+        if (!loyalty?.tier) return false;
+        const userTier = loyalty.tier;
         const tierIds = p.tierIds ?? [];
-        if (!tierIds.includes(loyalty.tier.id)) return false;
+        const matchesTier = tierIds.some((tId) => {
+          const idStr = String(tId).trim();
+          if (userTier.id && idStr === userTier.id) return true;
+          if (
+            userTier.name &&
+            idStr.toLowerCase() === userTier.name.toLowerCase()
+          )
+            return true;
+          if (userTier.level && idStr === String(userTier.level)) return true;
+          return false;
+        });
+        if (!matchesTier) return false;
       }
 
       // Date range validation against the selected booking date
@@ -447,7 +533,11 @@ export function ReviewPaymentStep({
             const year = Number(parts[0]);
             const month = Number(parts[1]) - 1;
             const day = Number(parts[2]);
-            if (!Number.isNaN(year) && !Number.isNaN(month) && !Number.isNaN(day)) {
+            if (
+              !Number.isNaN(year) &&
+              !Number.isNaN(month) &&
+              !Number.isNaN(day)
+            ) {
               return new Date(year, month, day);
             }
           }
@@ -470,41 +560,26 @@ export function ReviewPaymentStep({
         }
       }
 
-      console.warn("DEBUG [ReviewPaymentStep] Promotion active check passed:", {
-        name: p.name,
-        isGlobal: p.isGlobal,
-        isActive: p.isActive,
-        loyaltyTier: loyalty?.tier?.name
-      });
-
       return true;
     });
+  }, [promotions, loyalty, date]);
 
-    console.warn("DEBUG [ReviewPaymentStep] Active promotions found:", activePromos);
+  const promotionDiscount = useMemo(() => {
+    const totalPromotionDiscount = eligiblePromotions.reduce(
+      (total, promotion) =>
+        total + getPromotionDiscountAmount(promotion, servicePrice),
+      0,
+    );
 
-    let maxPromoDiscount = 0;
-    activePromos.forEach((p) => {
-      let currentDiscount = 0;
-      if (p.discountType === "Percentage") {
-        if (p.discountValue > 100) {
-          currentDiscount = Math.min(servicePrice, p.discountValue);
-        } else {
-          currentDiscount = Math.min(servicePrice, (servicePrice * p.discountValue) / 100);
-        }
-      } else {
-        currentDiscount = Math.min(servicePrice, p.discountValue);
-      }
-      if (currentDiscount > maxPromoDiscount) {
-        maxPromoDiscount = currentDiscount;
-      }
-    });
-
-    return maxPromoDiscount;
-  }, [promotions, date, servicePrice, loyalty]);
+    return Math.min(servicePrice, totalPromotionDiscount);
+  }, [eligiblePromotions, servicePrice]);
 
   const loyaltyPoints = loyalty?.points ?? 0;
   const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
-  const payableAmountBeforeRedeem = Math.max(0, servicePrice - promotionDiscount - discount);
+  const payableAmountBeforeRedeem = Math.max(
+    0,
+    servicePrice - promotionDiscount - discount,
+  );
   const maxRedeemByPoints = loyaltyPoints * POINT_REDEMPTION_VALUE_VND;
   const rawRedeemDiscountEstimate = Math.min(
     maxRedeemByPoints,
@@ -518,18 +593,22 @@ export function ReviewPaymentStep({
   const redeemValue = redeemPoint ? redeemDiscountEstimate : 0;
   const payableAmount = Math.max(0, payableAmountBeforeRedeem - redeemValue);
   const deposit = Math.round(payableAmount * depositRate);
-  const voucherId = localAppliedVoucher?.voucherId ?? localAppliedVoucher?.id ?? null;
+  const voucherId =
+    localAppliedVoucher?.voucherId ?? localAppliedVoucher?.id ?? null;
   const walletBalance = wallet?.balance ?? 0;
   const insufficientBalance = !walletLoading && walletBalance < deposit;
   const missingDepositAmount = Math.max(0, deposit - walletBalance);
   const effectiveTopUpAmount = topUpAmount ?? missingDepositAmount;
   const quickTopUpOptions = useMemo(() => {
-    const roundedShortfall = Math.ceil(missingDepositAmount / 100_000) * 100_000;
+    const roundedShortfall =
+      Math.ceil(missingDepositAmount / 100_000) * 100_000;
     return Array.from(
       new Set(
-        [missingDepositAmount, ...QUICK_TOP_UP_PRESETS, roundedShortfall].filter(
-          (amount) => Number.isFinite(amount) && amount > 0,
-        ),
+        [
+          missingDepositAmount,
+          ...QUICK_TOP_UP_PRESETS,
+          roundedShortfall,
+        ].filter((amount) => Number.isFinite(amount) && amount > 0),
       ),
     );
   }, [missingDepositAmount]);
@@ -573,7 +652,10 @@ export function ReviewPaymentStep({
     const code = (codeToApply ?? voucherCodeInput).trim().toUpperCase();
     if (!code) return;
 
-    const userId = typeof window !== "undefined" ? window.localStorage.getItem("userId") ?? "" : "";
+    const userId =
+      typeof window !== "undefined"
+        ? (window.localStorage.getItem("userId") ?? "")
+        : "";
     if (!userId) {
       setVoucherError("Không tìm thấy thông tin tài khoản.");
       return;
@@ -590,7 +672,9 @@ export function ReviewPaymentStep({
         setVoucherError(result.message || "Mã voucher không hợp lệ.");
       }
     } catch (err) {
-      setVoucherError(err instanceof Error ? err.message : "Không thể kiểm tra voucher.");
+      setVoucherError(
+        err instanceof Error ? err.message : "Không thể kiểm tra voucher.",
+      );
     } finally {
       setVoucherValidationLoading(false);
     }
@@ -637,7 +721,9 @@ export function ReviewPaymentStep({
       const nextWallet = await getWallet(token);
       setWallet(nextWallet);
       // Thông báo cho Sidebar và các widget khác cập nhật số dư ví ngay lập tức
-      window.dispatchEvent(new CustomEvent("autowash-wallet-updated", { detail: nextWallet }));
+      window.dispatchEvent(
+        new CustomEvent("autowash-wallet-updated", { detail: nextWallet }),
+      );
       setSubmitted(true);
       onSuccess(result);
     } catch (submitError) {
@@ -678,27 +764,33 @@ export function ReviewPaymentStep({
       value: `${vehicle.licensePlate} - ${vehicle.brand} ${vehicle.model}`,
     },
     { icon: Calendar, label: "Ngày", value: formatDate(date) },
-    { icon: Clock, label: "Slot", value: formatSlotRange(slot, detectedDuration, endTime) },
+    {
+      icon: Clock,
+      label: "Slot",
+      value: formatSlotRange(slot, detectedDuration, endTime),
+    },
   ];
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Xác nhận đặt lịch</h2>
+          <h2 className="text-xl font-semibold text-foreground">
+            Xác nhận đặt lịch
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Kiểm tra thông tin và số tiền cọc trước khi xác nhận.
           </p>
         </div>
         <Card size="sm" className="min-w-44">
           <CardContent className="text-right">
-          <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-muted-foreground">
-            <WalletCards aria-hidden />
-            Ví của bạn
-          </div>
-          <p className="mt-1 text-base font-semibold text-foreground tabular-nums">
-            {walletLoading ? "Đang tải..." : formatVND(walletBalance)}
-          </p>
+            <div className="flex items-center justify-end gap-1.5 text-xs font-medium text-muted-foreground">
+              <WalletCards aria-hidden />
+              Ví của bạn
+            </div>
+            <p className="mt-1 text-base font-semibold text-foreground tabular-nums">
+              {walletLoading ? "Đang tải..." : formatVND(walletBalance)}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -710,11 +802,65 @@ export function ReviewPaymentStep({
         <CardContent className="grid gap-3">
           {rows.map(({ icon: Icon, label, value }) => (
             <div key={label} className="flex items-start gap-3">
-              <Icon className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="w-20 shrink-0 text-sm text-muted-foreground">{label}</span>
-              <span className="text-sm font-semibold text-foreground">{value}</span>
+              <Icon
+                className="mt-0.5 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+              <span className="w-20 shrink-0 text-sm text-muted-foreground">
+                {label}
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {value}
+              </span>
             </div>
           ))}
+          <div className="flex items-start gap-3">
+            <Ticket
+              className="mt-0.5 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <span className="w-20 shrink-0 text-sm text-muted-foreground">
+              Khuyến mãi
+            </span>
+            <div className="min-w-0 flex-1">
+              {promotionsLoading ? (
+                <span className="text-sm text-muted-foreground">
+                  Đang xác định...
+                </span>
+              ) : eligiblePromotions.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {eligiblePromotions.map((promotion) => {
+                    const discountAmount = getPromotionDiscountAmount(
+                      promotion,
+                      servicePrice,
+                    );
+
+                    return (
+                      <div
+                        key={promotion.id}
+                        className="flex items-start justify-between gap-4 text-sm"
+                      >
+                        <span className="min-w-0 font-semibold text-foreground">
+                          {promotion.name}
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            (giảm {formatPromotionDiscount(promotion)})
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-medium text-destructive">
+                          -{formatVND(Math.min(servicePrice, discountAmount))}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-sm font-semibold text-foreground">
+                  Không có
+                </span>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -732,7 +878,8 @@ export function ReviewPaymentStep({
             </p>
             {localAppliedVoucher ? (
               <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                Đã áp dụng mã: {localAppliedVoucher.code} (-{formatVND(localAppliedVoucher.discountAmount)})
+                Đã áp dụng mã: {localAppliedVoucher.code} (-
+                {formatVND(localAppliedVoucher.discountAmount)})
               </p>
             ) : (
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -759,33 +906,54 @@ export function ReviewPaymentStep({
         <CardContent className="flex flex-col gap-3">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Giá dịch vụ gốc</span>
-            <span className="font-medium text-foreground">{formatVND(configs.basePrice)}</span>
+            <span className="font-medium text-foreground">
+              {formatVND(configs.basePrice)}
+            </span>
           </div>
 
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">
-              Phụ phí dòng xe({vehicle?.vehicleType === "SUV" ? "SUV" : vehicle?.vehicleType === "SEDAN" ? "sedan" : "sedan/SUV"})
+              Phụ phí dòng xe(
+              {vehicle?.vehicleType === "SUV"
+                ? "SUV"
+                : vehicle?.vehicleType === "SEDAN"
+                  ? "sedan"
+                  : "sedan/SUV"}
+              )
             </span>
             <span className="font-medium text-foreground">
               +{formatVND(surcharge)}
             </span>
           </div>
 
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Ưu đãi giảm giá</span>
+          <div className="flex items-start justify-between gap-4 text-sm">
+            <div className="min-w-0">
+              <span className="text-muted-foreground">Ưu đãi giảm giá</span>
+              {/* {!promotionsLoading && eligiblePromotions.length > 0 ? (
+                <div className="mt-1 flex flex-col gap-0.5">
+                  {eligiblePromotions.map((promotion) => (
+                    <span
+                      key={promotion.id}
+                      className="font-medium text-foreground"
+                    >
+                      {promotion.name} · Giảm{" "}
+                      {formatPromotionDiscount(promotion)}
+                    </span>
+                  ))}
+                </div>
+              ) : null} */}
+            </div>
             {promotionDiscount > 0 ? (
-              <span className="font-medium text-destructive">
+              <span className="shrink-0 font-medium text-destructive">
                 -{formatVND(promotionDiscount)}
               </span>
             ) : (
-              <span className="font-medium text-foreground">0₫</span>
+              <span className="shrink-0 font-medium text-foreground">0₫</span>
             )}
           </div>
 
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              Voucher
-            </span>
+            <span className="text-muted-foreground">Voucher</span>
             {localAppliedVoucher && discount > 0 ? (
               <span className="font-medium text-destructive">
                 -{formatVND(discount)}
@@ -797,13 +965,16 @@ export function ReviewPaymentStep({
 
           <label className="flex items-start justify-between gap-4 rounded-lg border bg-muted/30 px-3 py-3">
             <div>
-              <span className="block text-sm font-semibold text-foreground">Dùng điểm thưởng</span>
+              <span className="block text-sm font-semibold text-foreground">
+                Dùng điểm thưởng
+              </span>
               <p className="mt-1 text-xs text-muted-foreground">
                 Bạn có {loyaltyPoints.toLocaleString("vi-VN")} điểm
               </p>
               <div className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
                 <p>
-                  Ước tính dùng {redeemPointsUsedEstimate.toLocaleString("vi-VN")} điểm
+                  Ước tính dùng{" "}
+                  {redeemPointsUsedEstimate.toLocaleString("vi-VN")} điểm
                 </p>
                 <p>Ước tính giảm {formatVND(redeemDiscountEstimate)}</p>
               </div>
@@ -833,23 +1004,33 @@ export function ReviewPaymentStep({
 
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Số tiền phải trả</span>
-            <span className="font-medium text-foreground">{formatVND(payableAmount)}</span>
+            <span className="font-medium text-foreground">
+              {formatVND(payableAmount)}
+            </span>
           </div>
 
           <Separator />
 
           <div className="flex justify-between text-sm">
             <div>
-              <span className="text-muted-foreground">Số tiền phải cọc ({configs.paymentDeposite}%)</span>
-              <p className="text-xs text-muted-foreground">Bạn phải cọc trước {configs.paymentDeposite}% để giữ slot</p>
+              <span className="text-muted-foreground">
+                Số tiền phải cọc ({configs.paymentDeposite}%)
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Bạn phải cọc trước {configs.paymentDeposite}% để giữ slot
+              </p>
             </div>
-            <span className="font-medium text-foreground">{formatVND(deposit)}</span>
+            <span className="font-medium text-foreground">
+              {formatVND(deposit)}
+            </span>
           </div>
 
           <Separator />
 
           <div className="flex justify-between gap-4 text-sm">
-            <span className="font-semibold text-foreground">Tổng tiền phải trả khi check-in</span>
+            <span className="font-semibold text-foreground">
+              Tổng tiền phải trả khi check-in
+            </span>
             <span className="font-semibold text-foreground tabular-nums">
               {formatVND(Math.max(0, payableAmount - deposit))}
             </span>
@@ -860,7 +1041,9 @@ export function ReviewPaymentStep({
       {insufficientBalance ? (
         <Alert>
           <AlertCircle aria-hidden />
-          <AlertDescription>Số dư ví không đủ để đặt cọc. Vui lòng nạp thêm tiền.</AlertDescription>
+          <AlertDescription>
+            Số dư ví không đủ để đặt cọc. Vui lòng nạp thêm tiền.
+          </AlertDescription>
         </Alert>
       ) : null}
 
@@ -868,74 +1051,75 @@ export function ReviewPaymentStep({
         <form onSubmit={handleQuickTopUp}>
           <Card>
             <CardContent className="flex flex-col gap-4">
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
-            <span>
-              Cần nạp thêm tối thiểu <strong>{formatVND(missingDepositAmount)}</strong> để đủ tiền đặt cọc.
-            </span>
-          </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <AlertCircle className="mt-0.5 shrink-0" aria-hidden />
+                <span>
+                  Cần nạp thêm tối thiểu{" "}
+                  <strong>{formatVND(missingDepositAmount)}</strong> để đủ tiền
+                  đặt cọc.
+                </span>
+              </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <div>
-              <label htmlFor="quick-wallet-top-up" className="mb-1 block text-sm font-semibold text-foreground">
-                Nạp nhanh vào ví
-              </label>
-              <Input
-                id="quick-wallet-top-up"
-                type="number"
-                min={1000}
-                step={1000}
-                value={effectiveTopUpAmount}
-                onChange={(event) => {
-                  setTopUpSuccess(null);
-                  setTopUpAmount(Number(event.target.value));
-                }}
-                disabled={topUpLoading}
-                className="h-10 font-semibold"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={topUpLoading}
-              size="lg"
-            >
-              <Plus data-icon="inline-start" aria-hidden />
-              {topUpLoading ? "Đang nạp..." : "Nạp tiền"}
-            </Button>
-          </div>
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <div>
+                  <label
+                    htmlFor="quick-wallet-top-up"
+                    className="mb-1 block text-sm font-semibold text-foreground"
+                  >
+                    Nạp nhanh vào ví
+                  </label>
+                  <Input
+                    id="quick-wallet-top-up"
+                    type="number"
+                    min={1000}
+                    step={1000}
+                    value={effectiveTopUpAmount}
+                    onChange={(event) => {
+                      setTopUpSuccess(null);
+                      setTopUpAmount(Number(event.target.value));
+                    }}
+                    disabled={topUpLoading}
+                    className="h-10 font-semibold"
+                  />
+                </div>
+                <Button type="submit" disabled={topUpLoading} size="lg">
+                  <Plus data-icon="inline-start" aria-hidden />
+                  {topUpLoading ? "Đang nạp..." : "Nạp tiền"}
+                </Button>
+              </div>
 
-          <div className="flex flex-wrap gap-2">
-            {quickTopUpOptions.map((amount, index) => (
-              <Button
-                key={`${amount}-${index}`}
-                type="button"
-                onClick={() => {
-                  setTopUpSuccess(null);
-                  setTopUpAmount(amount);
-                }}
-                disabled={topUpLoading}
-                variant="outline"
-                size="sm"
-              >
-                {index === 0 ? "Nạp đủ thiếu " : ""}
-                {formatVND(amount)}
-              </Button>
-            ))}
-          </div>
+              <div className="flex flex-wrap gap-2">
+                {quickTopUpOptions.map((amount, index) => (
+                  <Button
+                    key={`${amount}-${index}`}
+                    type="button"
+                    onClick={() => {
+                      setTopUpSuccess(null);
+                      setTopUpAmount(amount);
+                    }}
+                    disabled={topUpLoading}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {index === 0 ? "Nạp đủ thiếu " : ""}
+                    {formatVND(amount)}
+                  </Button>
+                ))}
+              </div>
 
-          {topUpError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{topUpError}</AlertDescription>
-            </Alert>
-          ) : null}
+              {topUpError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{topUpError}</AlertDescription>
+                </Alert>
+              ) : null}
 
-          {topUpSuccess ? (
-            <Alert>
-              <AlertDescription>
-              {topUpSuccess} Số dư mới: {formatVND(walletBalance)}.
-              </AlertDescription>
-            </Alert>
-          ) : null}
+              {topUpSuccess ? (
+                <Alert>
+                  <AlertDescription>
+                    {topUpSuccess} Số dư mới: {formatVND(walletBalance)}.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
             </CardContent>
           </Card>
         </form>
@@ -987,7 +1171,8 @@ export function ReviewPaymentStep({
           <DialogHeader className="border-b px-4 py-4 pr-12 sm:px-6">
             <DialogTitle>Chọn voucher</DialogTitle>
             <DialogDescription className="max-w-xl leading-relaxed">
-              Chọn voucher trong ví hoặc nhập mã thủ công để áp dụng cho lịch đặt này.
+              Chọn voucher trong ví hoặc nhập mã thủ công để áp dụng cho lịch
+              đặt này.
             </DialogDescription>
           </DialogHeader>
 
@@ -1024,7 +1209,10 @@ export function ReviewPaymentStep({
                 Voucher cho bạn
               </p>
               {loyalty?.tier?.name ? (
-                <Badge variant="secondary" className="max-w-[55%] shrink-0 truncate px-2.5 py-1 text-[11px] leading-none">
+                <Badge
+                  variant="secondary"
+                  className="max-w-[55%] shrink-0 truncate px-2.5 py-1 text-[11px] leading-none"
+                >
                   Hạng {loyalty.tier.name}
                 </Badge>
               ) : null}
@@ -1059,22 +1247,36 @@ export function ReviewPaymentStep({
                         aria-pressed={isSelected}
                         className={cn(
                           "grid grid-cols-[88px_minmax(0,1fr)_36px] overflow-hidden rounded-xl border bg-card text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px",
-                          isSelected ? "border-primary ring-2 ring-ring/30" : "border-border",
+                          isSelected
+                            ? "border-primary ring-2 ring-ring/30"
+                            : "border-border",
                         )}
                       >
                         <div className="flex flex-col items-center justify-center border-r border-dashed bg-muted/40 p-3">
-                          <Ticket className="text-muted-foreground" aria-hidden />
+                          <Ticket
+                            className="text-muted-foreground"
+                            aria-hidden
+                          />
                           <span className="mt-1.5 w-full truncate text-center text-[10px] font-semibold text-muted-foreground">
                             Voucher
                           </span>
                         </div>
 
                         <div className="min-w-0 p-3.5">
-                          <p className="truncate text-sm font-semibold text-foreground">{v.rewardName}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">Giảm {discountValueText} - Đơn tối thiểu 0đ</p>
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {v.rewardName}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Giảm {discountValueText} - Đơn tối thiểu 0đ
+                          </p>
                           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
                             <p className="text-xs text-muted-foreground">
-                              Hạn dùng: {v.expiresAt ? new Date(v.expiresAt).toLocaleDateString("vi-VN") : "Vô thời hạn"}
+                              Hạn dùng:{" "}
+                              {v.expiresAt
+                                ? new Date(v.expiresAt).toLocaleDateString(
+                                    "vi-VN",
+                                  )
+                                : "Vô thời hạn"}
                             </p>
                             <Badge variant="outline" className="font-mono">
                               {v.code}

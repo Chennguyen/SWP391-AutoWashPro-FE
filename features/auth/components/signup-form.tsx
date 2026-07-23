@@ -102,7 +102,6 @@ export function SignupForm() {
       lastName: "",
       email: "",
       phone: "",
-      cccd: "",
       dateOfBirth: "",
       password: "",
       confirmPassword: "",
@@ -179,7 +178,6 @@ export function SignupForm() {
         email: data.email,
         phone: data.phone,
         password: data.password,
-        cccd: data.cccd,
         dateOfBirth: data.dateOfBirth || undefined,
         faceImages: faceImages.map((img) => img.file),
       });
@@ -192,8 +190,6 @@ export function SignupForm() {
           const msg = err.message.toLowerCase();
           if (msg.includes("số điện thoại") || msg.includes("phone")) {
             setError("phone", { message: err.message });
-          } else if (msg.includes("cccd") || msg.includes("cmnd")) {
-            setError("cccd", { message: err.message });
           } else {
             setError("email", { message: err.message });
           }
@@ -302,30 +298,17 @@ export function SignupForm() {
           {...register("email")}
         />
 
-        {/* ── Số điện thoại & CCCD ── */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
-          <AuthInput
-            className="h-11"
-            id="signup-phone"
-            label="Số điện thoại"
-            type="tel"
-            placeholder="0901234567"
-            autoComplete="tel"
-            error={errors.phone?.message}
-            {...register("phone")}
-          />
-
-          <AuthInput
-            className="h-11"
-            id="signup-cccd"
-            label="Số CCCD / CMND"
-            type="text"
-            placeholder="012345678901"
-            autoComplete="off"
-            error={errors.cccd?.message}
-            {...register("cccd")}
-          />
-        </div>
+        {/* ── Số điện thoại ── */}
+        <AuthInput
+          className="h-11"
+          id="signup-phone"
+          label="Số điện thoại"
+          type="tel"
+          placeholder="0901234567"
+          autoComplete="tel"
+          error={errors.phone?.message}
+          {...register("phone")}
+        />
 
         {/* ── Ngày sinh ── */}
         <AuthInput

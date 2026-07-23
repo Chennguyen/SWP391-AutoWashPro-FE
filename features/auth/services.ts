@@ -13,7 +13,7 @@ import {
  * Đăng ký người dùng mới.
  * Gửi một yêu cầu POST dưới dạng multipart/form-data chứa thông tin cá nhân và các ảnh sinh trắc khuôn mặt.
  *
- * @param payload Dữ liệu đầu vào đăng ký bao gồm họ tên, email, số điện thoại, số CCCD, mật khẩu và ảnh sinh trắc.
+ * @param payload Dữ liệu đầu vào đăng ký bao gồm họ tên, email, số điện thoại, mật khẩu và ảnh sinh trắc.
  * @returns Một promise giải quyết phản hồi đăng ký.
  * @throws ApiError nếu email đã được đăng ký hoặc dữ liệu xác thực không hợp lệ.
  */
@@ -26,7 +26,6 @@ export async function registerUser(
   form.append("Email", payload.email.trim());
   form.append("Phone", payload.phone.trim());
   form.append("Password", payload.password);
-  form.append("Cccd", payload.cccd.trim());
   if (payload.dateOfBirth) {
     form.append("DateOfBirth", payload.dateOfBirth);
   }
@@ -45,7 +44,7 @@ export async function registerUser(
   } catch (error) {
     if (error instanceof ApiError) {
       const msg = error.message.toLowerCase();
-      // Nếu trùng email, sđt hoặc cccd
+      // Nếu trùng email hoặc số điện thoại
       if (error.status === 409 || error.status === 400) {
         if (msg.includes("user exist with mail") || msg.includes("email")) {
           throw new ApiError(
@@ -56,12 +55,6 @@ export async function registerUser(
         if (msg.includes("user exist with phone") || msg.includes("phone")) {
           throw new ApiError(
             "Số điện thoại này đã được đăng ký. Vui lòng dùng số điện thoại khác.",
-            409,
-          );
-        }
-        if (msg.includes("user exist with cccd") || msg.includes("cccd")) {
-          throw new ApiError(
-            "Số CCCD này đã được đăng ký. Vui lòng kiểm tra lại.",
             409,
           );
         }

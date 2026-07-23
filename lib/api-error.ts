@@ -1,6 +1,6 @@
 /**
  * Lớp ApiError
- * 
+ *
  * Lớp lỗi tùy chỉnh đại diện cho các thất bại của API, ghi lại mã trạng thái và thông báo lỗi.
  */
 export class ApiError extends Error {
@@ -16,7 +16,7 @@ export class ApiError extends Error {
 
 /**
  * Hàm kiểm tra kiểu dữ liệu (Type guard) để xác định xem giá trị có phải là một đối tượng record thông thường hay không.
- * 
+ *
  * @param value Giá trị cần kiểm tra.
  * @returns Trả về true nếu giá trị là một đối tượng, không phải null và không phải mảng.
  */
@@ -26,7 +26,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Hàm bổ trợ để chuyển đổi các lỗi xác thực phức tạp (như lỗi ModelState của .NET) thành một chuỗi duy nhất.
- * 
+ *
  * @param errors Trường lỗi từ payload phản hồi của API.
  * @returns Một chuỗi chứa thông tin chi tiết về lỗi, hoặc null nếu đối tượng lỗi không hợp lệ.
  */
@@ -54,7 +54,7 @@ function stringifyErrors(errors: unknown): string | null {
 /**
  * Trích xuất một thông báo lỗi thân thiện với người dùng từ các cấu trúc dữ liệu phản hồi lỗi API khác nhau.
  * Sẽ dự phòng về văn bản mặc định như "Lỗi [status]" nếu không tìm thấy thông báo nào.
- * 
+ *
  * @param body Nội dung phản hồi đã được phân tích cú pháp.
  * @param status Mã trạng thái HTTP của phản hồi.
  * @returns Một chuỗi đại diện cho thông báo lỗi.
@@ -70,7 +70,10 @@ export function translateErrorMessage(message: string): string {
   ) {
     return "Email hoặc mật khẩu không đúng.";
   }
-  if (raw.includes("account") && (raw.includes("lock") || raw.includes("block"))) {
+  if (
+    raw.includes("account") &&
+    (raw.includes("lock") || raw.includes("block"))
+  ) {
     return "Tài khoản đã bị tạm khóa. Vui lòng liên hệ hỗ trợ.";
   }
   if (
@@ -101,14 +104,6 @@ export function translateErrorMessage(message: string): string {
   ) {
     return "Số điện thoại này đã được đăng ký. Vui lòng dùng số điện thoại khác.";
   }
-  if (
-    raw.includes("user exist with cccd") ||
-    raw.includes("cccd already") ||
-    raw.includes("citizen identity")
-  ) {
-    return "Số CCCD này đã được đăng ký. Vui lòng kiểm tra lại.";
-  }
-
   if (raw.includes("date of birth") && raw.includes("future")) {
     return "Ngày sinh không được lớn hơn ngày hiện tại.";
   }
@@ -127,7 +122,9 @@ export function translateErrorMessage(message: string): string {
   ) {
     return "Mật khẩu hiện tại không đúng.";
   }
-  if (raw.includes("passwords must have at least one non alphanumeric character")) {
+  if (
+    raw.includes("passwords must have at least one non alphanumeric character")
+  ) {
     return "Mật khẩu mới phải chứa ít nhất một ký tự đặc biệt (ví dụ: @, #, $, ...).";
   }
   if (raw.includes("passwords must have at least one lowercase")) {
@@ -136,10 +133,16 @@ export function translateErrorMessage(message: string): string {
   if (raw.includes("passwords must have at least one uppercase")) {
     return "Mật khẩu mới phải chứa ít nhất một chữ cái viết hoa.";
   }
-  if (raw.includes("passwords must have at least one digit") || raw.includes("must have at least one digit")) {
+  if (
+    raw.includes("passwords must have at least one digit") ||
+    raw.includes("must have at least one digit")
+  ) {
     return "Mật khẩu mới phải chứa ít nhất một chữ số (0-9).";
   }
-  if (raw.includes("passwords must be at least") || raw.includes("password is too short")) {
+  if (
+    raw.includes("passwords must be at least") ||
+    raw.includes("password is too short")
+  ) {
     return "Mật khẩu mới quá ngắn. Vui lòng nhập mật khẩu dài hơn.";
   }
 
@@ -166,7 +169,7 @@ export function translateErrorMessage(message: string): string {
 /**
  * Trích xuất một thông báo lỗi thân thiện với người dùng từ các cấu trúc dữ liệu phản hồi lỗi API khác nhau.
  * Sẽ dự phòng về văn bản mặc định như "Lỗi [status]" nếu không tìm thấy thông báo nào.
- * 
+ *
  * @param body Nội dung phản hồi đã được phân tích cú pháp.
  * @param status Mã trạng thái HTTP của phản hồi.
  * @returns Một chuỗi đại diện cho thông báo lỗi.
@@ -195,7 +198,7 @@ function pickErrorMessage(body: unknown, status: number): string {
 /**
  * Hàm tiện ích để xử lý các phản hồi HTTP từ các yêu cầu fetch.
  * Phân tích cú pháp phản hồi JSON, kiểm tra xem phản hồi có thành công hay không, và ném lỗi ApiError nếu thất bại.
- * 
+ *
  * @template T Kiểu dữ liệu trả về mong muốn khi thành công.
  * @param res Đối tượng phản hồi Fetch API.
  * @returns Nội dung phản hồi đã được xử lý.
@@ -237,7 +240,12 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
     throw new ApiError(message, res.status);
   }
 
-  if (typeof window !== "undefined" && res.url && res.url.includes("/api/v1/me") && !res.url.includes("/my-status")) {
+  if (
+    typeof window !== "undefined" &&
+    res.url &&
+    res.url.includes("/api/v1/me") &&
+    !res.url.includes("/my-status")
+  ) {
     if (window.localStorage.getItem("is_unverified") === "true") {
       window.localStorage.removeItem("is_unverified");
       window.dispatchEvent(new Event("autowash-auth"));
@@ -250,7 +258,7 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
 /**
  * Trả về URL gốc của API.
  * Sử dụng biến môi trường để cấu hình.
- * 
+ *
  * @returns URL cơ sở của API.
  */
 export function apiBase(): string {
