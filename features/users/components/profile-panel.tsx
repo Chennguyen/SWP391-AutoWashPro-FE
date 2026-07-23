@@ -1,14 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useGetLoyaltyInfoQuery } from "@/features/loyalty/hooks/useLoyalty";
+import { resolveRankTier } from "@/features/loyalty/utils";
+import { ApiError } from "@/lib/api-error";
+import { formatDateOfBirth, getTodayUtcDateString } from "@/lib/date-of-birth";
+import { cn } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  AlertTriangle,
   AtSign,
   BadgeCheck,
   CalendarDays,
   Eye,
   EyeOff,
   Fingerprint,
-  IdCard,
+  Image as ImageIcon,
+  Info,
   Lock,
   Mail,
   Pencil,
@@ -19,39 +35,21 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { ApiError } from "@/lib/api-error";
 import {
-  formatDateOfBirth,
-  getTodayUtcDateString,
-} from "@/lib/date-of-birth";
-import { CustomerProfile } from "../types/user-types";
-import {
+  useChangePasswordMutation,
   useGetProfileQuery,
   useGetVerificationStatusQuery,
-  useUpdateProfileMutation,
-  useChangePasswordMutation,
   useResubmitVerificationMutation,
+  useUpdateProfileMutation,
 } from "../hooks/useUserProfile";
+import { CustomerProfile } from "../types/user-types";
 import {
-  type ProfileFields,
   passwordSchema,
   profileSchema,
+  type ProfileFields,
 } from "../validation/user-validation";
-import { AlertTriangle, Info, Image as ImageIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { useGetLoyaltyInfoQuery } from "@/features/loyalty/hooks/useLoyalty";
-import { resolveRankTier } from "@/features/loyalty/utils";
 
 interface ProfilePanelProps {
   token: string;
@@ -84,14 +82,21 @@ function ProfileInfoItem({
         <Icon className="size-4 text-[#bca374]" strokeWidth={1.7} aria-hidden />
         {label}
       </dt>
-      <dd className={cn("min-w-0 break-words text-sm font-medium text-[#fffdf9]", quiet && "text-[#b8b3aa]")}>{value}</dd>
+      <dd
+        className={cn(
+          "min-w-0 break-words text-sm font-medium text-[#fffdf9]",
+          quiet && "text-[#b8b3aa]",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
 
 /**
  * Thành phần (Component) ProfilePanel
- * 
+ *
  * Chức năng: Thành phần giao diện (UI Component) hiển thị thông tin cá nhân của khách hàng,
  * đồng thời tích hợp trực tiếp luồng chỉnh sửa thông tin và đổi mật khẩu bảo mật cao.
  */
@@ -100,7 +105,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Trạng thái Xác minh
-  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(
+    null,
+  );
   const [rejectReason, setRejectReason] = useState<string>("");
 
   // Trạng thái Chỉnh sửa thông tin cá nhân
@@ -125,7 +132,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Trạng thái Gửi lại xác minh
-  const [faceImages, setFaceImages] = useState<{ file: File; preview: string }[]>([]);
+  const [faceImages, setFaceImages] = useState<
+    { file: File; preview: string }[]
+  >([]);
   const [resubmitSuccess, setResubmitSuccess] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
 
@@ -135,10 +144,7 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
     reset: resetProfileForm,
     setError: setProfileFieldError,
     clearErrors: clearProfileFieldErrors,
-    formState: {
-      errors: profileFieldErrors,
-      isDirty: isProfileDirty,
-    },
+    formState: { errors: profileFieldErrors, isDirty: isProfileDirty },
   } = useForm<ProfileFields>({
     resolver: zodResolver(profileSchema),
     defaultValues: profileToFormValues(null),
@@ -157,7 +163,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
     enabled: verificationQuery.data?.status === "Active",
   });
 
-  const loading = verificationQuery.isLoading || (verificationQuery.data?.status === "Active" && profileQuery.isLoading);
+  const loading =
+    verificationQuery.isLoading ||
+    (verificationQuery.data?.status === "Active" && profileQuery.isLoading);
   const resubmitting = resubmitMutation.isPending;
   const savingProfile = updateProfileMutation.isPending;
   const savingPassword = changePasswordMutation.isPending;
@@ -204,7 +212,10 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
           setLastName(verification.lastName || "");
           setPhone(verification.phone || "");
 
-          window.localStorage.setItem("firstName", verification.firstName || "");
+          window.localStorage.setItem(
+            "firstName",
+            verification.firstName || "",
+          );
           window.localStorage.setItem("lastName", verification.lastName || "");
           window.dispatchEvent(new Event("autowash-auth"));
         }
@@ -225,7 +236,10 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
           resetProfileForm(profileToFormValues(officialProfile));
         }
 
-        window.localStorage.setItem("firstName", officialProfile.firstName || "");
+        window.localStorage.setItem(
+          "firstName",
+          officialProfile.firstName || "",
+        );
         window.localStorage.setItem("lastName", officialProfile.lastName || "");
         window.dispatchEvent(new Event("autowash-auth"));
       }, 0);
@@ -298,7 +312,11 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
       faceImages.forEach((img) => URL.revokeObjectURL(img.preview));
       setFaceImages([]);
     } catch (error) {
-       setResubmitError(error instanceof Error ? error.message : "Có lỗi xảy ra khi gửi lại hồ sơ.");
+      setResubmitError(
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra khi gửi lại hồ sơ.",
+      );
     }
   };
 
@@ -420,8 +438,12 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
     }
   }
 
-  const fullName = `${profile?.lastName ?? ""} ${profile?.firstName ?? ""}`.trim() || "Khách hàng";
-  const initials = `${profile?.lastName?.charAt(0) ?? ""}${profile?.firstName?.charAt(0) ?? ""}`.toUpperCase() || "AW";
+  const fullName =
+    `${profile?.lastName ?? ""} ${profile?.firstName ?? ""}`.trim() ||
+    "Khách hàng";
+  const initials =
+    `${profile?.lastName?.charAt(0) ?? ""}${profile?.firstName?.charAt(0) ?? ""}`.toUpperCase() ||
+    "AW";
   const verificationLabel =
     verificationStatus === "Active"
       ? "Đã xác minh"
@@ -440,7 +462,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-2xl font-semibold tracking-tight text-[#fffdf9] sm:text-3xl">{fullName}</h2>
+                <h2 className="truncate text-2xl font-semibold tracking-tight text-[#fffdf9] sm:text-3xl">
+                  {fullName}
+                </h2>
                 <span
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium",
@@ -451,18 +475,34 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                         : "border-amber-300/25 bg-amber-300/10 text-amber-200",
                   )}
                 >
-                  {verificationStatus === "Active" ? <BadgeCheck className="size-3.5" aria-hidden /> : <Fingerprint className="size-3.5" aria-hidden />}
+                  {verificationStatus === "Active" ? (
+                    <BadgeCheck className="size-3.5" aria-hidden />
+                  ) : (
+                    <Fingerprint className="size-3.5" aria-hidden />
+                  )}
                   {verificationLabel}
                 </span>
               </div>
-              <p className="mt-1 truncate text-sm text-[#a09c94]">{profile.email || "Chưa có email"}</p>
+              <p className="mt-1 truncate text-sm text-[#a09c94]">
+                {profile.email || "Chưa có email"}
+              </p>
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
                 <span className="flex items-center gap-2 text-[#d8c49f]">
-                  <ShieldCheck className="size-4" strokeWidth={1.7} aria-hidden />
-                  {loyaltyQuery.isLoading ? "Đang tải hạng" : `${membership.name} Member`}
+                  <ShieldCheck
+                    className="size-4"
+                    strokeWidth={1.7}
+                    aria-hidden
+                  />
+                  {loyaltyQuery.isLoading
+                    ? "Đang tải hạng"
+                    : `${membership.name} Member`}
                 </span>
                 <span className="flex items-center gap-2 text-[#a09c94]">
-                  <UserRound className="size-4 text-[#bca374]" strokeWidth={1.7} aria-hidden />
+                  <UserRound
+                    className="size-4 text-[#bca374]"
+                    strokeWidth={1.7}
+                    aria-hidden
+                  />
                   Tài khoản khách hàng
                 </span>
               </div>
@@ -519,190 +559,277 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
         </div>
       ) : null}
 
-      {loadError ? (
-        (() => {
-          const isUnverified = loadError.includes("Only active and verified customer accounts") || loadError.includes("Tài khoản chưa được kích hoạt hoặc xác minh") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
-          return (
-            <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
-              <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />
-              <div>
-                <p className="font-semibold">{isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}</p>
-                <p className="mt-1 text-xs md:text-sm">
-                  {isUnverified ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút." : loadError}
-                </p>
+      {loadError
+        ? (() => {
+            const isUnverified =
+              loadError.includes(
+                "Only active and verified customer accounts",
+              ) ||
+              loadError.includes(
+                "Tài khoản chưa được kích hoạt hoặc xác minh",
+              ) ||
+              (typeof window !== "undefined" &&
+                window.localStorage.getItem("is_unverified") === "true");
+            return (
+              <div
+                role="alert"
+                className={cn(
+                  "rounded-lg border px-4 py-3 text-sm flex items-start gap-3",
+                  isUnverified
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-red-200 bg-red-50 text-red-700",
+                )}
+              >
+                <Info
+                  size={18}
+                  className={cn(
+                    "mt-0.5 shrink-0",
+                    isUnverified ? "text-amber-600" : "text-red-500",
+                  )}
+                  aria-hidden
+                />
+                <div>
+                  <p className="font-semibold">
+                    {isUnverified
+                      ? "Hồ sơ FaceID đang chờ duyệt"
+                      : "Lỗi tải thông tin"}
+                  </p>
+                  <p className="mt-1 text-xs md:text-sm">
+                    {isUnverified
+                      ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút."
+                      : loadError}
+                  </p>
+                </div>
               </div>
-            </div>
-          );
-        })()
-      ) : null}
+            );
+          })()
+        : null}
 
       {profile ? (
         <div className="space-y-6">
           {/* Status banner */}
           {verificationStatus === "Pending" && (
-             <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
-               <Info size={20} className="mt-0.5 shrink-0 text-amber-600" />
-               <div>
-                 <p className="font-semibold">Hồ sơ FaceID đang chờ duyệt</p>
-                 <p className="mt-1 text-sm">Vui lòng chờ quản trị viên phê duyệt hồ sơ của bạn để mở khóa các tính năng đặt lịch, nạp ví.</p>
-               </div>
-             </div>
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
+              <Info size={20} className="mt-0.5 shrink-0 text-amber-600" />
+              <div>
+                <p className="font-semibold">Hồ sơ FaceID đang chờ duyệt</p>
+                <p className="mt-1 text-sm">
+                  Vui lòng chờ quản trị viên phê duyệt hồ sơ của bạn để mở khóa
+                  các tính năng đặt lịch, nạp ví.
+                </p>
+              </div>
+            </div>
           )}
           {verificationStatus === "Rejected" && (
-             <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
-               <AlertTriangle size={20} className="mt-0.5 shrink-0 text-red-600" />
-               <div>
-                 <p className="font-semibold">Hồ sơ FaceID bị từ chối</p>
-                 <p className="mt-1 text-sm">Lý do: <span className="font-medium">{rejectReason || "Không rõ"}</span></p>
-                 <p className="mt-1 text-sm">Vui lòng cập nhật thông tin và tải lên 3 ảnh khuôn mặt rõ nét dưới đây.</p>
-               </div>
-             </div>
+            <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
+              <AlertTriangle
+                size={20}
+                className="mt-0.5 shrink-0 text-red-600"
+              />
+              <div>
+                <p className="font-semibold">Hồ sơ FaceID bị từ chối</p>
+                <p className="mt-1 text-sm">
+                  Lý do:{" "}
+                  <span className="font-medium">
+                    {rejectReason || "Không rõ"}
+                  </span>
+                </p>
+                <p className="mt-1 text-sm">
+                  Vui lòng cập nhật thông tin và tải lên 3 ảnh khuôn mặt rõ nét
+                  dưới đây.
+                </p>
+              </div>
+            </div>
           )}
 
           {verificationStatus === "Rejected" ? (
-             <form onSubmit={handleResubmit} className="space-y-5 rounded-2xl border border-red-100 bg-white p-5 shadow-sm" noValidate>
-                <h3 className="text-lg font-semibold text-slate-900">Gửi lại yêu cầu xác minh</h3>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  {/* Họ */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Họ</label>
-                    <input
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="Nhập họ"
-                    />
-                  </div>
-                  {/* Tên */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Tên</label>
-                    <input
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                      placeholder="Nhập tên"
-                    />
-                  </div>
-                  {/* Email */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Email (Không thể chỉnh sửa)</label>
-                    <input
-                      type="email"
-                      value={profile?.email || ""}
-                      disabled
-                      className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
-                    />
-                  </div>
-                  {/* Số điện thoại */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Số điện thoại (Không thể chỉnh sửa)</label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      disabled
-                      className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
-                    />
-                  </div>
-                  {/* Số CCCD */}
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Số CCCD (Không thể chỉnh sửa)</label>
-                    <input
-                      type="text"
-                      value={profile?.cccd || ""}
-                      disabled
-                      className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">Tải lên 3 ảnh khuôn mặt mới</label>
-                    <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <ImageIcon size={24} className="mb-2 text-slate-500" />
-                          <p className="mb-1 text-sm text-slate-500">
-                            {faceImages.length < 3 ? (
-                              <>
-                                <span className="font-semibold">Nhấn để chọn</span> ảnh ({faceImages.length}/3)
-                              </>
-                            ) : (
-                              <span className="font-semibold text-emerald-600">Đã đủ 3 ảnh</span>
-                            )}
-                          </p>
-                          <p className="text-xs text-slate-400">Ảnh chân dung rõ nét (JPG, PNG)</p>
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          multiple
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          disabled={faceImages.length >= 3}
-                        />
-                      </label>
-                    </div>
-                    {faceImages.length > 0 && (
-                      <div className="mt-4 space-y-3">
-                        <p className="text-sm font-semibold text-slate-700">Ảnh đã chọn ({faceImages.length}/3):</p>
-                        <div className="grid grid-cols-3 gap-3">
-                          {faceImages.map((img, idx) => (
-                            <div key={idx} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={img.preview}
-                                alt={`Ảnh khuôn mặt ${idx + 1}`}
-                                className="h-full w-full object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  URL.revokeObjectURL(img.preview);
-                                  setFaceImages((prev) => prev.filter((_, i) => i !== idx));
-                                }}
-                                aria-label={`Xóa ảnh ${idx + 1}`}
-                                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black transition-colors"
-                              >
-                                <span className="text-xs" aria-hidden>✕</span>
-                              </button>
-                            </div>
-                          ))}
-                        </div>
+            <form
+              onSubmit={handleResubmit}
+              className="space-y-5 rounded-2xl border border-red-100 bg-white p-5 shadow-sm"
+              noValidate
+            >
+              <h3 className="text-lg font-semibold text-slate-900">
+                Gửi lại yêu cầu xác minh
+              </h3>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                {/* Họ */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+                    Họ
+                  </label>
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Nhập họ"
+                  />
+                </div>
+                {/* Tên */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+                    Tên
+                  </label>
+                  <input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Nhập tên"
+                  />
+                </div>
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
+                    Email (Không thể chỉnh sửa)
+                  </label>
+                  <input
+                    type="email"
+                    value={profile?.email || ""}
+                    disabled
+                    className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
+                  />
+                </div>
+                {/* Số điện thoại */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
+                    Số điện thoại (Không thể chỉnh sửa)
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    disabled
+                    className="w-full text-sm font-semibold text-slate-400 bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 cursor-not-allowed outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 block">
+                    Tải lên 3 ảnh khuôn mặt mới
+                  </label>
+                  <div className="flex items-center justify-center w-full">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <ImageIcon size={24} className="mb-2 text-slate-500" />
+                        <p className="mb-1 text-sm text-slate-500">
+                          {faceImages.length < 3 ? (
+                            <>
+                              <span className="font-semibold">
+                                Nhấn để chọn
+                              </span>{" "}
+                              ảnh ({faceImages.length}/3)
+                            </>
+                          ) : (
+                            <span className="font-semibold text-emerald-600">
+                              Đã đủ 3 ảnh
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          Ảnh chân dung rõ nét (JPG, PNG)
+                        </p>
                       </div>
-                    )}
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        disabled={faceImages.length >= 3}
+                      />
+                    </label>
                   </div>
+                  {faceImages.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm font-semibold text-slate-700">
+                        Ảnh đã chọn ({faceImages.length}/3):
+                      </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {faceImages.map((img, idx) => (
+                          <div
+                            key={idx}
+                            className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={img.preview}
+                              alt={`Ảnh khuôn mặt ${idx + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                URL.revokeObjectURL(img.preview);
+                                setFaceImages((prev) =>
+                                  prev.filter((_, i) => i !== idx),
+                                );
+                              }}
+                              aria-label={`Xóa ảnh ${idx + 1}`}
+                              className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black transition-colors"
+                            >
+                              <span className="text-xs" aria-hidden>
+                                ✕
+                              </span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                {resubmitError && <p className="text-sm text-red-600">{resubmitError}</p>}
-                {resubmitSuccess && <p className="text-sm text-emerald-600 font-medium">Gửi lại hồ sơ thành công! Đang chờ duyệt.</p>}
+              {resubmitError && (
+                <p className="text-sm text-red-600">{resubmitError}</p>
+              )}
+              {resubmitSuccess && (
+                <p className="text-sm text-emerald-600 font-medium">
+                  Gửi lại hồ sơ thành công! Đang chờ duyệt.
+                </p>
+              )}
 
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={resubmitting}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm w-full sm:w-auto"
-                  >
-                    {resubmitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <Save size={15} />}
-                    Gửi lại yêu cầu xác minh
-                  </button>
-                </div>
-             </form>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={resubmitting}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm w-full sm:w-auto"
+                >
+                  {resubmitting ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  ) : (
+                    <Save size={15} />
+                  )}
+                  Gửi lại yêu cầu xác minh
+                </button>
+              </div>
+            </form>
           ) : (
             <form
               id="profile-details-form"
               onSubmit={handleProfileSubmit(handleUpdateProfile)}
               noValidate
             >
-              <section aria-labelledby="personal-info-title" className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+              <section
+                aria-labelledby="personal-info-title"
+                className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+              >
                 <div className="border-b border-white/10 px-4 py-4 sm:px-5">
-                  <h3 id="personal-info-title" className="text-lg font-semibold text-[#fffdf9]">Thông tin cá nhân</h3>
+                  <h3
+                    id="personal-info-title"
+                    className="text-lg font-semibold text-[#fffdf9]"
+                  >
+                    Thông tin cá nhân
+                  </h3>
                   <p className="mt-1 text-sm text-[#8f8b84]">
-                    {isEditing ? "Các trường có viền sáng có thể chỉnh sửa." : "Thông tin dùng để xác nhận và liên hệ với tài khoản."}
+                    {isEditing
+                      ? "Các trường có viền sáng có thể chỉnh sửa."
+                      : "Thông tin dùng để xác nhận và liên hệ với tài khoản."}
                   </p>
                 </div>
 
                 {isEditing ? (
                   <FieldGroup className="grid gap-5 p-4 sm:grid-cols-2 sm:p-5">
                     <Field data-invalid={Boolean(profileFieldErrors.firstName)}>
-                      <FieldLabel htmlFor="profile-first-name">Tên đệm / tên</FieldLabel>
+                      <FieldLabel htmlFor="profile-first-name">
+                        Tên đệm / tên
+                      </FieldLabel>
                       <Input
                         id="profile-first-name"
                         className="min-h-11"
@@ -714,7 +841,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                       <FieldError errors={[profileFieldErrors.firstName]} />
                     </Field>
                     <Field data-invalid={Boolean(profileFieldErrors.lastName)}>
-                      <FieldLabel htmlFor="profile-last-name">Họ / tên chính</FieldLabel>
+                      <FieldLabel htmlFor="profile-last-name">
+                        Họ / tên chính
+                      </FieldLabel>
                       <Input
                         id="profile-last-name"
                         className="min-h-11"
@@ -729,7 +858,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                       className="sm:col-span-2"
                       data-invalid={Boolean(profileFieldErrors.phone)}
                     >
-                      <FieldLabel htmlFor="profile-phone">Số điện thoại</FieldLabel>
+                      <FieldLabel htmlFor="profile-phone">
+                        Số điện thoại
+                      </FieldLabel>
                       <Input
                         id="profile-phone"
                         className="min-h-11"
@@ -746,7 +877,9 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                       data-disabled={profile.dateOfBirth !== null}
                       data-invalid={Boolean(profileFieldErrors.dateOfBirth)}
                     >
-                      <FieldLabel htmlFor="profile-date-of-birth">Ngày sinh</FieldLabel>
+                      <FieldLabel htmlFor="profile-date-of-birth">
+                        Ngày sinh
+                      </FieldLabel>
                       <Input
                         id="profile-date-of-birth"
                         className="min-h-11 scheme-dark"
@@ -769,44 +902,87 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
                       <FieldError errors={[profileFieldErrors.dateOfBirth]} />
                     </Field>
                     <div className="rounded-xl bg-white/[0.035] px-4 py-3">
-                      <p className="flex items-center gap-2 text-xs text-[#8f8b84]"><AtSign className="size-3.5 text-[#bca374]" aria-hidden />Email, chỉ đọc</p>
-                      <p className="mt-1 break-words text-sm font-medium text-[#b8b3aa]">{profile.email || "Chưa cập nhật"}</p>
-                    </div>
-                    <div className="rounded-xl bg-white/[0.035] px-4 py-3">
-                      <p className="flex items-center gap-2 text-xs text-[#8f8b84]"><IdCard className="size-3.5 text-[#bca374]" aria-hidden />Số CCCD, chỉ đọc</p>
-                      <p className="mt-1 text-sm font-medium text-[#b8b3aa]">{profile.cccd || "Chưa cập nhật"}</p>
+                      <p className="flex items-center gap-2 text-xs text-[#8f8b84]">
+                        <AtSign
+                          className="size-3.5 text-[#bca374]"
+                          aria-hidden
+                        />
+                        Email, chỉ đọc
+                      </p>
+                      <p className="mt-1 break-words text-sm font-medium text-[#b8b3aa]">
+                        {profile.email || "Chưa cập nhật"}
+                      </p>
                     </div>
                   </FieldGroup>
                 ) : (
                   <dl className="px-4 sm:px-5">
-                    <ProfileInfoItem icon={UserRound} label="Tên đệm / tên" value={profile.firstName || "Chưa cập nhật"} />
-                    <ProfileInfoItem icon={UserRound} label="Họ / tên chính" value={profile.lastName || "Chưa cập nhật"} />
-                    <ProfileInfoItem icon={Mail} label="Email" value={profile.email || "Chưa cập nhật"} quiet />
-                    <ProfileInfoItem icon={Phone} label="Số điện thoại" value={profile.phone || "Chưa cập nhật"} />
-                    <ProfileInfoItem icon={CalendarDays} label="Ngày sinh" value={formatDateOfBirth(profile.dateOfBirth)} />
-                    <ProfileInfoItem icon={IdCard} label="Số CCCD" value={profile.cccd || "Chưa cập nhật"} quiet />
+                    <ProfileInfoItem
+                      icon={UserRound}
+                      label="Tên đệm / tên"
+                      value={profile.firstName || "Chưa cập nhật"}
+                    />
+                    <ProfileInfoItem
+                      icon={UserRound}
+                      label="Họ / tên chính"
+                      value={profile.lastName || "Chưa cập nhật"}
+                    />
+                    <ProfileInfoItem
+                      icon={Mail}
+                      label="Email"
+                      value={profile.email || "Chưa cập nhật"}
+                      quiet
+                    />
+                    <ProfileInfoItem
+                      icon={Phone}
+                      label="Số điện thoại"
+                      value={profile.phone || "Chưa cập nhật"}
+                    />
+                    <ProfileInfoItem
+                      icon={CalendarDays}
+                      label="Ngày sinh"
+                      value={formatDateOfBirth(profile.dateOfBirth)}
+                    />
                   </dl>
                 )}
 
                 {profileError ? (
-                  <div role="alert" className="mx-4 mb-4 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2.5 text-sm text-red-300 sm:mx-5">{profileError}</div>
+                  <div
+                    role="alert"
+                    className="mx-4 mb-4 rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2.5 text-sm text-red-300 sm:mx-5"
+                  >
+                    {profileError}
+                  </div>
                 ) : null}
                 {profileSuccess ? (
-                  <p className="mx-4 mb-4 text-sm font-medium text-emerald-400 sm:mx-5">Cập nhật thông tin tài khoản thành công.</p>
+                  <p className="mx-4 mb-4 text-sm font-medium text-emerald-400 sm:mx-5">
+                    Cập nhật thông tin tài khoản thành công.
+                  </p>
                 ) : null}
               </section>
             </form>
           )}
 
           {verificationStatus === "Active" ? (
-            <section aria-labelledby="account-security-title" className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+            <section
+              aria-labelledby="account-security-title"
+              className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+            >
               <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                 <div>
-                  <h3 id="account-security-title" className="flex items-center gap-2 text-lg font-semibold text-[#fffdf9]">
-                    <Lock className="size-[18px] text-[#bca374]" strokeWidth={1.7} aria-hidden />
+                  <h3
+                    id="account-security-title"
+                    className="flex items-center gap-2 text-lg font-semibold text-[#fffdf9]"
+                  >
+                    <Lock
+                      className="size-[18px] text-[#bca374]"
+                      strokeWidth={1.7}
+                      aria-hidden
+                    />
                     Tài khoản và bảo mật
                   </h3>
-                  <p className="mt-1 text-sm text-[#8f8b84]">Quản lý mật khẩu và bảo vệ quyền truy cập tài khoản.</p>
+                  <p className="mt-1 text-sm text-[#8f8b84]">
+                    Quản lý mật khẩu và bảo vệ quyền truy cập tài khoản.
+                  </p>
                 </div>
                 {!isEditing ? (
                   <button
@@ -821,145 +997,186 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
               </div>
 
               {isEditing ? (
-              <form onSubmit={handleUpdatePassword} className="space-y-4 p-4 sm:p-5" noValidate>
-
-                <div className="grid max-w-xl grid-cols-1 gap-4">
-                  {/* Mật khẩu cũ */}
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="profile-old-password"
-                      className="text-xs font-semibold uppercase tracking-wider text-slate-500 block"
-                    >
-                      Mật khẩu cũ
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="profile-old-password"
-                        type={showOldPassword ? "text" : "password"}
-                        value={oldPassword}
-                        onChange={(e) => {
-                          setOldPassword(e.target.value);
-                          setPasswordError(null);
-                          setPasswordSuccess(false);
-                        }}
-                        className="min-h-11 w-full rounded-lg border border-white/15 bg-[#222226] py-2.5 pl-3.5 pr-10 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
-                        placeholder="Mật khẩu hiện tại"
-                        autoComplete="current-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowOldPassword(!showOldPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736d] transition hover:text-[#d8c49f]"
-                        aria-label={showOldPassword ? "Ẩn mật khẩu hiện tại" : "Hiện mật khẩu hiện tại"}
+                <form
+                  onSubmit={handleUpdatePassword}
+                  className="space-y-4 p-4 sm:p-5"
+                  noValidate
+                >
+                  <div className="grid max-w-xl grid-cols-1 gap-4">
+                    {/* Mật khẩu cũ */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="profile-old-password"
+                        className="text-xs font-semibold uppercase tracking-wider text-slate-500 block"
                       >
-                        {showOldPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
+                        Mật khẩu cũ
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="profile-old-password"
+                          type={showOldPassword ? "text" : "password"}
+                          value={oldPassword}
+                          onChange={(e) => {
+                            setOldPassword(e.target.value);
+                            setPasswordError(null);
+                            setPasswordSuccess(false);
+                          }}
+                          className="min-h-11 w-full rounded-lg border border-white/15 bg-[#222226] py-2.5 pl-3.5 pr-10 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
+                          placeholder="Mật khẩu hiện tại"
+                          autoComplete="current-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowOldPassword(!showOldPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736d] transition hover:text-[#d8c49f]"
+                          aria-label={
+                            showOldPassword
+                              ? "Ẩn mật khẩu hiện tại"
+                              : "Hiện mật khẩu hiện tại"
+                          }
+                        >
+                          {showOldPassword ? (
+                            <EyeOff size={15} />
+                          ) : (
+                            <Eye size={15} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mật khẩu mới */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="profile-new-password"
+                        className="text-xs font-semibold uppercase tracking-wider text-slate-500 block"
+                      >
+                        Mật khẩu mới
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="profile-new-password"
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => {
+                            setNewPassword(e.target.value);
+                            setPasswordError(null);
+                            setPasswordSuccess(false);
+                          }}
+                          className="min-h-11 w-full rounded-lg border border-white/15 bg-[#222226] py-2.5 pl-3.5 pr-10 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
+                          placeholder="Mật khẩu mới (>=8 ký tự)"
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736d] transition hover:text-[#d8c49f]"
+                          aria-label={
+                            showNewPassword
+                              ? "Ẩn mật khẩu mới"
+                              : "Hiện mật khẩu mới"
+                          }
+                        >
+                          {showNewPassword ? (
+                            <EyeOff size={15} />
+                          ) : (
+                            <Eye size={15} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Xác nhận mật khẩu mới */}
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="profile-confirm-password"
+                        className="text-xs font-semibold uppercase tracking-wider text-slate-500 block"
+                      >
+                        Xác nhận mật khẩu mới
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="profile-confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            setPasswordError(null);
+                            setPasswordSuccess(false);
+                          }}
+                          className="min-h-11 w-full rounded-lg border border-white/15 bg-[#222226] py-2.5 pl-3.5 pr-10 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
+                          placeholder="Nhập lại mật khẩu mới"
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736d] transition hover:text-[#d8c49f]"
+                          aria-label={
+                            showConfirmPassword
+                              ? "Ẩn xác nhận mật khẩu"
+                              : "Hiện xác nhận mật khẩu"
+                          }
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff size={15} />
+                          ) : (
+                            <Eye size={15} />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Mật khẩu mới */}
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="profile-new-password"
-                      className="text-xs font-semibold uppercase tracking-wider text-slate-500 block"
+                  {passwordError ? (
+                    <p className="text-sm text-red-600">{passwordError}</p>
+                  ) : null}
+                  {passwordSuccess ? (
+                    <p className="text-sm text-emerald-600 font-medium">
+                      Đổi mật khẩu thành công. Bạn sẽ được chuyển hướng đăng
+                      nhập lại.
+                    </p>
+                  ) : null}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingPassword || !newPassword}
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#bca374]/30 bg-[#bca374]/10 px-4 text-sm font-semibold text-[#d8c49f] transition hover:bg-[#bca374]/18 hover:text-[#fffdf9] disabled:cursor-not-allowed disabled:opacity-50 active:translate-y-px"
                     >
-                      Mật khẩu mới
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="profile-new-password"
-                        type={showNewPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => {
-                          setNewPassword(e.target.value);
-                          setPasswordError(null);
-                          setPasswordSuccess(false);
-                        }}
-                        className="min-h-11 w-full rounded-lg border border-white/15 bg-[#222226] py-2.5 pl-3.5 pr-10 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
-                        placeholder="Mật khẩu mới (>=8 ký tự)"
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736d] transition hover:text-[#d8c49f]"
-                        aria-label={showNewPassword ? "Ẩn mật khẩu mới" : "Hiện mật khẩu mới"}
-                      >
-                        {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
+                      {savingPassword ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-350 border-t-slate-700" />
+                      ) : (
+                        <Lock size={15} />
+                      )}
+                      Cập nhật mật khẩu
+                    </button>
                   </div>
-
-                  {/* Xác nhận mật khẩu mới */}
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="profile-confirm-password"
-                      className="text-xs font-semibold uppercase tracking-wider text-slate-500 block"
-                    >
-                      Xác nhận mật khẩu mới
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="profile-confirm-password"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => {
-                          setConfirmPassword(e.target.value);
-                          setPasswordError(null);
-                          setPasswordSuccess(false);
-                        }}
-                        className="min-h-11 w-full rounded-lg border border-white/15 bg-[#222226] py-2.5 pl-3.5 pr-10 text-sm text-[#fffdf9] outline-none transition focus:border-[#bca374] focus:ring-2 focus:ring-[#bca374]/20"
-                        placeholder="Nhập lại mật khẩu mới"
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77736d] transition hover:text-[#d8c49f]"
-                        aria-label={showConfirmPassword ? "Ẩn xác nhận mật khẩu" : "Hiện xác nhận mật khẩu"}
-                      >
-                        {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {passwordError ? (
-                  <p className="text-sm text-red-600">{passwordError}</p>
-                ) : null}
-                {passwordSuccess ? (
-                  <p className="text-sm text-emerald-600 font-medium">
-                    Đổi mật khẩu thành công. Bạn sẽ được chuyển hướng đăng nhập lại.
-                  </p>
-                ) : null}
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={savingPassword || !newPassword}
-                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#bca374]/30 bg-[#bca374]/10 px-4 text-sm font-semibold text-[#d8c49f] transition hover:bg-[#bca374]/18 hover:text-[#fffdf9] disabled:cursor-not-allowed disabled:opacity-50 active:translate-y-px"
-                  >
-                    {savingPassword ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-350 border-t-slate-700" />
-                    ) : (
-                      <Lock size={15} />
-                    )}
-                    Cập nhật mật khẩu
-                  </button>
-                </div>
-              </form>
+                </form>
               ) : (
                 <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
                   <div className="flex items-start gap-3">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#bca374]/10 text-[#d8c49f]">
-                      <ShieldCheck className="size-5" strokeWidth={1.6} aria-hidden />
+                      <ShieldCheck
+                        className="size-5"
+                        strokeWidth={1.6}
+                        aria-hidden
+                      />
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-[#fffdf9]">Mật khẩu được bảo vệ</p>
-                      <p className="mt-1 text-sm leading-6 text-[#8f8b84]">Khi thay đổi mật khẩu, hệ thống sẽ yêu cầu bạn đăng nhập lại.</p>
+                      <p className="text-sm font-medium text-[#fffdf9]">
+                        Mật khẩu được bảo vệ
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-[#8f8b84]">
+                        Khi thay đổi mật khẩu, hệ thống sẽ yêu cầu bạn đăng nhập
+                        lại.
+                      </p>
                     </div>
                   </div>
-                  <span className="text-xs font-medium text-[#bca374]">Đang hoạt động</span>
+                  <span className="text-xs font-medium text-[#bca374]">
+                    Đang hoạt động
+                  </span>
                 </div>
               )}
             </section>
