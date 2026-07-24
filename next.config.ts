@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const backendApiBaseUrl =
-  process.env.BACKEND_API_BASE_URL ??
-  "https://autowashpro-deploy-latest-90f6.onrender.com";
+  process.env.BACKEND_API_BASE_URL ?? "http://localhost:5207/";
 
 const nextConfig: NextConfig = {
   /* config options here */

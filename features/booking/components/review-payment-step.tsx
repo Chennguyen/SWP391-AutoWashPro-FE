@@ -16,6 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createBooking, getSlots } from "@/features/booking/booking-service";
+import {
+  getAppliedPromotions,
+  type AppliedPromotion,
+} from "@/features/booking/promotion-service";
 import type {
   BookingResult,
   Branch,
@@ -23,10 +27,7 @@ import type {
 } from "@/features/booking/types/booking-types";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import { validateVoucher } from "@/features/booking/voucher-service";
-import {
-  type AdminPromotion,
-  getLoyaltySettings,
-} from "@/features/loyalty/loyalty-admin-service";
+import { getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
 import {
   getLoyaltyInfo,
   getMyVouchers,
@@ -71,17 +72,17 @@ function formatVoucherDiscount(voucher: MyVoucher) {
 }
 
 function getPromotionDiscountAmount(
-  promotion: AdminPromotion,
+  promotion: AppliedPromotion,
   servicePrice: number,
 ) {
   if (promotion.discountType === "Percentage") {
-    return (servicePrice * Math.min(100, promotion.discountValue)) / 100;
+    return (servicePrice * promotion.discountValue) / 100;
   }
 
   return promotion.discountValue;
 }
 
-function formatPromotionDiscount(promotion: AdminPromotion) {
+function formatPromotionDiscount(promotion: AppliedPromotion) {
   return promotion.discountType === "Percentage"
     ? `${promotion.discountValue.toLocaleString("vi-VN")}%`
     : formatVND(promotion.discountValue);
@@ -104,19 +105,6 @@ function addMinutes(time: string, minutes: number) {
   return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function toBoolean(val: unknown, fallback = true): boolean {
-  if (val === undefined || val === null) return fallback;
-  if (typeof val === "boolean") return val;
-  const s = String(val).trim().toLowerCase();
-  if (s === "false" || s === "0") return false;
-  if (s === "true" || s === "1") return true;
-  return fallback;
-}
-
 function formatSlotRange(slot: string, duration: number, endTime?: string) {
   if (endTime) {
     return `${slot}-${endTime}`;
@@ -124,27 +112,22 @@ function formatSlotRange(slot: string, duration: number, endTime?: string) {
   return `${slot}-${addMinutes(slot, duration)}`;
 }
 
-function unwrapList(body: unknown): Record<string, unknown>[] {
-  if (!body) return [];
-  if (Array.isArray(body)) return body.filter(isRecord);
-  if (!isRecord(body)) return [];
+function haveSamePromotions(
+  current: AppliedPromotion[],
+  latest: AppliedPromotion[],
+) {
+  if (current.length !== latest.length) return false;
 
-  const directList = body.items ?? body.Items ?? body.results ?? body.Results;
-  if (Array.isArray(directList)) return directList.filter(isRecord);
-
-  const dataPayload = body.data ?? body.Data;
-  if (Array.isArray(dataPayload)) return dataPayload.filter(isRecord);
-
-  if (isRecord(dataPayload)) {
-    const nestedList =
-      dataPayload.items ??
-      dataPayload.Items ??
-      dataPayload.results ??
-      dataPayload.Results;
-    if (Array.isArray(nestedList)) return nestedList.filter(isRecord);
-  }
-
-  return [];
+  return current.every((promotion, index) => {
+    const nextPromotion = latest[index];
+    return (
+      nextPromotion !== undefined &&
+      promotion.id === nextPromotion.id &&
+      promotion.name === nextPromotion.name &&
+      promotion.discountType === nextPromotion.discountType &&
+      promotion.discountValue === nextPromotion.discountValue
+    );
+  });
 }
 
 interface ReviewPaymentStepProps {
@@ -223,8 +206,9 @@ export function ReviewPaymentStep({
   const [submitted, setSubmitted] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState(15);
   const [endTime, setEndTime] = useState<string | undefined>(undefined);
-  const [promotions, setPromotions] = useState<AdminPromotion[]>([]);
-  const [promotionsLoading, setPromotionsLoading] = useState(false);
+  const [promotions, setPromotions] = useState<AppliedPromotion[]>([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [promotionError, setPromotionError] = useState<string | null>(null);
   const [localAppliedVoucher, setLocalAppliedVoucher] =
     useState<VoucherValidation | null>(appliedVoucher);
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
@@ -359,135 +343,47 @@ export function ReviewPaymentStep({
     return () => window.clearTimeout(timeoutId);
   }, [loadWallet]);
 
-  useEffect(() => {
-    let active = true;
-    async function loadPromotions() {
-      if (!token) return;
-      setPromotionsLoading(true);
-      try {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-        const params = new URLSearchParams({ pageSize: "50", pageIndex: "1" });
+  const loadPromotions = useCallback(async () => {
+    if (!token) return null;
 
-        let res = await fetch(
-          `${apiBaseUrl}/api/v1/promotions/available?${params.toString()}`,
-          {
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          },
+    setPromotionsLoading(true);
+    setPromotionError(null);
+    try {
+      const nextPromotions = await getAppliedPromotions(token);
+      setPromotions(nextPromotions);
+      return nextPromotions;
+    } catch (promotionLoadError) {
+      if (
+        promotionLoadError instanceof ApiError &&
+        promotionLoadError.status === 401
+      ) {
+        setPromotionError(
+          "Phiên đăng nhập đã hết hạn nên chưa thể xác định khuyến mãi.",
         );
-
-        let rawList: Record<string, unknown>[] = [];
-        if (res.ok) {
-          const text = await res.text();
-          const body = text ? JSON.parse(text) : null;
-          rawList = unwrapList(body);
-        }
-
-        if (!res.ok || rawList.length === 0) {
-          res = await fetch(
-            `${apiBaseUrl}/Promotion/promotions?${params.toString()}`,
-            {
-              cache: "no-store",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-          if (res.ok) {
-            const text = await res.text();
-            const body = text ? JSON.parse(text) : null;
-            rawList = unwrapList(body);
-          }
-        }
-
-        if (!res.ok || rawList.length === 0) {
-          res = await fetch(
-            `${apiBaseUrl}/api/v1/promotions?${params.toString()}`,
-            {
-              cache: "no-store",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-          if (res.ok) {
-            const text = await res.text();
-            const body = text ? JSON.parse(text) : null;
-            rawList = unwrapList(body);
-          }
-        }
-
-        if (!res.ok || rawList.length === 0) {
-          res = await fetch(
-            `${apiBaseUrl}/Promotion/admin/promotions?${params.toString()}`,
-            {
-              cache: "no-store",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            },
-          );
-          if (res.ok) {
-            const text = await res.text();
-            const body = text ? JSON.parse(text) : null;
-            rawList = unwrapList(body);
-          }
-        }
-
-        const promotionsList = rawList.map((p) => {
-          const tierIdsRaw = p.tierIds ?? p.TierIds;
-          const tierIds = Array.isArray(tierIdsRaw)
-            ? tierIdsRaw.map(String)
-            : [];
-
-          return {
-            id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
-            name: String(p.name ?? p.Name ?? "Khuyến mãi"),
-            description: String(p.description ?? p.Description ?? ""),
-            discountType: String(
-              p.discountType ?? p.DiscountType ?? "FixedAmount",
-            ),
-            discountValue: Number(p.discountValue ?? p.DiscountValue ?? 0),
-            startDate: String(
-              p.startDate ?? p.StartDate ?? p.startTime ?? p.StartTime ?? "",
-            ),
-            endDate: String(
-              p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime ?? "",
-            ),
-            isGlobal: toBoolean(p.isGlobal ?? p.IsGlobal, tierIds.length === 0),
-            isActive: toBoolean(p.isActive ?? p.IsActive, true),
-            tierIds,
-          };
-        });
-
-        if (active) {
-          setPromotions(promotionsList);
-        }
-      } catch (err) {
-        console.warn(
-          "DEBUG [loadPromotions] Không thể tải danh sách khuyến mãi:",
-          err,
-        );
-        if (active) {
-          setPromotions([]);
-        }
-      } finally {
-        if (active) {
-          setPromotionsLoading(false);
-        }
+        onUnauthorized();
+        return null;
       }
+
+      console.warn(
+        "DEBUG [loadPromotions] Không thể tải danh sách khuyến mãi:",
+        promotionLoadError,
+      );
+      setPromotionError(
+        "Không thể xác định khuyến mãi đang áp dụng. Vui lòng thử lại.",
+      );
+      return null;
+    } finally {
+      setPromotionsLoading(false);
     }
-    void loadPromotions();
-    return () => {
-      active = false;
-    };
-  }, [token]);
+  }, [onUnauthorized, token]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadPromotions();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadPromotions]);
 
   const isSUV = vehicle?.vehicleType === "SUV";
   const isSedan = vehicle?.vehicleType === "SEDAN";
@@ -499,80 +395,15 @@ export function ReviewPaymentStep({
   const servicePrice = configs.basePrice + surcharge;
   const depositRate = configs.paymentDeposite / 100;
 
-  const eligiblePromotions = useMemo(() => {
-    return promotions.filter((p) => {
-      if (p.isActive === false) return false;
-
-      // Check Tier matching
-      const isPromoGlobal = p.isGlobal || !p.tierIds || p.tierIds.length === 0;
-      if (!isPromoGlobal) {
-        if (!loyalty?.tier) return false;
-        const userTier = loyalty.tier;
-        const tierIds = p.tierIds ?? [];
-        const matchesTier = tierIds.some((tId) => {
-          const idStr = String(tId).trim();
-          if (userTier.id && idStr === userTier.id) return true;
-          if (
-            userTier.name &&
-            idStr.toLowerCase() === userTier.name.toLowerCase()
-          )
-            return true;
-          if (userTier.level && idStr === String(userTier.level)) return true;
-          return false;
-        });
-        if (!matchesTier) return false;
-      }
-
-      // Date range validation against the selected booking date
-      if (date) {
-        const parseLocal = (dStr: string) => {
-          if (!dStr) return null;
-          const cleanDate = dStr.slice(0, 10);
-          const parts = cleanDate.split(/[-/]/);
-          if (parts.length === 3) {
-            const year = Number(parts[0]);
-            const month = Number(parts[1]) - 1;
-            const day = Number(parts[2]);
-            if (
-              !Number.isNaN(year) &&
-              !Number.isNaN(month) &&
-              !Number.isNaN(day)
-            ) {
-              return new Date(year, month, day);
-            }
-          }
-          const parsed = new Date(dStr);
-          return Number.isNaN(parsed.getTime()) ? null : parsed;
-        };
-
-        const targetDate = parseLocal(date);
-
-        if (targetDate) {
-          if (p.startDate) {
-            const start = parseLocal(p.startDate);
-            if (start && targetDate < start) return false;
-          }
-
-          if (p.endDate) {
-            const end = parseLocal(p.endDate);
-            if (end && targetDate > end) return false;
-          }
-        }
-      }
-
-      return true;
-    });
-  }, [promotions, loyalty, date]);
-
   const promotionDiscount = useMemo(() => {
-    const totalPromotionDiscount = eligiblePromotions.reduce(
+    const totalPromotionDiscount = promotions.reduce(
       (total, promotion) =>
         total + getPromotionDiscountAmount(promotion, servicePrice),
       0,
     );
 
     return Math.min(servicePrice, totalPromotionDiscount);
-  }, [eligiblePromotions, servicePrice]);
+  }, [promotions, servicePrice]);
 
   const loyaltyPoints = loyalty?.points ?? 0;
   const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
@@ -700,6 +531,21 @@ export function ReviewPaymentStep({
     setLoading(true);
     setError(null);
     try {
+      const latestPromotions = await loadPromotions();
+      if (latestPromotions === null) {
+        setError(
+          "Chưa thể xác nhận khuyến mãi đang áp dụng. Vui lòng thử lại.",
+        );
+        return;
+      }
+
+      if (!haveSamePromotions(promotions, latestPromotions)) {
+        setError(
+          "Danh sách khuyến mãi vừa thay đổi. Vui lòng kiểm tra lại trước khi xác nhận.",
+        );
+        return;
+      }
+
       const latestSlots = await getSlots(token, branch.id, date);
       const latestSelectedSlot = latestSlots.find((item) => item.time === slot);
       if (
@@ -827,9 +673,23 @@ export function ReviewPaymentStep({
                 <span className="text-sm text-muted-foreground">
                   Đang xác định...
                 </span>
-              ) : eligiblePromotions.length > 0 ? (
+              ) : promotionError ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-destructive">
+                    {promotionError}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void loadPromotions()}
+                  >
+                    Thử lại
+                  </Button>
+                </div>
+              ) : promotions.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
-                  {eligiblePromotions.map((promotion) => {
+                  {promotions.map((promotion) => {
                     const discountAmount = getPromotionDiscountAmount(
                       promotion,
                       servicePrice,
@@ -928,22 +788,19 @@ export function ReviewPaymentStep({
 
           <div className="flex items-start justify-between gap-4 text-sm">
             <div className="min-w-0">
-              <span className="text-muted-foreground">Ưu đãi giảm giá</span>
-              {/* {!promotionsLoading && eligiblePromotions.length > 0 ? (
-                <div className="mt-1 flex flex-col gap-0.5">
-                  {eligiblePromotions.map((promotion) => (
-                    <span
-                      key={promotion.id}
-                      className="font-medium text-foreground"
-                    >
-                      {promotion.name} · Giảm{" "}
-                      {formatPromotionDiscount(promotion)}
-                    </span>
-                  ))}
-                </div>
-              ) : null} */}
+              <span className="text-muted-foreground">
+                Tổng giảm từ khuyến mãi
+              </span>
             </div>
-            {promotionDiscount > 0 ? (
+            {promotionsLoading ? (
+              <span className="shrink-0 text-muted-foreground">
+                Đang xác định...
+              </span>
+            ) : promotionError ? (
+              <span className="shrink-0 font-medium text-destructive">
+                Chưa xác định
+              </span>
+            ) : promotionDiscount > 0 ? (
               <span className="shrink-0 font-medium text-destructive">
                 -{formatVND(promotionDiscount)}
               </span>
@@ -1158,7 +1015,14 @@ export function ReviewPaymentStep({
         <Button
           type="button"
           onClick={handleConfirm}
-          disabled={!agreed || loading || submitted || insufficientBalance}
+          disabled={
+            !agreed ||
+            loading ||
+            submitted ||
+            insufficientBalance ||
+            promotionsLoading ||
+            promotionError !== null
+          }
           size="lg"
           className="min-w-44"
         >
