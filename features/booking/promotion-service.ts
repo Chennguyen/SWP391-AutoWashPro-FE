@@ -24,6 +24,10 @@ type AppliedPromotionRecord = {
   EndTime?: string | null;
   endDate?: string | null;
   EndDate?: string | null;
+  isDeleted?: boolean;
+  IsDeleted?: boolean;
+  isActive?: boolean;
+  IsActive?: boolean;
 };
 
 type AppliedPromotionResponse =
@@ -33,6 +37,31 @@ type AppliedPromotionResponse =
       Data?: AppliedPromotionRecord[];
     }
   | null;
+
+function isPromotionValid(promotion: AppliedPromotionRecord): boolean {
+  if (!promotion) return false;
+
+  const isDeleted = promotion.isDeleted ?? promotion.IsDeleted;
+  if (isDeleted === true) return false;
+
+  const isActive = promotion.isActive ?? promotion.IsActive;
+  if (isActive === false) return false;
+
+  const rawEndTime =
+    promotion.endTime ??
+    promotion.EndTime ??
+    promotion.endDate ??
+    promotion.EndDate;
+
+  if (rawEndTime) {
+    const endMs = new Date(rawEndTime).getTime();
+    if (Number.isFinite(endMs) && endMs < Date.now()) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 function normalizeDiscountType(
   value: string | number | undefined,
@@ -101,5 +130,5 @@ export async function getAppliedPromotions(
     throw new Error("API trả về danh sách khuyến mãi không hợp lệ.");
   }
 
-  return promotions.map(normalizePromotion);
+  return promotions.filter(isPromotionValid).map(normalizePromotion);
 }
