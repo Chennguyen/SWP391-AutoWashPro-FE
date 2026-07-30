@@ -444,8 +444,7 @@ main.bg-background-outer {
 }
 
 /* Points badge styling */
-.bg-background-outer .bg-amber-50,
-.bg-background-outer .text-amber-600 {
+.bg-background-outer .points-badge {
   background-color: var(--background-secondary) !important;
   color: var(--gold-light) !important;
   border: 1px solid var(--gold-primary) !important;
@@ -474,10 +473,10 @@ main.bg-background-outer {
 .bg-background-outer div[class*="text-red-"] {
   color: #ef4444 !important; /* Soft bright red */
 }
-.bg-background-outer .bg-red-50,
-.bg-background-outer .bg-red-100,
-.bg-background-outer div[class*="bg-red-"],
-.bg-background-outer span[class*="bg-red-"] {
+.bg-background-outer .bg-red-50:not(.border-none):not(.border-0),
+.bg-background-outer .bg-red-100:not(.border-none):not(.border-0),
+.bg-background-outer div[class*="bg-red-"]:not(.border-none):not(.border-0),
+.bg-background-outer span[class*="bg-red-"]:not(.border-none):not(.border-0) {
   background-color: rgba(239, 68, 68, 0.18) !important;
   border: 1px solid rgba(239, 68, 68, 0.25) !important;
 }
@@ -494,14 +493,14 @@ main.bg-background-outer {
 .bg-background-outer div[class*="text-green-"] {
   color: #10b981 !important; /* Soft bright green */
 }
-.bg-background-outer .bg-emerald-50,
-.bg-background-outer .bg-emerald-100,
-.bg-background-outer .bg-green-50,
-.bg-background-outer .bg-green-100,
-.bg-background-outer div[class*="bg-emerald-"],
-.bg-background-outer div[class*="bg-green-"],
-.bg-background-outer span[class*="bg-emerald-"],
-.bg-background-outer span[class*="bg-green-"] {
+.bg-background-outer .bg-emerald-50:not(.border-none):not(.border-0),
+.bg-background-outer .bg-emerald-100:not(.border-none):not(.border-0),
+.bg-background-outer .bg-green-50:not(.border-none):not(.border-0),
+.bg-background-outer .bg-green-100:not(.border-none):not(.border-0),
+.bg-background-outer div[class*="bg-emerald-"]:not(.border-none):not(.border-0),
+.bg-background-outer div[class*="bg-green-"]:not(.border-none):not(.border-0),
+.bg-background-outer span[class*="bg-emerald-"]:not(.border-none):not(.border-0),
+.bg-background-outer span[class*="bg-green-"]:not(.border-none):not(.border-0) {
   background-color: rgba(16, 185, 129, 0.18) !important;
   border: 1px solid rgba(16, 185, 129, 0.25) !important;
 }
@@ -517,16 +516,35 @@ main.bg-background-outer {
 .bg-background-outer div[class*="text-yellow-"] {
   color: #f59e0b !important; /* Soft amber/yellow */
 }
-.bg-background-outer .bg-amber-50,
-.bg-background-outer .bg-amber-100,
-.bg-background-outer .bg-yellow-50,
-.bg-background-outer .bg-yellow-100,
-.bg-background-outer div[class*="bg-amber-"],
-.bg-background-outer div[class*="bg-yellow-"],
-.bg-background-outer span[class*="bg-amber-"],
-.bg-background-outer span[class*="bg-yellow-"] {
+.bg-background-outer .bg-amber-50:not(.border-none):not(.border-0),
+.bg-background-outer .bg-amber-100:not(.border-none):not(.border-0),
+.bg-background-outer .bg-yellow-50:not(.border-none):not(.border-0),
+.bg-background-outer .bg-yellow-100:not(.border-none):not(.border-0),
+.bg-background-outer div[class*="bg-amber-"]:not(.border-none):not(.border-0),
+.bg-background-outer div[class*="bg-yellow-"]:not(.border-none):not(.border-0),
+.bg-background-outer span[class*="bg-amber-"]:not(.border-none):not(.border-0),
+.bg-background-outer span[class*="bg-yellow-"]:not(.border-none):not(.border-0) {
   background-color: rgba(245, 158, 11, 0.18) !important;
   border: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+
+.bg-background-outer svg,
+.bg-background-outer svg * {
+  border: 0 none transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.bg-background-outer .border-none,
+.bg-background-outer .border-0,
+.bg-background-outer div.border-none,
+.bg-background-outer div.border-0,
+.bg-background-outer div[class*="border-none"],
+.bg-background-outer div[class*="border-0"] {
+  border: 0 none transparent !important;
+  outline: none !important;
 }
 
 /* Rank cards: high-contrast luxury treatment for achieved and locked tiers. */

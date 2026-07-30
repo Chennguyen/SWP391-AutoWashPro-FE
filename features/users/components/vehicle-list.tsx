@@ -171,11 +171,18 @@ export function VehicleList({
       </div>
 
       {isUnverified && (
-        <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-3">
-          <Info size={18} className="mt-0.5 shrink-0 text-amber-600" aria-hidden />
+        <div
+          role="alert"
+          className="border-none mb-4 flex items-start gap-3 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-200"
+        >
+          <Info
+            size={18}
+            className="border-none mt-0.5 shrink-0 text-amber-400"
+            aria-hidden
+          />
           <div>
-            <p className="font-semibold">Tính năng quản lý xe bị hạn chế</p>
-            <p className="mt-1 text-xs md:text-sm">
+            <p className="font-semibold text-amber-300">Tính năng quản lý xe bị hạn chế</p>
+            <p className="mt-1 text-xs md:text-sm text-amber-200/90 leading-relaxed">
               Tài khoản của bạn đang chờ phê duyệt FaceID. Vui lòng đợi xác thực để thêm, sửa hoặc xóa thông tin xe.
             </p>
           </div>
@@ -199,11 +206,28 @@ export function VehicleList({
         (() => {
           const isUnverified = error.includes("Only active and verified customer accounts") || error.includes("Tài khoản chưa được kích hoạt hoặc xác minh") || (typeof window !== "undefined" && window.localStorage.getItem("is_unverified") === "true");
           return (
-            <div role="alert" className={cn("rounded-lg border px-4 py-3 text-sm flex items-start gap-3", isUnverified ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-700")}>
-              <Info size={18} className={cn("mt-0.5 shrink-0", isUnverified ? "text-amber-600" : "text-red-500")} aria-hidden />
+            <div
+              role="alert"
+              className={cn(
+                "border-none rounded-xl px-4 py-3 text-sm flex items-start gap-3",
+                isUnverified ? "bg-amber-500/15 text-amber-200" : "bg-red-500/15 text-red-200"
+              )}
+              style={{ border: "none" }}
+            >
+              <Info
+                size={18}
+                className={cn(
+                  "border-none mt-0.5 shrink-0",
+                  isUnverified ? "text-amber-400" : "text-red-400"
+                )}
+                style={{ border: "none" }}
+                aria-hidden
+              />
               <div>
-                <p className="font-semibold">{isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}</p>
-                <p className="mt-1 text-xs md:text-sm">
+                <p className={cn("font-semibold", isUnverified ? "text-amber-300" : "text-red-300")}>
+                  {isUnverified ? "Hồ sơ FaceID đang chờ duyệt" : "Lỗi tải thông tin"}
+                </p>
+                <p className="mt-1 text-xs md:text-sm leading-relaxed">
                   {isUnverified ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút." : error}
                 </p>
               </div>
