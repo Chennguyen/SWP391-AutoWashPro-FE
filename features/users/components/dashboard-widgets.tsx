@@ -170,51 +170,63 @@ export function DashboardHeader() {
   return (
     <header className="mb-6">
       {verificationStatus === "Pending" ? (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div
+          className="border-none mb-4 flex items-start gap-2.5 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-200"
+          style={{ border: "none" }}
+        >
           <Info
             size={20}
-            className="mt-0.5 shrink-0 text-amber-600"
+            className="border-none mt-0.5 shrink-0 text-amber-400"
             aria-hidden
+            style={{ border: "none" }}
           />
           <div>
-            <p className="font-semibold">
+            <p className="font-semibold text-amber-300">
               Hồ sơ FaceID của bạn đang chờ phê duyệt
             </p>
-            <p className="mt-1">
+            <p className="mt-1 text-amber-200/90 leading-relaxed">
               Bạn cần chờ quản trị viên phê duyệt hồ sơ trước khi có thể đặt
               lịch, nạp ví, hoặc quản lý xe. Vui lòng kiểm tra lại sau.
             </p>
           </div>
         </div>
       ) : verificationStatus === "Rejected" ? (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div
+          className="border-none mb-4 flex items-start gap-2.5 rounded-xl bg-red-500/15 px-4 py-3 text-sm text-red-200"
+          style={{ border: "none" }}
+        >
           <AlertTriangle
             size={20}
-            className="mt-0.5 shrink-0 text-red-600"
+            className="border-none mt-0.5 shrink-0 text-red-400"
             aria-hidden
+            style={{ border: "none" }}
           />
           <div>
-            <p className="font-semibold">Hồ sơ FaceID của bạn đã bị từ chối</p>
+            <p className="font-semibold text-red-300">Hồ sơ FaceID của bạn đã bị từ chối</p>
             <p className="mt-1">
               Lý do:{" "}
-              <span className="font-medium">
+              <span className="font-medium text-red-200">
                 {rejectReason || "Không có lý do cụ thể"}
               </span>
             </p>
-            <p className="mt-1">
+            <p className="mt-1 text-red-200/90 leading-relaxed">
               Vui lòng vào phần Tài khoản cá nhân để cập nhật lại thông tin và
               ảnh khuôn mặt.
             </p>
           </div>
         </div>
       ) : showVehicleNotice ? (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+        <div
+          className="border-none mb-4 flex items-start gap-2.5 rounded-xl bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-200"
+          style={{ border: "none" }}
+        >
           <AlertTriangle
             size={20}
-            className="mt-0.5 shrink-0 text-amber-600"
+            className="border-none mt-0.5 shrink-0 text-amber-400"
             aria-hidden
+            style={{ border: "none" }}
           />
-          <span className="text-amber-800">
+          <span className="text-amber-200">
             Bạn nên đăng ký xe tại mục tài khoản cá nhân trước khi đặt lịch
           </span>
         </div>
