@@ -26,7 +26,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -333,31 +332,23 @@ export function AdminDashboardPage() {
         title="Tổng quan vận hành"
         description="Theo dõi doanh thu, lịch đặt và tình trạng vận hành từ dữ liệu hệ thống."
         actions={
-          <div className="flex w-full items-end gap-2 sm:w-auto">
-            <FieldGroup className="grid grid-cols-2 gap-2 sm:flex sm:flex-row">
-              <Field className="min-w-0 sm:w-36">
-                <FieldLabel htmlFor="dashboard-from-date" className="sr-only">
-                  Từ ngày
-                </FieldLabel>
-                <Input
-                  id="dashboard-from-date"
-                  type="date"
-                  value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
-                />
-              </Field>
-              <Field className="min-w-0 sm:w-36">
-                <FieldLabel htmlFor="dashboard-to-date" className="sr-only">
-                  Đến ngày
-                </FieldLabel>
-                <Input
-                  id="dashboard-to-date"
-                  type="date"
-                  value={toDate}
-                  onChange={(event) => setToDate(event.target.value)}
-                />
-              </Field>
-            </FieldGroup>
+          <div className="flex flex-wrap items-center gap-2 sm:w-auto">
+            <Input
+              id="dashboard-from-date"
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              aria-label="Từ ngày"
+              className="h-9 w-auto min-w-[130px]"
+            />
+            <Input
+              id="dashboard-to-date"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              aria-label="Đến ngày"
+              className="h-9 w-auto min-w-[130px]"
+            />
             <Button
               type="button"
               onClick={loadDashboard}
@@ -366,8 +357,9 @@ export function AdminDashboardPage() {
               size="icon"
               title="Tải lại"
               aria-label="Tải lại dữ liệu Dashboard"
+              className="h-9 w-9 shrink-0"
             >
-              <RefreshCw data-icon="inline-start" className={cn(loading && "animate-spin")} aria-hidden />
+              <RefreshCw className={cn(loading && "animate-spin")} aria-hidden />
             </Button>
           </div>
         }
