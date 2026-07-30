@@ -16,6 +16,8 @@ import {
 import { BarChart3, RefreshCw, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AreaSimple, type RevenueChartPoint } from "@/components/charts/area-simple";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 function monthRange() {
   const now = new Date();
@@ -140,19 +142,18 @@ export function AdminReportsPage() {
               onChange={(event) => setToDate(event.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
-            <button
+            <Button
               type="button"
               onClick={loadReports}
               disabled={loading}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              variant="outline"
+              size="icon"
               title="Tải lại"
+              aria-label="Tải lại dữ liệu Báo cáo"
+              className="h-9 w-9 shrink-0"
             >
-              <RefreshCw
-                size={16}
-                className={loading ? "animate-spin" : ""}
-                aria-hidden
-              />
-            </button>
+              <RefreshCw className={cn(loading && "animate-spin")} aria-hidden />
+            </Button>
           </>
         }
       />
