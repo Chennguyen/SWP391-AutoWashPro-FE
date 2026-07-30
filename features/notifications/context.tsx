@@ -259,7 +259,22 @@ async function fetchPromotions(token: string): Promise<any[]> {
     }
 
     const rawList = unwrapList(body);
-    return rawList.map((p: any) => ({
+    const validList = rawList.filter((p: any) => {
+      const isDeleted = p.isDeleted ?? p.IsDeleted;
+      if (isDeleted === true) return false;
+
+      const isActive = p.isActive ?? p.IsActive;
+      if (isActive === false) return false;
+
+      const rawEnd = p.endDate ?? p.EndDate ?? p.endTime ?? p.EndTime;
+      if (rawEnd) {
+        const endMs = new Date(rawEnd).getTime();
+        if (Number.isFinite(endMs) && endMs < Date.now()) return false;
+      }
+      return true;
+    });
+
+    return validList.map((p: any) => ({
       id: String(p.id ?? p.Id ?? p.promotionId ?? p.PromotionId ?? ""),
       name: String(p.name ?? p.Name ?? "Khuyến mãi"),
       description: String(p.description ?? p.Description ?? ""),
