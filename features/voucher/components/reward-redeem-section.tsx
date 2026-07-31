@@ -79,6 +79,9 @@ function getVoucherAvailability(voucher: MyVoucher) {
   if (voucher.isUsed || status === "used") {
     return { label: "Đã sử dụng", available: false };
   }
+  if (status === "reserved") {
+    return { label: "Đang giữ cho lịch hẹn", available: false };
+  }
   if (
     status === "expired" ||
     (expiresAt !== null && Number.isFinite(expiresAt) && expiresAt <= Date.now())

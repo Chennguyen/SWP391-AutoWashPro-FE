@@ -574,27 +574,29 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
               <div
                 role="alert"
                 className={cn(
-                  "rounded-lg border px-4 py-3 text-sm flex items-start gap-3",
+                  "border-none rounded-xl px-5 py-4 text-sm flex items-start gap-3.5",
                   isUnverified
-                    ? "border-amber-200 bg-amber-50 text-amber-800"
-                    : "border-red-200 bg-red-50 text-red-700",
+                    ? "bg-amber-500/15 text-amber-200"
+                    : "bg-red-500/15 text-red-200",
                 )}
+                style={{ border: "none" }}
               >
                 <Info
                   size={18}
                   className={cn(
-                    "mt-0.5 shrink-0",
-                    isUnverified ? "text-amber-600" : "text-red-500",
+                    "border-none mt-0.5 shrink-0",
+                    isUnverified ? "text-amber-400" : "text-red-400",
                   )}
+                  style={{ border: "none" }}
                   aria-hidden
                 />
                 <div>
-                  <p className="font-semibold">
+                  <p className={cn("font-semibold", isUnverified ? "text-amber-300" : "text-red-300")}>
                     {isUnverified
                       ? "Hồ sơ FaceID đang chờ duyệt"
                       : "Lỗi tải thông tin"}
                   </p>
-                  <p className="mt-1 text-xs md:text-sm">
+                  <p className="mt-1 text-xs md:text-sm leading-relaxed">
                     {isUnverified
                       ? "Tài khoản đang được hệ thống xác thực, vui lòng đợi trong ít phút."
                       : loadError}
@@ -609,11 +611,18 @@ export function ProfilePanel({ token, onUnauthorized }: ProfilePanelProps) {
         <div className="space-y-6">
           {/* Status banner */}
           {verificationStatus === "Pending" && (
-            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-800">
-              <Info size={20} className="mt-0.5 shrink-0 text-amber-600" />
+            <div
+              className="border-none flex items-start gap-3.5 rounded-xl bg-amber-500/15 px-5 py-4 text-amber-200"
+              style={{ border: "none" }}
+            >
+              <Info
+                size={20}
+                className="border-none mt-0.5 shrink-0 text-amber-400"
+                style={{ border: "none" }}
+              />
               <div>
-                <p className="font-semibold">Hồ sơ FaceID đang chờ duyệt</p>
-                <p className="mt-1 text-sm">
+                <p className="font-semibold text-amber-300">Hồ sơ FaceID đang chờ duyệt</p>
+                <p className="mt-1 text-sm text-amber-200/90 leading-relaxed">
                   Vui lòng chờ quản trị viên phê duyệt hồ sơ của bạn để mở khóa
                   các tính năng đặt lịch, nạp ví.
                 </p>
