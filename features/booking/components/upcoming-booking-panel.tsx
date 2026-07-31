@@ -156,17 +156,22 @@ function BookingDetailPanel({
     };
   }, [token]);
 
+  const cancellationDeadlineHours = configs?.cancellationDeadlineHours ?? 72;
+
   const canCancelByTime = (() => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const bookingDateTime = new Date(booking.bookingDate);
+      if (booking.startTime) {
+        const [hours, minutes] = booking.startTime.split(":").map(Number);
+        if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+          bookingDateTime.setHours(hours, minutes, 0, 0);
+        }
+      }
 
-      const bookingDate = new Date(booking.bookingDate);
-      bookingDate.setHours(0, 0, 0, 0);
+      const diffMs = bookingDateTime.getTime() - Date.now();
+      const diffHours = diffMs / (1000 * 60 * 60);
 
-      const diffTime = bookingDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays >= 1;
+      return diffHours >= cancellationDeadlineHours;
     } catch {
       return false;
     }
@@ -180,7 +185,7 @@ function BookingDetailPanel({
     if (!reason) return;
     if (!canCancelByTime) {
       setCancelError(
-        "Không thể hủy vì lịch đặt đã quá gần thời gian hẹn (chỉ được hủy trước ngày hẹn tối thiểu 1 ngày).",
+        `Không thể hủy vì đã quá hạn chót cho phép (chỉ được hủy trước thời gian hẹn tối thiểu ${cancellationDeadlineHours} giờ theo quy định của tiệm).`,
       );
       return;
     }
@@ -191,15 +196,10 @@ function BookingDetailPanel({
       setShowCancelModal(false);
       await onChanged();
     } catch (err) {
-      if (err instanceof ApiError && err.status >= 500) {
-        setCancelError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
-      } else {
-        setCancelError(
-          err instanceof Error
-            ? err.message
-            : "Không thể hủy lịch, vui lòng thử lại.",
-        );
-      }
+      const serverMsg = err instanceof Error ? err.message : "";
+      setCancelError(
+        serverMsg || "Không thể hủy lịch, vui lòng thử lại.",
+      );
     } finally {
       setCancelling(false);
     }
