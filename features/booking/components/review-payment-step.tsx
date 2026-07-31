@@ -15,14 +15,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { createBooking, getSlots } from "@/features/booking/booking-service";
+import {
+  createBooking,
+  getBookingScheduleWarning,
+  getSlots,
+} from "@/features/booking/booking-service";
 import {
   getAppliedPromotions,
   type AppliedPromotion,
 } from "@/features/booking/promotion-service";
 import type {
   BookingResult,
+  BookingScheduleWarning,
   Branch,
+  CreateBookingPayload,
   VoucherValidation,
 } from "@/features/booking/types/booking-types";
 import type { Vehicle } from "@/features/booking/types/vehicle-types";
@@ -43,6 +49,7 @@ import { ApiError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import {
   AlertCircle,
+  AlertTriangle,
   Calendar,
   Car,
   Clock,
@@ -52,7 +59,14 @@ import {
   Ticket,
   WalletCards,
 } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
 const POINT_REDEMPTION_VALUE_VND = 100;
@@ -91,6 +105,28 @@ function formatPromotionDiscount(promotion: AppliedPromotion) {
 function formatDate(dateStr: string) {
   const [year, month, day] = dateStr.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function formatConflictTime(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(value));
+}
+
+function formatConflictDate(value: string) {
+  return new Intl.DateTimeFormat("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(value));
+}
+
+function formatConflictTimeRange(startTime: string, endTime: string) {
+  return `${formatConflictTime(startTime)} - ${formatConflictTime(endTime)}, ${formatConflictDate(startTime)}`;
 }
 
 function toStartTime(date: string, slot: string) {
@@ -222,6 +258,11 @@ export function ReviewPaymentStep({
   const [voucherValidationLoading, setVoucherValidationLoading] =
     useState(false);
   const [redeemPoint, setRedeemPoint] = useState(false);
+  const [pendingRequest, setPendingRequest] =
+    useState<CreateBookingPayload | null>(null);
+  const [scheduleWarning, setScheduleWarning] =
+    useState<BookingScheduleWarning | null>(null);
+  const requestInFlightRef = useRef(false);
 
   // Sync prop changes to local state
   useEffect(() => {
@@ -518,18 +559,101 @@ export function ReviewPaymentStep({
     setVoucherError(null);
   }
 
+  function beginBookingRequest() {
+    if (requestInFlightRef.current) {
+      return false;
+    }
+
+    requestInFlightRef.current = true;
+    setLoading(true);
+    setError(null);
+    return true;
+  }
+
+  function finishBookingRequest() {
+    requestInFlightRef.current = false;
+    setLoading(false);
+  }
+
+  async function completeBooking(request: CreateBookingPayload) {
+    const result = await createBooking(token, request);
+
+    setPendingRequest(null);
+    setScheduleWarning(null);
+    setSubmitted(true);
+
+    try {
+      const nextWallet = await getWallet(token);
+      setWallet(nextWallet);
+      // Thông báo cho Sidebar và các widget khác cập nhật số dư ví ngay lập tức
+      window.dispatchEvent(
+        new CustomEvent("autowash-wallet-updated", { detail: nextWallet }),
+      );
+    } catch (walletRefreshError) {
+      console.warn(
+        "Booking đã tạo thành công nhưng chưa thể cập nhật lại số dư ví:",
+        walletRefreshError,
+      );
+    }
+
+    onSuccess(result);
+  }
+
+  function handleBookingError(
+    submitError: unknown,
+    request: CreateBookingPayload | null,
+  ) {
+    const warning = getBookingScheduleWarning(submitError);
+    if (warning && request) {
+      // Giữ nguyên payload đã gửi để lần xác nhận không phụ thuộc form state.
+      setPendingRequest(request);
+      setScheduleWarning(warning);
+      return;
+    }
+
+    if (submitError instanceof ApiError && submitError.status === 401) {
+      onUnauthorized();
+      return;
+    }
+
+    const normalizedMessage =
+      submitError instanceof Error ? submitError.message.toLowerCase() : "";
+    if (
+      normalizedMessage.includes("slot already booked") ||
+      normalizedMessage.includes("time slot is already booked") ||
+      normalizedMessage.includes("slot unavailable") ||
+      normalizedMessage.includes("khung giờ này đã được đặt")
+    ) {
+      onSlotUnavailable();
+      return;
+    }
+
+    // Che giấu lỗi 5xx khỏi người dùng cuối trên production
+    if (submitError instanceof ApiError && submitError.status >= 500) {
+      setError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
+      return;
+    }
+
+    setError(
+      submitError instanceof Error
+        ? submitError.message
+        : "Đặt lịch thất bại. Vui lòng thử lại.",
+    );
+  }
+
   async function handleConfirm() {
-    if (!agreed || submitted) {
+    if (!agreed || submitted || !beginBookingRequest()) {
       return;
     }
 
     if (insufficientBalance) {
       setError("Số dư ví không đủ để đặt cọc. Vui lòng nạp thêm tiền.");
+      finishBookingRequest();
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    let request: CreateBookingPayload | null = null;
+
     try {
       const latestPromotions = await loadPromotions();
       if (latestPromotions === null) {
@@ -556,50 +680,59 @@ export function ReviewPaymentStep({
         return;
       }
 
-      const result = await createBooking(token, {
+      request = {
         branchId: branch.id,
         vehicleId: vehicle.id,
         voucherId,
         bookingDate: date,
         startTime: toStartTime(date, slot),
         redemPoint: redeemPoint,
-      });
-      const nextWallet = await getWallet(token);
-      setWallet(nextWallet);
-      // Thông báo cho Sidebar và các widget khác cập nhật số dư ví ngay lập tức
-      window.dispatchEvent(
-        new CustomEvent("autowash-wallet-updated", { detail: nextWallet }),
-      );
-      setSubmitted(true);
-      onSuccess(result);
+        acknowledgedScheduleConflictIds: [],
+      };
+
+      await completeBooking(request);
     } catch (submitError) {
-      if (submitError instanceof ApiError && submitError.status === 401) {
-        onUnauthorized();
-        return;
-      }
-
-      if (
-        submitError instanceof Error &&
-        submitError.message.toLowerCase().includes("slot already booked")
-      ) {
-        onSlotUnavailable();
-        return;
-      }
-
-      // Che giấu lỗi 5xx khỏi người dùng cuối trên production
-      if (submitError instanceof ApiError && submitError.status >= 500) {
-        setError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
-        return;
-      }
-
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Đặt lịch thất bại. Vui lòng thử lại.",
-      );
+      handleBookingError(submitError, request);
     } finally {
-      setLoading(false);
+      finishBookingRequest();
     }
+  }
+
+  async function handleConfirmScheduleWarning() {
+    if (
+      !pendingRequest ||
+      !scheduleWarning ||
+      !beginBookingRequest()
+    ) {
+      return;
+    }
+
+    const conflictIds = Array.from(
+      new Set(
+        scheduleWarning.conflicts.map((conflict) => conflict.bookingId),
+      ),
+    );
+    const request: CreateBookingPayload = {
+      ...pendingRequest,
+      acknowledgedScheduleConflictIds: conflictIds,
+    };
+
+    try {
+      await completeBooking(request);
+    } catch (submitError) {
+      handleBookingError(submitError, request);
+    } finally {
+      finishBookingRequest();
+    }
+  }
+
+  function handleCancelScheduleWarning() {
+    if (requestInFlightRef.current) {
+      return;
+    }
+
+    setScheduleWarning(null);
+    setPendingRequest(null);
   }
 
   const rows = [
@@ -1029,6 +1162,103 @@ export function ReviewPaymentStep({
           {loading ? "Đang xử lý..." : "Xác nhận đặt lịch"}
         </Button>
       </div>
+
+      <Dialog
+        open={scheduleWarning !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelScheduleWarning();
+          }
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="booking-brand-dialog !flex max-h-[86dvh] max-w-xl flex-col overflow-hidden !p-0"
+        >
+          <DialogHeader className="border-b px-4 py-4 sm:px-6">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                <AlertTriangle aria-hidden />
+              </div>
+              <div className="min-w-0 pt-0.5">
+                <DialogTitle className="text-lg">
+                  Lịch đặt quá gần nhau
+                </DialogTitle>
+                <DialogDescription className="mt-1.5 leading-relaxed">
+                  Booking mới cách một lịch đặt khác của bạn không quá{" "}
+                  {scheduleWarning?.thresholdMinutes ?? 30} phút. Bạn có chắc
+                  chắn muốn tiếp tục đặt lịch không?
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-3">
+              {scheduleWarning?.conflicts.map((conflict) => (
+                <div
+                  key={conflict.bookingId}
+                  className="rounded-xl border border-white/10 bg-black/35 p-4 shadow-inner backdrop-blur-md"
+                >
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                    <p className="min-w-0 leading-5 font-semibold text-white/90">
+                      {conflict.branchName}
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className="h-6 shrink-0 self-center border-amber-400/70 bg-black/40 px-2.5 py-0 text-[11px] leading-none text-amber-300"
+                    >
+                      {conflict.isSameBranch
+                        ? "Cùng chi nhánh"
+                        : "Khác chi nhánh"}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-3 flex items-start gap-2 text-sm text-white/50">
+                    <Clock className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <span>
+                      {formatConflictTimeRange(
+                        conflict.startTime,
+                        conflict.endTime,
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm font-medium text-amber-300/90">
+                    {conflict.gapMinutes === 0
+                      ? "Thời gian hai booking bị trùng hoặc liền nhau."
+                      : `Cách lịch mới: ${conflict.gapMinutes} phút`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter className="!mx-0 !mb-0 mt-0 flex-col-reverse gap-2 rounded-t-none border-t bg-muted/40 !px-4 !py-3 sm:flex-row sm:items-center sm:justify-end sm:!px-6">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={handleCancelScheduleWarning}
+                disabled={loading}
+              >
+                Quay lại
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full"
+                onClick={() => void handleConfirmScheduleWarning()}
+                disabled={loading}
+              >
+                {loading ? "Đang xử lý..." : "Vẫn đặt lịch"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isVoucherModalOpen} onOpenChange={setIsVoucherModalOpen}>
         <DialogContent className="booking-brand-dialog !flex max-h-[86dvh] max-w-2xl flex-col overflow-hidden !p-0">
