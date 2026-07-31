@@ -28,6 +28,7 @@ export function LoyaltySettingsTab({ token }: Props) {
 
   // Form state
   const [bonusPointStr, setBonusPointStr] = useState("10");
+  const [redeemPointValueStr, setRedeemPointValueStr] = useState("100");
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -37,6 +38,7 @@ export function LoyaltySettingsTab({ token }: Props) {
       const data = await getLoyaltySettings(token);
       setSettings(data);
       setBonusPointStr(String(data.bonusPoint ?? 10));
+      setRedeemPointValueStr(String(data.redeemPointValue ?? 100));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải cài đặt.");
     } finally {
@@ -63,8 +65,22 @@ export function LoyaltySettingsTab({ token }: Props) {
       return;
     }
 
+    const redeemPointValue = Number(redeemPointValueStr);
+    if (
+      redeemPointValueStr.trim() === "" ||
+      !Number.isInteger(redeemPointValue) ||
+      redeemPointValue <= 0
+    ) {
+      setError("Giá trị quy đổi điểm phải là một số nguyên lớn hơn 0.");
+      setSaving(false);
+      return;
+    }
+
     try {
-      await updateSystemConfig(token, "BonusPoint", bonusPointStr);
+      await Promise.all([
+        updateSystemConfig(token, "BonusPoint", bonusPointStr),
+        updateSystemConfig(token, "RedeemPointValue", redeemPointValueStr),
+      ]);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể lưu cài đặt.");
@@ -104,6 +120,28 @@ export function LoyaltySettingsTab({ token }: Props) {
             />
             <p className="mt-1 text-xs text-slate-400">
               Số điểm tặng thêm cho khách hàng sau khi hoàn thành đơn rửa xe. Ví dụ: {bonusPointStr} điểm.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="redeem-point-value" className="block text-sm font-semibold text-slate-700 mb-1">
+              Giá trị quy đổi điểm (RedeemPointValue - VNĐ)
+            </label>
+            <input
+              id="redeem-point-value"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={redeemPointValueStr}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "");
+                const cleanVal = val.startsWith("0") && val.length > 1 ? val.replace(/^0+/, "") || "0" : val;
+                setRedeemPointValueStr(cleanVal);
+              }}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Mỗi điểm được quy đổi thành {(Number(redeemPointValueStr) || 0).toLocaleString("vi-VN")} VNĐ khi thanh toán booking.
             </p>
           </div>
         </div>
