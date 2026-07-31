@@ -1,6 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { apiBase, ApiError, translateErrorMessage } from "@/lib/api-error";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export const axiosInstance = axios.create({
   baseURL: apiBase(),
   headers: {
@@ -33,16 +37,25 @@ axiosInstance.interceptors.response.use(
   async (error: AxiosError) => {
     let message = "Đã xảy ra lỗi kết nối.";
     const status = error.response?.status ?? 500;
-    const body = error.response?.data as any;
+    const body: unknown = error.response?.data;
+    const bodyRecord = isRecord(body) ? body : null;
+    const errorsRecord =
+      bodyRecord && isRecord(bodyRecord.errors) ? bodyRecord.errors : null;
+    const code =
+      typeof errorsRecord?.code === "string"
+        ? errorsRecord.code
+        : typeof bodyRecord?.code === "string"
+          ? bodyRecord.code
+          : undefined;
 
     if (body) {
       if (typeof body === "string" && body.trim()) {
         message = body;
-      } else if (typeof body === "object" && body !== null) {
+      } else if (bodyRecord) {
         // Parse lỗi ModelState/.NET Problem Details (errors, detail, message, title)
-        const errorsObj = body.errors;
+        const errorsObj = bodyRecord.errors;
         let errorsStr = "";
-        if (errorsObj && typeof errorsObj === "object") {
+        if (isRecord(errorsObj)) {
           errorsStr = Object.entries(errorsObj)
             .flatMap(([field, val]) => {
               if (Array.isArray(val)) {
@@ -54,7 +67,14 @@ axiosInstance.interceptors.response.use(
             .join(" ");
         }
 
-        message = body.message ?? body.error ?? body.detail ?? errorsStr ?? body.title ?? `Lỗi ${status}`;
+        const messageValue =
+          bodyRecord.message ??
+          bodyRecord.error ??
+          bodyRecord.detail ??
+          (errorsStr || undefined) ??
+          bodyRecord.title ??
+          `Lỗi ${status}`;
+        message = String(messageValue);
       }
     }
 
@@ -80,6 +100,6 @@ axiosInstance.interceptors.response.use(
     }
 
     // Ném ra đối tượng ApiError nguyên bản để tương thích với UI cũ
-    return Promise.reject(new ApiError(message, status));
+    return Promise.reject(new ApiError(message, status, code, body));
   }
 );

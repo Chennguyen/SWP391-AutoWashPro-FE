@@ -1,9 +1,12 @@
 import type {
   BookingResult,
+  BookingScheduleConflict,
+  BookingScheduleWarning,
   BookingSlot,
   CreateBookingPayload,
   CustomerBooking,
 } from "@/features/booking/types/booking-types";
+import { ApiError } from "@/lib/api-error";
 import { axiosInstance } from "@/lib/axios";
 
 type SlotRecord = {
@@ -141,6 +144,91 @@ type BookingListResponse =
       items?: CustomerBookingRecord[];
       results?: CustomerBookingRecord[];
     };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseScheduleConflict(
+  value: unknown,
+): BookingScheduleConflict | null {
+  if (!isRecord(value)) return null;
+
+  const {
+    bookingId,
+    branchId,
+    branchName,
+    startTime,
+    endTime,
+    isSameBranch,
+    gapMinutes,
+  } = value;
+
+  if (
+    typeof bookingId !== "string" ||
+    typeof branchId !== "string" ||
+    typeof branchName !== "string" ||
+    typeof startTime !== "string" ||
+    typeof endTime !== "string" ||
+    typeof isSameBranch !== "boolean" ||
+    typeof gapMinutes !== "number"
+  ) {
+    return null;
+  }
+
+  return {
+    bookingId,
+    branchId,
+    branchName,
+    startTime,
+    endTime,
+    isSameBranch,
+    gapMinutes,
+  };
+}
+
+/**
+ * Nhận diện riêng warning lịch đặt quá gần từ payload lỗi do backend trả về.
+ * Các lỗi 409 khác (ví dụ slot đã được đặt) không được phép retry.
+ */
+export function getBookingScheduleWarning(
+  error: unknown,
+): BookingScheduleWarning | null {
+  if (!(error instanceof ApiError) || error.status !== 409) {
+    return null;
+  }
+
+  if (!isRecord(error.data) || !isRecord(error.data.errors)) {
+    return null;
+  }
+
+  const warning = error.data.errors;
+  if (
+    warning.code !== "BOOKING_TIME_TOO_CLOSE" ||
+    warning.severity !== "warning" ||
+    typeof warning.thresholdMinutes !== "number" ||
+    !Array.isArray(warning.conflicts)
+  ) {
+    return null;
+  }
+
+  const conflicts = warning.conflicts
+    .map(parseScheduleConflict)
+    .filter(
+      (conflict): conflict is BookingScheduleConflict => conflict !== null,
+    );
+
+  if (conflicts.length !== warning.conflicts.length || conflicts.length === 0) {
+    return null;
+  }
+
+  return {
+    code: "BOOKING_TIME_TOO_CLOSE",
+    severity: "warning",
+    thresholdMinutes: warning.thresholdMinutes,
+    conflicts,
+  };
+}
 
 /**
  * Trích xuất danh sách slot từ phản hồi API về dạng mảng thô.
@@ -481,13 +569,15 @@ export async function createBooking(
   token: string,
   payload: CreateBookingPayload,
 ): Promise<BookingResult> {
-  const res = await axiosInstance.post<BookingResponse>("/api/v1/bookings/", {
+  const res = await axiosInstance.post<BookingResponse>("/api/v1/bookings", {
     branchId: payload.branchId,
     vehicleId: payload.vehicleId,
     voucherId: payload.voucherId,
     bookingDate: payload.bookingDate,
     startTime: payload.startTime,
     redemPoint: payload.redemPoint,
+    acknowledgedScheduleConflictIds:
+      payload.acknowledgedScheduleConflictIds,
   });
   return normalizeBookingResult(res.data);
 }
