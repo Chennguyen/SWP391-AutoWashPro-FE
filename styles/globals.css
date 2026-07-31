@@ -192,6 +192,39 @@ h6,
   background-color: rgba(255, 255, 255, 0.08);
 }
 
+.booking-warning-scroll {
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(188, 163, 116, 0.58) transparent;
+  scrollbar-width: thin;
+}
+
+.booking-warning-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.booking-warning-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.booking-warning-scroll::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: rgba(188, 163, 116, 0.5);
+  background-clip: padding-box;
+}
+
+.booking-warning-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(216, 196, 159, 0.72);
+  background-clip: padding-box;
+}
+
+.booking-warning-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* ==========================================================================
    AutoWash Pro Luxury Dark Premium Theme Overrides
    (APPLIES ONLY to Dashboard, Admin & Auth pages containing .bg-background-outer)
