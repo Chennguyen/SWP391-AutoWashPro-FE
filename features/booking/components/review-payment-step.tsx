@@ -35,8 +35,8 @@ import type { Vehicle } from "@/features/booking/types/vehicle-types";
 import { validateVoucher } from "@/features/booking/voucher-service";
 import { getLoyaltySettings } from "@/features/loyalty/loyalty-admin-service";
 import {
+  getAvailableVouchers,
   getLoyaltyInfo,
-  getMyVouchers,
   type LoyaltyInfo,
   type MyVoucher,
 } from "@/features/loyalty/loyalty-service";
@@ -83,6 +83,24 @@ function formatVoucherDiscount(voucher: MyVoucher) {
   return voucher.discountType.toLowerCase() === "percentage"
     ? `${voucher.discountValue.toLocaleString("vi-VN")}%`
     : formatVND(voucher.discountValue);
+}
+
+function isVoucherAvailable(voucher: MyVoucher, now: number) {
+  if (
+    voucher.status.trim().toLowerCase() !== "active" ||
+    voucher.isUsed ||
+    voucher.usedAt !== null ||
+    voucher.discountValue <= 0
+  ) {
+    return false;
+  }
+
+  if (!voucher.expiresAt) {
+    return true;
+  }
+
+  const expiresAt = new Date(voucher.expiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt > now;
 }
 
 function getPromotionDiscountAmount(
@@ -250,6 +268,7 @@ export function ReviewPaymentStep({
   const [loyalty, setLoyalty] = useState<LoyaltyInfo | null>(null);
   const [myVouchers, setMyVouchers] = useState<MyVoucher[]>([]);
   const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [voucherListError, setVoucherListError] = useState<string | null>(null);
   const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
   const [selectedVoucherInModal, setSelectedVoucherInModal] =
     useState<MyVoucher | null>(null);
@@ -263,6 +282,7 @@ export function ReviewPaymentStep({
   const [scheduleWarning, setScheduleWarning] =
     useState<BookingScheduleWarning | null>(null);
   const requestInFlightRef = useRef(false);
+  const voucherRequestIdRef = useRef(0);
 
   // Sync prop changes to local state
   useEffect(() => {
@@ -273,57 +293,71 @@ export function ReviewPaymentStep({
     return () => window.clearTimeout(timeoutId);
   }, [appliedVoucher]);
 
-  // Load loyalty info and user's vouchers when token is changed
+  // Load loyalty info when token is changed.
   useEffect(() => {
     let active = true;
-    async function loadLoyaltyAndVouchers() {
+    async function loadLoyalty() {
       if (!token) return;
-      const userId =
-        typeof window !== "undefined"
-          ? (window.localStorage.getItem("userId") ?? "")
-          : "";
-      if (!userId) return;
 
-      setVouchersLoading(true);
       try {
         const loyaltyInfo = await getLoyaltyInfo(token);
         if (active) {
           setLoyalty(loyaltyInfo);
         }
-
-        const list = await getMyVouchers(token, userId);
-        const now = Date.now();
-        const validVouchers = list.filter((v) => {
-          if (
-            v.status.toLowerCase() !== "active" ||
-            v.isUsed ||
-            v.discountValue <= 0
-          ) {
-            return false;
-          }
-          if (v.expiresAt) {
-            return new Date(v.expiresAt).getTime() > now;
-          }
-          return true;
-        });
-
-        if (active) {
-          setMyVouchers(validVouchers);
-        }
       } catch (err) {
-        console.warn("Failed to load loyalty or vouchers:", err);
-      } finally {
-        if (active) {
-          setVouchersLoading(false);
-        }
+        console.warn("Failed to load loyalty info:", err);
       }
     }
 
-    void loadLoyaltyAndVouchers();
+    void loadLoyalty();
     return () => {
       active = false;
     };
   }, [token]);
+
+  const loadAvailableVouchers = useCallback(async () => {
+    const requestId = ++voucherRequestIdRef.current;
+    setVouchersLoading(true);
+    setVoucherListError(null);
+    setMyVouchers([]);
+    setSelectedVoucherInModal(null);
+
+    try {
+      const list = await getAvailableVouchers(token);
+      if (requestId !== voucherRequestIdRef.current) return;
+
+      const now = Date.now();
+      setMyVouchers(list.filter((voucher) => isVoucherAvailable(voucher, now)));
+    } catch (loadError) {
+      if (requestId !== voucherRequestIdRef.current) return;
+
+      console.warn("Failed to load available vouchers:", loadError);
+      setVoucherListError(
+        "Không thể tải danh sách voucher. Vui lòng thử lại.",
+      );
+
+      if (loadError instanceof ApiError && loadError.status === 401) {
+        onUnauthorized();
+      }
+    } finally {
+      if (requestId === voucherRequestIdRef.current) {
+        setVouchersLoading(false);
+      }
+    }
+  }, [onUnauthorized, token]);
+
+  const handleVoucherModalOpenChange = useCallback(
+    (open: boolean) => {
+      setIsVoucherModalOpen(open);
+      if (open) {
+        void loadAvailableVouchers();
+      } else {
+        voucherRequestIdRef.current += 1;
+        setVouchersLoading(false);
+      }
+    },
+    [loadAvailableVouchers],
+  );
 
   useEffect(() => {
     let active = true;
@@ -539,7 +573,7 @@ export function ReviewPaymentStep({
       const result = await validateVoucher(token, userId, code, servicePrice);
       if (result.valid) {
         setLocalAppliedVoucher(result);
-        setIsVoucherModalOpen(false);
+        handleVoucherModalOpenChange(false);
       } else {
         setVoucherError(result.message || "Mã voucher không hợp lệ.");
       }
@@ -860,7 +894,7 @@ export function ReviewPaymentStep({
       {/* ── Voucher Selection Card (Shopee style, between details and checkout) ── */}
       <button
         type="button"
-        onClick={() => setIsVoucherModalOpen(true)}
+        onClick={() => handleVoucherModalOpenChange(true)}
         className="flex items-center justify-between rounded-xl border bg-card p-4 text-left transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
       >
         <div className="flex items-center gap-2.5">
@@ -1260,7 +1294,10 @@ export function ReviewPaymentStep({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isVoucherModalOpen} onOpenChange={setIsVoucherModalOpen}>
+      <Dialog
+        open={isVoucherModalOpen}
+        onOpenChange={handleVoucherModalOpenChange}
+      >
         <DialogContent className="booking-brand-dialog !flex max-h-[86dvh] max-w-2xl flex-col overflow-hidden !p-0">
           <DialogHeader className="border-b px-4 py-4 pr-12 sm:px-6">
             <DialogTitle>Chọn voucher</DialogTitle>
@@ -1319,6 +1356,27 @@ export function ReviewPaymentStep({
                     <Skeleton key={i} className="h-20 rounded-xl" />
                   ))}
                 </div>
+              ) : voucherListError ? (
+                <Card className="border border-destructive/25 bg-destructive/5 !ring-0">
+                  <CardContent className="flex min-h-32 flex-col items-center justify-center px-4 py-6 text-center">
+                    <AlertCircle
+                      className="size-6 text-destructive"
+                      aria-hidden
+                    />
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      {voucherListError}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => void loadAvailableVouchers()}
+                    >
+                      Thử lại
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : myVouchers.length === 0 ? (
                 <Card className="border border-dashed border-border bg-card/70 !ring-0">
                   <CardContent className="flex min-h-28 items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
@@ -1403,7 +1461,7 @@ export function ReviewPaymentStep({
               className="!h-10 w-full sm:w-28"
               onClick={() => {
                 handleRemoveVoucher();
-                setIsVoucherModalOpen(false);
+                handleVoucherModalOpenChange(false);
               }}
             >
               Bỏ áp dụng

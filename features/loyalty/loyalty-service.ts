@@ -435,6 +435,27 @@ export async function getMyVouchers(
 }
 
 /**
+ * Lấy voucher còn khả dụng để chọn trong luồng tạo booking.
+ */
+export async function getAvailableVouchers(
+  token: string,
+): Promise<MyVoucher[]> {
+  const params = new URLSearchParams({
+    pageIndex: "1",
+    pageSize: "50",
+  });
+  const res = await fetch(
+    `${apiBase()}/api/v1/vouchers/available?${params.toString()}`,
+    {
+      cache: "no-store",
+      headers: authHeaders(token),
+    },
+  );
+  const body = await handleApiResponse<unknown>(res);
+  return unwrapList(body).map(normalizeVoucher);
+}
+
+/**
  * Sử dụng điểm tích lũy thành viên để đổi lấy một phần thưởng cụ thể.
  * 
  * @param token Token xác thực.

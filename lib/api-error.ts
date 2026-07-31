@@ -240,7 +240,6 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
 
     throw new ApiError(message, res.status);
   }
-
   if (
     typeof window !== "undefined" &&
     res.url &&
