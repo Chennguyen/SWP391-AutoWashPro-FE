@@ -387,7 +387,11 @@ export function CustomerDashboardOverview() {
   }, [pointTransactionsQuery.data, walletTransactionsQuery.data]);
 
   const availableVouchers = (vouchersQuery.data ?? []).filter(
-    (voucher) => !voucher.isUsed,
+    (voucher) =>
+      !voucher.isUsed &&
+      voucher.status.trim().toLowerCase() === "active" &&
+      (!voucher.expiresAt ||
+        new Date(voucher.expiresAt).getTime() > vouchersQuery.dataUpdatedAt),
   );
   const nearestVoucherExpiry = availableVouchers.reduce<number | null>(
     (nearestExpiry, voucher) => {

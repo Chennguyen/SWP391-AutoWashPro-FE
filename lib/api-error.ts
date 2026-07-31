@@ -8,6 +8,7 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public code?: string,
+    public data?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -239,7 +240,6 @@ export async function handleApiResponse<T>(res: Response): Promise<T> {
 
     throw new ApiError(message, res.status);
   }
-
   if (
     typeof window !== "undefined" &&
     res.url &&

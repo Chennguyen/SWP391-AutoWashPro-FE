@@ -33,6 +33,33 @@ export interface CreateBookingPayload {
   bookingDate: string;
   startTime: string;
   redemPoint: boolean;
+  acknowledgedScheduleConflictIds: string[];
+}
+
+export interface BookingScheduleConflict {
+  bookingId: string;
+  branchId: string;
+  branchName: string;
+  startTime: string;
+  endTime: string;
+  isSameBranch: boolean;
+  gapMinutes: number;
+}
+
+export interface BookingScheduleWarning {
+  code: "BOOKING_TIME_TOO_CLOSE";
+  severity: "warning";
+  thresholdMinutes: number;
+  conflicts: BookingScheduleConflict[];
+}
+
+export interface BookingWarningErrorResponse {
+  success: false;
+  message: string;
+  data: null;
+  errors: BookingScheduleWarning;
+  traceId?: string;
+  timestampUtc: string;
 }
 
 export interface BookingResult {
