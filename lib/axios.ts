@@ -1,6 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { apiBase, ApiError, getApiErrorMessage } from "@/lib/api-error";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export const axiosInstance = axios.create({
   baseURL: apiBase(),
   headers: {
@@ -46,6 +50,6 @@ axiosInstance.interceptors.response.use(
     }
 
     // Ném ra đối tượng ApiError nguyên bản để tương thích với UI cũ
-    return Promise.reject(new ApiError(message, status));
+    return Promise.reject(new ApiError(message, status, code, body));
   }
 );
