@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { apiBase, ApiError, translateErrorMessage } from "@/lib/api-error";
+import { apiBase, ApiError, getApiErrorMessage } from "@/lib/api-error";
 
 export const axiosInstance = axios.create({
   baseURL: apiBase(),
@@ -31,42 +31,8 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    let message = "Đã xảy ra lỗi kết nối.";
     const status = error.response?.status ?? 500;
-    const body = error.response?.data as any;
-
-    if (body) {
-      if (typeof body === "string" && body.trim()) {
-        message = body;
-      } else if (typeof body === "object" && body !== null) {
-        // Parse lỗi ModelState/.NET Problem Details (errors, detail, message, title)
-        const errorsObj = body.errors;
-        let errorsStr = "";
-        if (errorsObj && typeof errorsObj === "object") {
-          errorsStr = Object.entries(errorsObj)
-            .flatMap(([field, val]) => {
-              if (Array.isArray(val)) {
-                return val.map((m) => `${field}: ${String(m)}`);
-              }
-              return [`${field}: ${String(val)}`];
-            })
-            .filter(Boolean)
-            .join(" ");
-        }
-
-        message = body.message ?? body.error ?? body.detail ?? errorsStr ?? body.title ?? `Lỗi ${status}`;
-      }
-    }
-
-    if (
-      status >= 500 ||
-      message.toLowerCase().includes("unexpected error") ||
-      message.toLowerCase().includes("internal server error")
-    ) {
-      message = "Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.";
-    } else {
-      message = translateErrorMessage(message);
-    }
+    const message = getApiErrorMessage(error.response?.data, status);
 
     // Gắn cờ Unverified nếu backend trả về thông báo lỗi cụ thể
     if (
