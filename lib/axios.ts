@@ -1,5 +1,5 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { apiBase, ApiError, getApiErrorMessage } from "@/lib/api-error";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -18,7 +18,10 @@ axiosInstance.interceptors.request.use(
     if (typeof window !== "undefined") {
       const token = window.localStorage.getItem("token");
       if (token) {
-        const cleanToken = token.trim().replace(/^Bearer\s+/i, "").replace(/['"]/g, "");
+        const cleanToken = token
+          .trim()
+          .replace(/^Bearer\s+/i, "")
+          .replace(/['"]/g, "");
         config.headers.Authorization = `Bearer ${cleanToken}`;
       }
     }
@@ -26,7 +29,7 @@ axiosInstance.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Response Interceptor: Chuẩn hóa lỗi theo mô hình ApiError hiện tại của dự án
@@ -34,9 +37,11 @@ axiosInstance.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error: AxiosError) => {
+  (error: AxiosError) => {
     const status = error.response?.status ?? 500;
-    const message = getApiErrorMessage(error.response?.data, status);
+    const body = error.response?.data;
+    const code = isRecord(body) && typeof body.code === "string" ? body.code : error.code;
+    const message = getApiErrorMessage(body, status);
 
     // Gắn cờ Unverified nếu backend trả về thông báo lỗi cụ thể
     if (
@@ -51,5 +56,5 @@ axiosInstance.interceptors.response.use(
 
     // Ném ra đối tượng ApiError nguyên bản để tương thích với UI cũ
     return Promise.reject(new ApiError(message, status, code, body));
-  }
+  },
 );
