@@ -201,6 +201,32 @@ export function minutesUntilBooking(booking: CustomerBooking): number | null {
   return Math.floor((date.getTime() - Date.now()) / 60_000);
 }
 
+/**
+ * Tạo nội dung chính sách tự hủy lịch từ thời hạn do back-end cấu hình.
+ * Các mốc tròn ngày vẫn giữ số giờ để người dùng thấy chính xác giá trị cấu hình.
+ *
+ * @param cancellationDeadlineHours Số giờ tối thiểu phải hủy trước giờ hẹn.
+ * @returns Nội dung chính sách hủy lịch dùng chung trên giao diện.
+ */
+export function formatCancellationPolicyMessage(
+  cancellationDeadlineHours?: number,
+): string {
+  if (
+    cancellationDeadlineHours === undefined ||
+    !Number.isFinite(cancellationDeadlineHours) ||
+    cancellationDeadlineHours < 0
+  ) {
+    return "Chính sách tự hủy lịch hiện chưa tải được. Vui lòng thử lại sau.";
+  }
+
+  const deadlineText =
+    cancellationDeadlineHours > 0 && cancellationDeadlineHours % 24 === 0
+      ? `${cancellationDeadlineHours / 24} ngày (${cancellationDeadlineHours} giờ)`
+      : `${cancellationDeadlineHours} giờ`;
+
+  return `Chỉ có thể tự hủy lịch trước giờ hẹn tối thiểu ${deadlineText}.`;
+}
+
 // ─── Status helpers ─────────────────────────────────────────────────────────────
 
 /**
