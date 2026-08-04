@@ -68,17 +68,22 @@ export function BookingDetailModal({
     };
   }, [token]);
 
+  const cancellationDeadlineHours = configs?.cancellationDeadlineHours ?? 72;
+
   const canCancelByTime = (() => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const bookingDateTime = new Date(booking.bookingDate);
+      if (booking.startTime) {
+        const [hours, minutes] = booking.startTime.split(":").map(Number);
+        if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+          bookingDateTime.setHours(hours, minutes, 0, 0);
+        }
+      }
 
-      const bookingDate = new Date(booking.bookingDate);
-      bookingDate.setHours(0, 0, 0, 0);
+      const diffMs = bookingDateTime.getTime() - Date.now();
+      const diffHours = diffMs / (1000 * 60 * 60);
 
-      const diffTime = bookingDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays >= 1;
+      return diffHours >= cancellationDeadlineHours;
     } catch {
       return false;
     }
@@ -93,7 +98,7 @@ export function BookingDetailModal({
     if (!token || !reason) return;
     if (!canCancelByTime) {
       setActionError(
-        "Không thể hủy vì lịch đặt đã quá gần thời gian hẹn (chỉ được hủy trước ngày hẹn tối thiểu 1 ngày)."
+        `Không thể hủy vì đã quá hạn chót cho phép (chỉ được hủy trước thời gian hẹn tối thiểu ${cancellationDeadlineHours} giờ).`
       );
       return;
     }
@@ -105,11 +110,8 @@ export function BookingDetailModal({
       onClose();
       if (onChanged) await onChanged();
     } catch (err) {
-      if (err instanceof ApiError && err.status >= 500) {
-        setActionError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
-      } else {
-        setActionError(err instanceof Error ? err.message : "Không thể hủy lịch, vui lòng thử lại.");
-      }
+      const serverMsg = err instanceof Error ? err.message : "";
+      setActionError(serverMsg || "Không thể hủy lịch, vui lòng thử lại.");
     } finally {
       setCancelling(false);
     }
@@ -200,6 +202,7 @@ export function BookingDetailModal({
               isLoading={detailQuery.isLoading}
               error={detailQuery.error}
               depositRate={configs?.paymentDeposite ?? 30}
+              configs={configs}
               onRetry={() => void detailQuery.refetch()}
             />
 
@@ -218,21 +221,28 @@ export function BookingDetailModal({
             !isCancelledStatus(booking.status) &&
             !isCompletedStatus(booking.status) ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Chỉ có thể tự hủy lịch trước ngày đặt hẹn tối thiểu 1 ngày.
+                {cancellationDeadlineHours % 24 === 0
+                  ? `Chỉ có thể tự hủy lịch trước thời gian đặt hẹn tối thiểu ${cancellationDeadlineHours / 24} ngày (${cancellationDeadlineHours} giờ).`
+                  : `Chỉ có thể tự hủy lịch trước thời gian đặt hẹn tối thiểu ${cancellationDeadlineHours} giờ.`}
               </div>
             ) : null}
 
             {/* Cancel reason (if already cancelled) */}
-            {isCancelledStatus(booking.status) && booking.cancelReason ? (
+            {isCancelledStatus(booking.status) ? (
               <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
-                <span>Lý do hủy: {booking.cancelReason}</span>
+                <span>
+                  Lý do hủy:{" "}
+                  {booking.cancelReason?.trim()
+                    ? booking.cancelReason
+                    : "Hệ thống tự động hủy lịch do quá thời hạn giữ chỗ/khung giờ hẹn rửa xe mà khách hàng không đến check-in."}
+                </span>
               </div>
             ) : null}
           </div>
 
           {/* Footer Actions (Image 3 logic) */}
-          <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 flex flex-col gap-2 shrink-0">
+          <div className="border-t border-slate-100 px-6 py-4 bg-white flex flex-col gap-2 shrink-0">
             {/* Cancel action button */}
             {canCancelByLifecycle ? (
               <button

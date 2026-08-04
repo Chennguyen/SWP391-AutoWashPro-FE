@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CustomerBooking } from "@/features/booking/types/booking-types";
+import type { LoyaltyPointsConfig } from "@/features/loyalty/loyalty-admin-service";
 import { cn } from "@/lib/utils";
 
 interface BookingPriceSummaryProps {
@@ -14,6 +15,7 @@ interface BookingPriceSummaryProps {
   isLoading: boolean;
   error: Error | null;
   depositRate?: number;
+  configs?: LoyaltyPointsConfig | null;
   onRetry?: () => void;
   className?: string;
 }
@@ -71,6 +73,7 @@ export function BookingPriceSummary({
   isLoading,
   error,
   depositRate = 30,
+  configs,
   onRetry,
   className,
 }: BookingPriceSummaryProps) {
@@ -120,21 +123,79 @@ export function BookingPriceSummary({
   const depositAmount = Math.round(finalPrice * (normalizedDepositRate / 100));
   const remainingAmount = Math.max(finalPrice - depositAmount, 0);
 
+  const configBasePrice = configs?.basePrice;
+  let serviceBasePrice = booking.serviceBasePrice;
+  let vehicleSurcharge = booking.vehicleSurcharge ?? 0;
+  let vehicleTypeStr = booking.vehicleType ?? "";
+
+  if (serviceBasePrice === undefined) {
+    if (configBasePrice && basePrice > configBasePrice) {
+      serviceBasePrice = configBasePrice;
+      vehicleSurcharge = basePrice - configBasePrice;
+    } else if (basePrice > 100000) {
+      const remainder = basePrice - 100000;
+      serviceBasePrice = 100000;
+      vehicleSurcharge = remainder;
+    } else {
+      serviceBasePrice = basePrice;
+    }
+  }
+
+  if (!vehicleTypeStr && vehicleSurcharge > 0) {
+    if (configs && vehicleSurcharge === configs.suvBasePrice) {
+      vehicleTypeStr = "SUV";
+    } else if (configs && vehicleSurcharge === configs.sedanBasePrice) {
+      vehicleTypeStr = "Sedan";
+    } else if (vehicleSurcharge === 60000 || vehicleSurcharge === 30000) {
+      vehicleTypeStr = "SUV";
+    } else if (vehicleSurcharge === 40000) {
+      vehicleTypeStr = "Sedan";
+    }
+  }
+
+  const hasSurcharge = vehicleSurcharge > 0;
+  const vehicleTypeLabel = vehicleTypeStr ? `(${vehicleTypeStr})` : "";
+
+  const statusStr = (booking.status ?? "").toLowerCase();
+
+  const isDepositPaid =
+    statusStr.includes("confirm") ||
+    statusStr.includes("checkin") ||
+    statusStr.includes("progress") ||
+    statusStr.includes("complete") ||
+    statusStr.includes("hủy") ||
+    statusStr.includes("cancel");
+
+  const isCheckInPaid =
+    statusStr.includes("checkin") ||
+    statusStr.includes("progress") ||
+    statusStr.includes("complete");
+
+  const depositTag = isDepositPaid ? " (Đã thanh toán)" : " (Chưa thanh toán)";
+  const checkInTag = isCheckInPaid ? " (Đã thanh toán)" : " (Chưa thanh toán)";
+
   return (
     <Card size="sm" className={cn("bg-transparent border-none shadow-none ring-0 p-0 overflow-visible", className)}>
       <CardHeader className="px-0 pt-0">
         <CardTitle className="text-slate-950 font-bold">Chi tiết thanh toán</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 px-0 pb-0">
-        <PriceRow label="Giá gốc" value={formatVND(basePrice)} />
+        {hasSurcharge ? (
+          <>
+            <PriceRow label="Giá dịch vụ gốc" value={formatVND(serviceBasePrice)} />
+            <PriceRow label={`Phụ phí dòng xe${vehicleTypeLabel}`} value={`+${formatVND(vehicleSurcharge)}`} />
+          </>
+        ) : (
+          <PriceRow label="Giá gốc" value={formatVND(basePrice)} />
+        )}
         <PriceRow label="Tổng giảm giá" value={`-${formatVND(discountAmount)}`} />
         <PriceRow label="Thành tiền" value={formatVND(finalPrice)} emphasized />
         <PriceRow
-          label={`Số tiền đã cọc (${normalizedDepositRate}%)`}
+          label={`Số tiền đã cọc (${normalizedDepositRate}%)${depositTag}`}
           value={formatVND(depositAmount)}
         />
         <PriceRow
-          label="Tổng tiền phải trả khi check-in"
+          label={`Tổng tiền phải trả khi check-in${checkInTag}`}
           value={formatVND(remainingAmount)}
           emphasized
         />

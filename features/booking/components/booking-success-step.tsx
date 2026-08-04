@@ -42,10 +42,25 @@ export function BookingSuccessStep({ result }: BookingSuccessStepProps) {
           <CardTitle>Chi tiết thanh toán từ hệ thống</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-muted-foreground">Giá gốc</span>
-            <span className="font-medium text-foreground">{formatVND(result.basePrice)}</span>
-          </div>
+          {result.vehicleSurcharge && result.vehicleSurcharge > 0 && result.serviceBasePrice !== undefined ? (
+            <>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Giá dịch vụ gốc</span>
+                <span className="font-medium text-foreground">{formatVND(result.serviceBasePrice)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">
+                  Phụ phí dòng xe{result.vehicleType ? `(${result.vehicleType})` : ""}
+                </span>
+                <span className="font-medium text-foreground">+{formatVND(result.vehicleSurcharge)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="text-muted-foreground">Giá gốc</span>
+              <span className="font-medium text-foreground">{formatVND(result.basePrice)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4 text-sm">
             <span className="text-muted-foreground">Tổng giảm giá</span>
             <span className="font-medium text-destructive">

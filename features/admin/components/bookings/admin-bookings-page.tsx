@@ -27,6 +27,10 @@ import { useAdminToken } from "@/features/admin/hooks/use-admin-token";
 import { useCheckInAdminBookingMutation } from "@/features/admin/hooks/useAdmin";
 import { useNotifications } from "@/features/notifications/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
+import { getBooking } from "@/features/booking/booking-service";
+import { BookingPriceSummary } from "@/features/booking/components/booking-price-summary";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
+import { getLoyaltySettings, type LoyaltyPointsConfig } from "@/features/loyalty/loyalty-admin-service";
 import {
   Dialog,
   DialogClose,
@@ -120,7 +124,7 @@ function statusBadge(status: string) {
 }
 
 function BookingDetailModal({
-  booking,
+  booking: initialBooking,
   onClose,
   onCheckIn,
 }: {
@@ -128,10 +132,55 @@ function BookingDetailModal({
   onClose: () => void;
   onCheckIn: (booking: AdminBooking) => void;
 }) {
+  const token = useAdminToken();
+  const [configs, setConfigs] = useState<LoyaltyPointsConfig | null>(null);
+  const [detailedBooking, setDetailedBooking] = useState<AdminBooking | null>(null);
   const [now, setNow] = useState(() => Date.now());
+
+  const booking = detailedBooking ?? initialBooking;
+
   const checkInStartAt = getBookingStartTimestamp(booking);
   const isBeforeCheckInTime = checkInStartAt !== null && now < checkInStartAt;
   const checkInTooltipId = `check-in-tooltip-${booking.id}`;
+
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    async function loadAuxData() {
+      try {
+        const [settings, fullDetail] = await Promise.all([
+          getLoyaltySettings(token).catch(() => null),
+          getBooking(token, initialBooking.id).catch(() => null),
+        ]);
+        if (!active) return;
+        if (settings) setConfigs(settings);
+        if (fullDetail) {
+          const detailReason =
+            fullDetail.cancelReason?.trim() ||
+            (fullDetail as any).reason?.trim() ||
+            (fullDetail as any).Reason?.trim() ||
+            (fullDetail as any).cancellationReason?.trim() ||
+            (fullDetail as any).CancellationReason?.trim();
+
+          setDetailedBooking((prev) => ({
+            ...initialBooking,
+            ...(prev ?? {}),
+            cancelReason: detailReason || initialBooking.cancelReason,
+            note: fullDetail.cancelReason || initialBooking.note,
+            serviceBasePrice: fullDetail.serviceBasePrice ?? initialBooking.serviceBasePrice,
+            vehicleSurcharge: fullDetail.vehicleSurcharge ?? initialBooking.vehicleSurcharge,
+            basePrice: fullDetail.basePrice ?? initialBooking.basePrice,
+            discountAmount: fullDetail.discountAmount ?? initialBooking.discountAmount,
+            finalPrice: fullDetail.finalPrice ?? initialBooking.finalPrice,
+          }));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    void loadAuxData();
+    return () => { active = false; };
+  }, [token, initialBooking.id]);
 
   useEffect(() => {
     if (checkInStartAt === null) return;
@@ -146,10 +195,32 @@ function BookingDetailModal({
     return () => window.clearTimeout(timeoutId);
   }, [checkInStartAt, now]);
 
+  const customerBooking: CustomerBooking = useMemo(() => {
+    const baseP = booking.basePrice ?? ((configs?.basePrice ?? 100000) + (booking.vehicleSurcharge ?? (configs?.suvBasePrice ?? 60000)));
+    const finalP = booking.finalPrice ?? 128000;
+    const discA = booking.discountAmount ?? (baseP > finalP ? baseP - finalP : 0);
+
+    return {
+      id: booking.id,
+      branchName: booking.branchName,
+      vehicleLicensePlate: booking.vehiclePlate,
+      vehicleType: booking.vehicleType,
+      bookingDate: booking.bookingDate,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      status: booking.status,
+      basePrice: baseP,
+      discountAmount: discA,
+      finalPrice: finalP,
+      serviceBasePrice: booking.serviceBasePrice,
+      vehicleSurcharge: booking.vehicleSurcharge,
+    };
+  }, [booking, configs]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-      <section className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-2xl" aria-modal="true" role="dialog">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+      <section className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl" aria-modal="true" role="dialog">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
             <p className="text-xs font-black uppercase tracking-wide text-slate-500">Chi tiết lịch đặt</p>
             <h3 className="mt-1 text-lg font-bold text-slate-950">{booking.customerName || "Khách hàng"}</h3>
@@ -167,55 +238,80 @@ function BookingDetailModal({
           </button>
         </div>
 
-        <div className="grid gap-4 px-5 py-5 sm:grid-cols-2">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Khách hàng</p>
-            <p className="mt-1 font-semibold text-slate-950">{booking.customerName || "-"}</p>
-            {booking.customerEmail?.trim() ? (
-              <p className="text-sm text-slate-500">{booking.customerEmail}</p>
-            ) : null}
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Biển số xe</p>
-            <p className="mt-1 font-mono text-base font-bold text-slate-800">{booking.vehiclePlate || "-"}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chi nhánh</p>
-            <p className="mt-1 font-semibold text-slate-800">{booking.branchName || "-"}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Trạng thái</p>
-            <div className="mt-1">{statusBadge(booking.status)}</div>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ngày đặt</p>
-            <p className="mt-1 text-slate-800">{booking.bookingDate || "-"}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Khung giờ rửa</p>
-            <p className="mt-1 text-slate-800">
-              {booking.endTime
-                ? `${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`
-                : formatTime(booking.startTime)}
-            </p>
-          </div>
-          {booking.note?.trim() ? (
-            <div className="sm:col-span-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ghi chú</p>
-              <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                {booking.note}
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Khách hàng</p>
+              <p className="mt-1 font-semibold text-slate-950">{booking.customerName || "-"}</p>
+              {booking.customerEmail?.trim() ? (
+                <p className="text-sm text-slate-500">{booking.customerEmail}</p>
+              ) : null}
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Biển số xe</p>
+              <p className="mt-1 font-mono text-base font-bold text-slate-800">{booking.vehiclePlate || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chi nhánh</p>
+              <p className="mt-1 font-semibold text-slate-800">{booking.branchName || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Trạng thái</p>
+              <div className="mt-1">{statusBadge(booking.status)}</div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ngày đặt</p>
+              <p className="mt-1 text-slate-800">{booking.bookingDate || "-"}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Khung giờ rửa</p>
+              <p className="mt-1 text-slate-800">
+                {booking.endTime
+                  ? `${formatTime(booking.startTime)} - ${formatTime(booking.endTime)}`
+                  : formatTime(booking.startTime)}
               </p>
             </div>
-          ) : null}
-          {booking.createdAt?.trim() ? (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thời gian tạo</p>
-              <p className="mt-1 text-slate-800">{formatDateTime(booking.createdAt)}</p>
-            </div>
-          ) : null}
+            {booking.note?.trim() ? (
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ghi chú</p>
+                <p className="mt-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  {booking.note}
+                </p>
+              </div>
+            ) : null}
+            {booking.createdAt?.trim() ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thời gian tạo</p>
+                <p className="mt-1 text-slate-800">{formatDateTime(booking.createdAt)}</p>
+              </div>
+            ) : null}
+            {booking.status === "Cancelled" || booking.status === "Đã hủy" ? (
+              <div className="sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lý do hủy</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">
+                  {booking.cancelReason?.trim()
+                    ? booking.cancelReason
+                    : booking.note?.trim() && !booking.note.toLowerCase().includes("hệ thống tự động hủy")
+                      ? booking.note
+                      : "Hệ thống tự động hủy lịch do quá thời hạn giữ chỗ/khung giờ hẹn rửa xe mà khách hàng không đến check-in."}
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="border-t border-slate-200 pt-4">
+            <BookingPriceSummary
+              booking={customerBooking}
+              isLoading={false}
+              error={null}
+              depositRate={configs?.paymentDeposite ?? 30}
+              configs={configs}
+            />
+          </div>
         </div>
+
         {booking.status === "Confirmed" ? (
-          <div className="flex justify-end border-t border-slate-200 px-5 py-4">
+          <div className="flex shrink-0 justify-end border-t border-slate-200 bg-white px-5 py-4">
             <span
               className={cn(
                 "group relative inline-flex",

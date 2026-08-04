@@ -70,6 +70,9 @@ export interface BookingResult {
   basePrice: number;
   discountAmount: number;
   finalPrice: number;
+  serviceBasePrice?: number;
+  vehicleSurcharge?: number;
+  vehicleType?: string;
 }
 
 export interface CustomerBooking {
@@ -79,6 +82,7 @@ export interface CustomerBooking {
   branchName: string;
   branchAddress?: string;
   vehicleLicensePlate: string;
+  vehicleType?: string;
   bookingDate: string;
   startTime: string;
   endTime?: string;
@@ -89,6 +93,8 @@ export interface CustomerBooking {
   basePrice?: number;
   discountAmount?: number;
   cancelReason?: string;
+  serviceBasePrice?: number;
+  vehicleSurcharge?: number;
 }
 
 export interface WizardState {

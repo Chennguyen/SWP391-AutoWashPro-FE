@@ -632,7 +632,14 @@ export function ReviewPaymentStep({
       );
     }
 
-    onSuccess(result);
+    const enrichedResult: BookingResult = {
+      ...result,
+      serviceBasePrice: configs.basePrice,
+      vehicleSurcharge: surcharge,
+      vehicleType: vehicle?.vehicleType || (isSUV ? "SUV" : isSedan ? "Sedan" : ""),
+    };
+
+    onSuccess(enrichedResult);
   }
 
   function handleBookingError(
