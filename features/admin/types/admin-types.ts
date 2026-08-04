@@ -47,12 +47,19 @@ export type AdminBooking = {
   customerName: string;
   customerEmail?: string;
   vehiclePlate: string;
+  vehicleType?: string;
   bookingDate: string;
   startTime: string;
   endTime?: string;
   status: string;
   note?: string;
+  cancelReason?: string;
   createdAt?: string;
+  basePrice?: number;
+  discountAmount?: number;
+  finalPrice?: number;
+  serviceBasePrice?: number;
+  vehicleSurcharge?: number;
 };
 
 export type AdminCheckInResult = {
