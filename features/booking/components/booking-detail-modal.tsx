@@ -1,23 +1,37 @@
 "use client";
 
-import { X, CalendarDays, Car, MapPin, Clock, Tag, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
-import { useState, useEffect } from "react";
-import type { CustomerBooking } from "@/features/booking/types/booking-types";
-import { getLoyaltySettings, type LoyaltyPointsConfig } from "@/features/loyalty/loyalty-admin-service";
 import {
   useCancelBookingMutation,
   useGetBookingQuery,
 } from "@/features/booking/hooks/useBookings";
-import { ApiError } from "@/lib/api-error";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import {
+  formatCancellationPolicyMessage,
   formatDateOnly,
   formatTimeRange,
-  statusStyle,
   isCancelledStatus,
   isCompletedStatus,
+  statusStyle,
 } from "@/features/booking/utils";
-import { CancelModal } from "./upcoming-booking-panel";
+import {
+  getLoyaltySettings,
+  type LoyaltyPointsConfig,
+} from "@/features/loyalty/loyalty-admin-service";
+import { ApiError } from "@/lib/api-error";
+import {
+  AlertCircle,
+  CalendarDays,
+  Car,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Tag,
+  X,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { BookingPriceSummary } from "./booking-price-summary";
+import { CancelModal } from "./upcoming-booking-panel";
 
 interface BookingDetailModalProps {
   booking: CustomerBooking;
@@ -29,7 +43,7 @@ interface BookingDetailModalProps {
 
 /**
  * Thành phần (Component) BookingDetailModal
- * 
+ *
  * Chức năng: Thành phần giao diện hiển thị chi tiết đặt lịch (Modal chi tiết lịch sử).
  * Thiết kế: Tương đương với giao diện chi tiết ở Dashboard (Hình 3), bao gồm bảng tính tiền và action.
  */
@@ -59,7 +73,10 @@ export function BookingDetailModal({
           setConfigs(settings);
         }
       } catch (err) {
-        console.warn("Failed to load auxiliary data in BookingDetailModal:", err);
+        console.warn(
+          "Failed to load auxiliary data in BookingDetailModal:",
+          err,
+        );
       }
     }
     void loadAuxData();
@@ -93,25 +110,38 @@ export function BookingDetailModal({
     canCancelByTime &&
     !isCancelledStatus(booking.status) &&
     !isCompletedStatus(booking.status);
+  const cancellationPolicyMessage = formatCancellationPolicyMessage(
+    configs?.cancellationDeadlineHours,
+  );
 
   async function handleConfirmCancel(reason: string) {
     if (!token || !reason) return;
     if (!canCancelByTime) {
       setActionError(
-        `Không thể hủy vì đã quá hạn chót cho phép (chỉ được hủy trước thời gian hẹn tối thiểu ${cancellationDeadlineHours} giờ).`
+        `Không thể hủy vì lịch đặt đã quá gần thời gian hẹn. ${cancellationPolicyMessage}`,
       );
       return;
     }
     setCancelling(true);
     setActionError(null);
     try {
-      await cancelMutation.mutateAsync({ id: booking.id, cancelReason: reason });
+      await cancelMutation.mutateAsync({
+        id: booking.id,
+        cancelReason: reason,
+      });
       setShowCancelModal(false);
       onClose();
       if (onChanged) await onChanged();
     } catch (err) {
-      const serverMsg = err instanceof Error ? err.message : "";
-      setActionError(serverMsg || "Không thể hủy lịch, vui lòng thử lại.");
+      if (err instanceof ApiError && err.status >= 500) {
+        setActionError("Hệ thống gặp sự cố tạm thời. Vui lòng thử lại sau.");
+      } else {
+        setActionError(
+          err instanceof Error
+            ? err.message
+            : "Không thể hủy lịch, vui lòng thử lại.",
+        );
+      }
     } finally {
       setCancelling(false);
     }
@@ -123,13 +153,21 @@ export function BookingDetailModal({
     booking.branchAddress
       ? { icon: MapPin, label: "Địa chỉ", value: booking.branchAddress }
       : null,
-    { icon: Car, label: "Biển số xe", value: booking.vehicleLicensePlate || "—" },
+    {
+      icon: Car,
+      label: "Biển số xe",
+      value: booking.vehicleLicensePlate || "—",
+    },
     { icon: CalendarDays, label: "Ngày", value: formatDateOnly(booking) },
     { icon: Clock, label: "Giờ", value: formatTimeRange(booking) },
     booking.serviceName
       ? { icon: Tag, label: "Dịch vụ", value: booking.serviceName }
       : null,
-  ].filter(Boolean) as Array<{ icon: typeof MapPin; label: string; value: string }>;
+  ].filter(Boolean) as Array<{
+    icon: typeof MapPin;
+    label: string;
+    value: string;
+  }>;
 
   return (
     <>
@@ -147,7 +185,9 @@ export function BookingDetailModal({
           {/* Header */}
           <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-6 py-4 shrink-0">
             <div>
-              <h2 className="text-lg font-bold text-slate-950">Chi tiết đặt lịch</h2>
+              <h2 className="text-lg font-bold text-slate-950">
+                Chi tiết đặt lịch
+              </h2>
               <p className="mt-0.5 text-xs font-medium text-slate-500">
                 {booking.branchName || "Chi nhánh"} · {formatDateOnly(booking)}
               </p>
@@ -169,12 +209,16 @@ export function BookingDetailModal({
             <div>
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
-                  resolvedBooking.status
+                  resolvedBooking.status,
                 )}`}
               >
                 {(() => {
                   const s = resolvedBooking.status.toLowerCase();
-                  if (s.includes("cancel") || s.includes("hủy") || s.includes("huy")) {
+                  if (
+                    s.includes("cancel") ||
+                    s.includes("hủy") ||
+                    s.includes("huy")
+                  ) {
                     return <XCircle size={12} aria-hidden />;
                   }
                   if (s.includes("progress")) {
@@ -190,9 +234,17 @@ export function BookingDetailModal({
             <div className="grid gap-3">
               {rows.map(({ icon: Icon, label, value }) => (
                 <div key={label} className="flex items-start gap-3">
-                  <Icon size={15} className="mt-0.5 shrink-0 text-slate-400" aria-hidden />
-                  <span className="w-24 shrink-0 text-sm text-slate-500">{label}</span>
-                  <span className="text-sm font-semibold text-slate-900">{value}</span>
+                  <Icon
+                    size={15}
+                    className="mt-0.5 shrink-0 text-slate-400"
+                    aria-hidden
+                  />
+                  <span className="w-24 shrink-0 text-sm text-slate-500">
+                    {label}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {value}
+                  </span>
                 </div>
               ))}
             </div>
@@ -221,22 +273,19 @@ export function BookingDetailModal({
             !isCancelledStatus(booking.status) &&
             !isCompletedStatus(booking.status) ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                {cancellationDeadlineHours % 24 === 0
-                  ? `Chỉ có thể tự hủy lịch trước thời gian đặt hẹn tối thiểu ${cancellationDeadlineHours / 24} ngày (${cancellationDeadlineHours} giờ).`
-                  : `Chỉ có thể tự hủy lịch trước thời gian đặt hẹn tối thiểu ${cancellationDeadlineHours} giờ.`}
+                {cancellationPolicyMessage}
               </div>
             ) : null}
 
             {/* Cancel reason (if already cancelled) */}
             {isCancelledStatus(booking.status) ? (
               <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
-                <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
-                <span>
-                  Lý do hủy:{" "}
-                  {booking.cancelReason?.trim()
-                    ? booking.cancelReason
-                    : "Hệ thống tự động hủy lịch do quá thời hạn giữ chỗ/khung giờ hẹn rửa xe mà khách hàng không đến check-in."}
-                </span>
+                <AlertCircle
+                  size={15}
+                  className="mt-0.5 shrink-0"
+                  aria-hidden
+                />
+                <span>Lý do hủy: {booking.cancelReason}</span>
               </div>
             ) : null}
           </div>

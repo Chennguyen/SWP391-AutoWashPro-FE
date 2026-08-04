@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { X, AlertCircle } from "lucide-react";
-import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import { useCancelBookingMutation } from "@/features/booking/hooks/useBookings";
+import type { CustomerBooking } from "@/features/booking/types/booking-types";
 import { ApiError } from "@/lib/api-error";
+import { X } from "lucide-react";
+import { FormEvent, useState } from "react";
 
 interface CancelBookingModalProps {
   booking: CustomerBooking;
@@ -15,7 +15,7 @@ interface CancelBookingModalProps {
 
 /**
  * Thành phần (Component) CancelBookingModal
- * 
+ *
  * Chức năng: Thành phần giao diện (UI Component) trong hệ thống AutoWash Pro.
  * Vai trò: Đảm nhận hiển thị và xử lý các sự kiện tương tác của người dùng.
  */
@@ -43,7 +43,10 @@ export function CancelBookingModal({
     setError(null);
 
     try {
-      await cancelMutation.mutateAsync({ id: booking.id, cancelReason: trimmed });
+      await cancelMutation.mutateAsync({
+        id: booking.id,
+        cancelReason: trimmed,
+      });
       onSuccess();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -74,7 +77,9 @@ export function CancelBookingModal({
       <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-950">Xác nhận hủy đặt lịch</h2>
+          <h2 className="text-lg font-bold text-slate-950">
+            Xác nhận hủy đặt lịch
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -91,18 +96,22 @@ export function CancelBookingModal({
           <div className="px-6 py-5 space-y-4">
             {/* Booking summary */}
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-              <p className="font-semibold text-slate-900">{booking.branchName}</p>
-              <p className="mt-0.5 text-slate-500">{booking.vehicleLicensePlate}</p>
+              <p className="font-semibold text-slate-900">
+                {booking.branchName}
+              </p>
+              <p className="mt-0.5 text-slate-500">
+                {booking.vehicleLicensePlate}
+              </p>
             </div>
 
-            {/* Warning */}
+            {/* Warning
             <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <AlertCircle size={15} className="mt-0.5 shrink-0" aria-hidden />
               <span>
                 Lưu ý: Bạn chỉ có thể hủy booking trong ngày hôm nay.
                 Tiền cọc sẽ được hoàn lại vào ví sau khi hủy thành công.
               </span>
-            </div>
+            </div> */}
 
             {/* Reason input */}
             <div className="flex flex-col gap-1.5">

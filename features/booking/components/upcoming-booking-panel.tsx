@@ -11,6 +11,7 @@ import {
   type LoyaltyPointsConfig,
 } from "@/features/loyalty/loyalty-admin-service";
 import {
+  formatCancellationPolicyMessage,
   formatDateOnly,
   formatTimeRange,
   getServerTokenSnapshot,
@@ -180,6 +181,9 @@ function BookingDetailPanel({
     canCancelByTime &&
     !isCancelledStatus(booking.status) &&
     !isCompletedStatus(booking.status);
+  const cancellationPolicyMessage = formatCancellationPolicyMessage(
+    configs?.cancellationDeadlineHours,
+  );
 
   async function handleConfirmCancel(reason: string) {
     if (!reason) return;
@@ -328,9 +332,7 @@ function BookingDetailPanel({
       !isCancelledStatus(booking.status) &&
       !isCompletedStatus(booking.status) ? (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {cancellationDeadlineHours % 24 === 0
-            ? `Chỉ có thể tự hủy lịch trước thời gian đặt hẹn tối thiểu ${cancellationDeadlineHours / 24} ngày (${cancellationDeadlineHours} giờ).`
-            : `Chỉ có thể tự hủy lịch trước thời gian đặt hẹn tối thiểu ${cancellationDeadlineHours} giờ.`}
+          {cancellationPolicyMessage}
         </div>
       ) : null}
 
