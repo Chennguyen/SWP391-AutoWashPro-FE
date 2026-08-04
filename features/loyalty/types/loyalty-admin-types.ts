@@ -33,6 +33,7 @@ export type LoyaltyPointsConfig = {
   sedanBasePrice?: number;      // configKey: "SedanBasePrice"
   paymentDeposite?: number;     // configKey: "PaymentDeposite"
   bonusPoint?: number;                  // configKey: "BonusPoint"
+  redeemPointValue?: number;            // configKey: "RedeemPointValue"
   cancellationDeadlineHours?: number;   // configKey: "CancellationDeadlineHours"
   cancelTimeMinutes?: number;           // configKey: "CancelTimeMinutes"
 };

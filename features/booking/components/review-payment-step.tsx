@@ -69,7 +69,6 @@ import {
 } from "react";
 
 const QUICK_TOP_UP_PRESETS = [100_000, 200_000, 500_000];
-const POINT_REDEMPTION_VALUE_VND = 100;
 
 function formatVND(amount: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -220,6 +219,7 @@ export function ReviewPaymentStep({
     sedanBasePrice: 0,
     suvBasePrice: 30_000,
     paymentDeposite: 30, // 30%
+    redeemPointValue: 100,
   });
 
   useEffect(() => {
@@ -233,6 +233,7 @@ export function ReviewPaymentStep({
             sedanBasePrice: settings.sedanBasePrice ?? 0,
             suvBasePrice: settings.suvBasePrice ?? 30_000,
             paymentDeposite: settings.paymentDeposite ?? 30,
+            redeemPointValue: settings.redeemPointValue ?? 100,
           });
         }
       } catch (err) {
@@ -481,21 +482,22 @@ export function ReviewPaymentStep({
   }, [promotions, servicePrice]);
 
   const loyaltyPoints = loyalty?.points ?? 0;
+  const pointRedemptionValueVnd = configs.redeemPointValue;
   const discount = localAppliedVoucher?.discountAmount ?? 0; // Voucher giảm giá
   const payableAmountBeforeRedeem = Math.max(
     0,
     servicePrice - promotionDiscount - discount,
   );
-  const maxRedeemByPoints = loyaltyPoints * POINT_REDEMPTION_VALUE_VND;
+  const maxRedeemByPoints = loyaltyPoints * pointRedemptionValueVnd;
   const rawRedeemDiscountEstimate = Math.min(
     maxRedeemByPoints,
     payableAmountBeforeRedeem,
   );
   const redeemPointsUsedEstimate = Math.floor(
-    rawRedeemDiscountEstimate / POINT_REDEMPTION_VALUE_VND,
+    rawRedeemDiscountEstimate / pointRedemptionValueVnd,
   );
   const redeemDiscountEstimate =
-    redeemPointsUsedEstimate * POINT_REDEMPTION_VALUE_VND;
+    redeemPointsUsedEstimate * pointRedemptionValueVnd;
   const redeemValue = redeemPoint ? redeemDiscountEstimate : 0;
   const payableAmount = Math.max(0, payableAmountBeforeRedeem - redeemValue);
   const deposit = Math.round(payableAmount * depositRate);
