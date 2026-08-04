@@ -85,17 +85,22 @@ export function BookingDetailModal({
     };
   }, [token]);
 
+  const cancellationDeadlineHours = configs?.cancellationDeadlineHours ?? 72;
+
   const canCancelByTime = (() => {
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const bookingDateTime = new Date(booking.bookingDate);
+      if (booking.startTime) {
+        const [hours, minutes] = booking.startTime.split(":").map(Number);
+        if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+          bookingDateTime.setHours(hours, minutes, 0, 0);
+        }
+      }
 
-      const bookingDate = new Date(booking.bookingDate);
-      bookingDate.setHours(0, 0, 0, 0);
+      const diffMs = bookingDateTime.getTime() - Date.now();
+      const diffHours = diffMs / (1000 * 60 * 60);
 
-      const diffTime = bookingDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays >= 1;
+      return diffHours >= cancellationDeadlineHours;
     } catch {
       return false;
     }
@@ -249,6 +254,7 @@ export function BookingDetailModal({
               isLoading={detailQuery.isLoading}
               error={detailQuery.error}
               depositRate={configs?.paymentDeposite ?? 30}
+              configs={configs}
               onRetry={() => void detailQuery.refetch()}
             />
 
@@ -272,7 +278,7 @@ export function BookingDetailModal({
             ) : null}
 
             {/* Cancel reason (if already cancelled) */}
-            {isCancelledStatus(booking.status) && booking.cancelReason ? (
+            {isCancelledStatus(booking.status) ? (
               <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <AlertCircle
                   size={15}
@@ -285,7 +291,7 @@ export function BookingDetailModal({
           </div>
 
           {/* Footer Actions (Image 3 logic) */}
-          <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 flex flex-col gap-2 shrink-0">
+          <div className="border-t border-slate-100 px-6 py-4 bg-white flex flex-col gap-2 shrink-0">
             {/* Cancel action button */}
             {canCancelByLifecycle ? (
               <button

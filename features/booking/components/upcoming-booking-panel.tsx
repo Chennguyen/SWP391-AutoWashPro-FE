@@ -314,6 +314,7 @@ function BookingDetailPanel({
           isLoading={detailQuery.isLoading}
           error={detailQuery.error}
           depositRate={configs?.paymentDeposite ?? 30}
+          configs={configs}
           onRetry={() => void detailQuery.refetch()}
         />
       </div>

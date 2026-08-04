@@ -485,6 +485,14 @@ function normalizeBooking(raw: unknown): AdminBooking {
   const vehicle = asRecord(record.vehicle);
   const vehicleUpper = asRecord(record.Vehicle);
 
+  const basePriceVal = readNumber(record, ["basePrice", "BasePrice", "totalPrice", "TotalPrice", "price", "Price"]);
+  const discountVal = readNumber(record, ["discountAmount", "DiscountAmount", "discount", "Discount"]);
+  const finalPriceVal = readNumber(record, ["finalPrice", "FinalPrice"]);
+  const serviceBasePriceVal = readNumber(record, ["serviceBasePrice", "ServiceBasePrice"]);
+  const vehicleSurchargeVal = readNumber(record, ["vehicleSurcharge", "VehicleSurcharge", "surcharge", "Surcharge"]);
+
+  const computedDiscount = discountVal || (basePriceVal && finalPriceVal && basePriceVal > finalPriceVal ? basePriceVal - finalPriceVal : 0);
+
   return {
     id: readString(record, ["id", "Id", "bookingId", "BookingId"]),
     branchId: readOptionalString(record, ["branchId", "BranchId"]),
@@ -508,12 +516,37 @@ function normalizeBooking(raw: unknown): AdminBooking {
       readString(record, ["vehiclePlate", "VehiclePlate", "vehicleLicensePlate", "VehicleLicensePlate", "licensePlate", "LicensePlate"]) ||
       readString(vehicle, ["licensePlate", "LicensePlate", "plateNumber", "PlateNumber"]) ||
       readString(vehicleUpper, ["licensePlate", "LicensePlate", "plateNumber", "PlateNumber"]),
+    vehicleType:
+      readOptionalString(record, ["vehicleType", "VehicleType"]) ??
+      readOptionalString(vehicle, ["vehicleType", "VehicleType", "type", "Type"]) ??
+      readOptionalString(vehicleUpper, ["vehicleType", "VehicleType", "type", "Type"]),
     bookingDate: readString(record, ["bookingDate", "BookingDate", "date", "Date"]),
     startTime: readString(record, ["startTime", "StartTime"]),
     endTime: readOptionalString(record, ["endTime", "EndTime"]),
     status: readString(record, ["status", "Status"], "Pending"),
     note: readOptionalString(record, ["note", "Note"]),
+    cancelReason:
+      readOptionalString(record, [
+        "cancelReason",
+        "CancelReason",
+        "cancellationReason",
+        "CancellationReason",
+        "reason",
+        "Reason",
+        "cancelNote",
+        "CancelNote",
+        "cancellationNote",
+        "CancellationNote",
+        "message",
+        "Message",
+      ]) ??
+      readOptionalString(record, ["note", "Note"]),
     createdAt: readOptionalString(record, ["createdAt", "CreatedAt"]),
+    basePrice: basePriceVal || undefined,
+    discountAmount: computedDiscount || undefined,
+    finalPrice: finalPriceVal || (basePriceVal && computedDiscount ? basePriceVal - computedDiscount : basePriceVal || undefined),
+    serviceBasePrice: serviceBasePriceVal || undefined,
+    vehicleSurcharge: vehicleSurchargeVal || undefined,
   };
 }
 
