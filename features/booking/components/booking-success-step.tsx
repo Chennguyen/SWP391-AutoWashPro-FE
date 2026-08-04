@@ -52,10 +52,22 @@ export function BookingSuccessStep({ result }: BookingSuccessStepProps) {
               -{formatVND(result.discountAmount)}
             </span>
           </div>
-          <Separator />
           <div className="flex items-center justify-between gap-4 text-sm">
             <span className="font-semibold text-foreground">Thành tiền</span>
             <span className="font-semibold text-foreground">{formatVND(result.finalPrice)}</span>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-muted-foreground">Số tiền đã cọc (30%)</span>
+            <span className="font-medium text-foreground">
+              {formatVND(Math.round(result.finalPrice * 0.3))}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-sm">
+            <span className="font-semibold text-foreground">Tổng tiền phải trả khi check-in</span>
+            <span className="font-semibold text-foreground">
+              {formatVND(Math.max(result.finalPrice - Math.round(result.finalPrice * 0.3), 0))}
+            </span>
           </div>
         </CardContent>
       </Card>
