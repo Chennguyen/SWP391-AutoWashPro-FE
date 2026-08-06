@@ -134,6 +134,9 @@ h6,
 
 .booking-brand-surface,
 .booking-brand-dialog,
+.customer-brand-surface,
+.customer-brand-dialog,
+.customer-brand-toast,
 .admin-brand-surface {
   --background: #0e0e10;
   --foreground: #fffdf9;
@@ -163,18 +166,60 @@ h6,
   --sidebar-ring: #bca374;
 }
 
+.customer-brand-surface,
+.customer-brand-dialog,
+.customer-brand-toast {
+  --primary-foreground: #17130f;
+  color-scheme: dark;
+}
+
+.customer-brand-toast {
+  --success-bg: var(--popover);
+  --success-text: var(--popover-foreground);
+  --success-border: var(--border);
+}
+
+.customer-brand-toast [data-sonner-toast] {
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+}
+
+.customer-brand-toast [data-sonner-toast][data-type="success"] [data-icon] {
+  color: var(--gold-light);
+}
+
+.wallet-top-up-card {
+  --background: var(--background-main);
+  --foreground: var(--text-light);
+  --card: var(--background-main);
+  --card-foreground: var(--text-light);
+  --primary: var(--gold-primary);
+  --primary-foreground: #17130f;
+  --muted: var(--background-secondary);
+  --muted-foreground: var(--text-secondary);
+  --border: var(--border-box);
+  --input: var(--border-step);
+  --ring: var(--gold-primary);
+
+  color-scheme: dark;
+}
+
 .admin-brand-surface {
   color-scheme: dark;
 }
 
 .booking-brand-surface [data-slot="card"],
-.booking-brand-dialog {
+.customer-brand-surface [data-slot="card"],
+.booking-brand-dialog,
+.customer-brand-dialog {
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
 }
 
 .booking-brand-surface [data-slot="card"],
 .booking-brand-surface [data-slot="alert"],
-.booking-brand-dialog {
+.customer-brand-surface [data-slot="card"],
+.customer-brand-surface [data-slot="alert"],
+.booking-brand-dialog,
+.customer-brand-dialog {
   border-color: var(--border-box);
 }
 
