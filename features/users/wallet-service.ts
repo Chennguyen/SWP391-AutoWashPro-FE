@@ -1,8 +1,18 @@
 import { axiosInstance } from "@/lib/axios";
 import { GetTransactionsResponse } from "@/types/transaction";
 
-import { Wallet } from "./types/user-types";
-export { type Wallet };
+import {
+  Wallet,
+  WalletTopUpPayment,
+  WalletTopUpStatus,
+  WalletTopUpStatusResult,
+} from "./types/user-types";
+export {
+  type Wallet,
+  type WalletTopUpPayment,
+  type WalletTopUpStatus,
+  type WalletTopUpStatusResult,
+};
 
 type WalletRecord = {
   id?: string | number;
@@ -22,6 +32,60 @@ type WalletRecord = {
 };
 
 type WalletResponse = WalletRecord | { data?: WalletRecord };
+
+type WalletTopUpRecord = {
+  transactionId?: string;
+  TransactionId?: string;
+  amount?: number | string;
+  Amount?: number | string;
+  currency?: string;
+  Currency?: string;
+  bankName?: string;
+  BankName?: string;
+  bankAccount?: string;
+  BankAccount?: string;
+  referenceCode?: string;
+  ReferenceCode?: string;
+  description?: string;
+  Description?: string;
+  qrCode?: string;
+  QRCode?: string;
+  status?: string;
+  Status?: string;
+  createdAt?: string | null;
+  CreatedAt?: string | null;
+  expiredAt?: string | null;
+  ExpiredAt?: string | null;
+  paidAt?: string | null;
+  PaidAt?: string | null;
+  externalTransactionId?: string | null;
+  ExternalTransactionId?: string | null;
+  bankReferenceCode?: string | null;
+  BankReferenceCode?: string | null;
+  message?: string;
+  Message?: string;
+};
+
+type WalletTopUpResponse =
+  | WalletTopUpRecord
+  | { data?: WalletTopUpRecord };
+
+function unwrapWalletTopUp(body: WalletTopUpResponse): WalletTopUpRecord {
+  return "data" in body ? (body.data ?? {}) : (body as WalletTopUpRecord);
+}
+
+function normalizeWalletTopUpStatus(status: unknown): WalletTopUpStatus {
+  if (
+    status === "Pending" ||
+    status === "Succeeded" ||
+    status === "Failed" ||
+    status === "Expired"
+  ) {
+    return status;
+  }
+
+  throw new Error("Backend returned an unsupported wallet top-up status.");
+}
 
 /**
  * Giải nén thông tin ví thô từ phản hồi của API.
@@ -55,6 +119,59 @@ function normalizeWallet(body: WalletResponse): Wallet {
   };
 }
 
+function normalizeWalletTopUp(body: WalletTopUpResponse): WalletTopUpPayment {
+  const raw = unwrapWalletTopUp(body);
+  const amount = Number(raw.amount ?? raw.Amount ?? 0);
+  const transactionId = String(raw.transactionId ?? raw.TransactionId ?? "");
+  const qrCode = raw.qrCode ?? raw.QRCode ?? "";
+  const expiredAt = raw.expiredAt ?? raw.ExpiredAt ?? "";
+
+  if (
+    !transactionId ||
+    !qrCode ||
+    !expiredAt ||
+    Number.isNaN(Date.parse(expiredAt))
+  ) {
+    throw new Error("Backend returned incomplete wallet top-up information.");
+  }
+
+  return {
+    transactionId,
+    amount: Number.isFinite(amount) ? amount : 0,
+    currency: raw.currency ?? raw.Currency ?? "VND",
+    bankName: raw.bankName ?? raw.BankName ?? "",
+    bankAccount: raw.bankAccount ?? raw.BankAccount ?? "",
+    referenceCode: raw.referenceCode ?? raw.ReferenceCode ?? "",
+    description: raw.description ?? raw.Description ?? "",
+    qrCode,
+    status: normalizeWalletTopUpStatus(raw.status ?? raw.Status),
+    expiredAt,
+    message: raw.message ?? raw.Message ?? "",
+  };
+}
+
+function normalizeWalletTopUpStatusResult(
+  body: WalletTopUpResponse,
+): WalletTopUpStatusResult {
+  const raw = unwrapWalletTopUp(body);
+  const amount = Number(raw.amount ?? raw.Amount ?? 0);
+
+  return {
+    transactionId: String(raw.transactionId ?? raw.TransactionId ?? ""),
+    amount: Number.isFinite(amount) ? amount : 0,
+    currency: raw.currency ?? raw.Currency ?? "VND",
+    referenceCode: raw.referenceCode ?? raw.ReferenceCode ?? "",
+    status: normalizeWalletTopUpStatus(raw.status ?? raw.Status),
+    createdAt: raw.createdAt ?? raw.CreatedAt ?? null,
+    expiredAt: raw.expiredAt ?? raw.ExpiredAt ?? null,
+    paidAt: raw.paidAt ?? raw.PaidAt ?? null,
+    externalTransactionId:
+      raw.externalTransactionId ?? raw.ExternalTransactionId ?? null,
+    bankReferenceCode:
+      raw.bankReferenceCode ?? raw.BankReferenceCode ?? null,
+  };
+}
+
 /**
  * Lấy số dư hiện tại và thông tin chi tiết ví của khách hàng bằng Axios.
  * 
@@ -62,20 +179,42 @@ function normalizeWallet(body: WalletResponse): Wallet {
  * @returns Một promise giải quyết thành thông tin chi tiết Wallet.
  */
 export async function getWallet(token: string): Promise<Wallet> {
-  const res = await axiosInstance.get<WalletResponse>("/api/v1/wallet");
+  void token;
+  const res = await axiosInstance.get<WalletResponse>("/api/v2/wallet");
   return normalizeWallet(res.data);
 }
 
 /**
- * Nạp thêm tiền vào ví ảo của khách hàng bằng Axios.
+ * Tạo yêu cầu nạp ví qua QR. Backend chỉ cộng tiền sau khi SePay xác nhận.
  * 
  * @param token Token xác thực.
  * @param balance Số tiền cần nạp thêm vào ví.
- * @returns Một promise giải quyết thành thông tin Wallet đã được cập nhật.
+ * @returns Thông tin giao dịch pending và URL QR do Backend tạo.
  */
-export async function topUpWallet(token: string, balance: number): Promise<Wallet> {
-  const res = await axiosInstance.patch<WalletResponse>("/api/v1/wallet/top-up", { Balance: balance });
-  return normalizeWallet(res.data);
+export async function createWalletTopUp(
+  token: string,
+  balance: number,
+): Promise<WalletTopUpPayment> {
+  void token;
+  const res = await axiosInstance.patch<WalletTopUpResponse>(
+    "/api/v2/wallet/top-up",
+    { balance },
+  );
+  return normalizeWalletTopUp(res.data);
+}
+
+/**
+ * Lấy trạng thái top-up từ Backend bằng đúng transactionId của yêu cầu QR.
+ */
+export async function getWalletTopUpStatus(
+  token: string,
+  transactionId: string,
+): Promise<WalletTopUpStatusResult> {
+  void token;
+  const res = await axiosInstance.get<WalletTopUpResponse>(
+    `/api/v2/wallet/top-up/${encodeURIComponent(transactionId)}`,
+  );
+  return normalizeWalletTopUpStatusResult(res.data);
 }
 
 /**
