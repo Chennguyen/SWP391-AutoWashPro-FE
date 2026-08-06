@@ -5,6 +5,7 @@ import { NotificationToaster } from "@/features/notifications/components/notific
 import { RankUpgradeCelebration } from "@/features/loyalty/components/rank-upgrade-celebration";
 import { UnverifiedBanner } from "@/features/users/components/unverified-banner";
 import { CustomerAiChatWidget } from "@/features/chatbot/components/customer-ai-chat-widget";
+import { Toaster } from "@/components/ui/sonner";
 
 /**
  * Bố cục (Layout) CustomerLayout
@@ -26,6 +27,13 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
           {children}
         </div>
       </div>
+      <Toaster
+        className="customer-brand-toast"
+        position="top-right"
+        theme="dark"
+        closeButton
+        offset={20}
+      />
       <NotificationToaster />
       <RankUpgradeCelebration />
       <CustomerAiChatWidget />

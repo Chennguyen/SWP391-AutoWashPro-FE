@@ -21,3 +21,36 @@ export interface Wallet {
   currency?: string;
   updatedAt?: string;
 }
+
+export type WalletTopUpStatus =
+  | "Pending"
+  | "Succeeded"
+  | "Failed"
+  | "Expired";
+
+export interface WalletTopUpPayment {
+  transactionId: string;
+  amount: number;
+  currency: string;
+  bankName: string;
+  bankAccount: string;
+  referenceCode: string;
+  description: string;
+  qrCode: string;
+  status: WalletTopUpStatus;
+  expiredAt: string;
+  message: string;
+}
+
+export interface WalletTopUpStatusResult {
+  transactionId: string;
+  amount: number;
+  currency: string;
+  referenceCode: string;
+  status: WalletTopUpStatus;
+  createdAt: string | null;
+  expiredAt: string | null;
+  paidAt: string | null;
+  externalTransactionId: string | null;
+  bankReferenceCode: string | null;
+}

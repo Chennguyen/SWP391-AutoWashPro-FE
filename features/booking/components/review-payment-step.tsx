@@ -41,10 +41,12 @@ import {
   type MyVoucher,
 } from "@/features/loyalty/loyalty-service";
 import {
+  createWalletTopUp,
   getWallet,
-  topUpWallet,
   type Wallet,
+  type WalletTopUpPayment,
 } from "@/features/users/wallet-service";
+import { WalletTopUpQrDialog } from "@/features/users/components/wallet-top-up-qr-dialog";
 import { ApiError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import {
@@ -257,7 +259,8 @@ export function ReviewPaymentStep({
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [topUpError, setTopUpError] = useState<string | null>(null);
-  const [topUpSuccess, setTopUpSuccess] = useState<string | null>(null);
+  const [topUpPayment, setTopUpPayment] =
+    useState<WalletTopUpPayment | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [detectedDuration, setDetectedDuration] = useState(15);
   const [endTime, setEndTime] = useState<string | undefined>(undefined);
@@ -524,7 +527,6 @@ export function ReviewPaymentStep({
   async function handleQuickTopUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTopUpError(null);
-    setTopUpSuccess(null);
 
     if (!Number.isFinite(effectiveTopUpAmount) || effectiveTopUpAmount <= 0) {
       setTopUpError("Vui lòng nhập số tiền nạp hợp lệ.");
@@ -533,13 +535,8 @@ export function ReviewPaymentStep({
 
     setTopUpLoading(true);
     try {
-      await topUpWallet(token, effectiveTopUpAmount);
-      const nextWallet = await getWallet(token);
-      setWallet(nextWallet);
-      setError(null);
-      setTopUpAmount(null);
-      setTopUpSuccess(`Đã nạp ${formatVND(effectiveTopUpAmount)} vào ví.`);
-      window.dispatchEvent(new Event("autowash-auth"));
+      const payment = await createWalletTopUp(token, effectiveTopUpAmount);
+      setTopUpPayment(payment);
     } catch (topUpException) {
       if (topUpException instanceof ApiError && topUpException.status === 401) {
         onUnauthorized();
@@ -1108,16 +1105,19 @@ export function ReviewPaymentStep({
                     step={1000}
                     value={effectiveTopUpAmount}
                     onChange={(event) => {
-                      setTopUpSuccess(null);
                       setTopUpAmount(Number(event.target.value));
                     }}
-                    disabled={topUpLoading}
+                    disabled={topUpLoading || Boolean(topUpPayment)}
                     className="h-10 font-semibold"
                   />
                 </div>
-                <Button type="submit" disabled={topUpLoading} size="lg">
+                <Button
+                  type="submit"
+                  disabled={topUpLoading || Boolean(topUpPayment)}
+                  size="lg"
+                >
                   <Plus data-icon="inline-start" aria-hidden />
-                  {topUpLoading ? "Đang nạp..." : "Nạp tiền"}
+                  {topUpLoading ? "Đang tạo QR..." : "Nạp tiền"}
                 </Button>
               </div>
 
@@ -1127,10 +1127,9 @@ export function ReviewPaymentStep({
                     key={`${amount}-${index}`}
                     type="button"
                     onClick={() => {
-                      setTopUpSuccess(null);
                       setTopUpAmount(amount);
                     }}
-                    disabled={topUpLoading}
+                    disabled={topUpLoading || Boolean(topUpPayment)}
                     variant="outline"
                     size="sm"
                   >
@@ -1145,18 +1144,24 @@ export function ReviewPaymentStep({
                   <AlertDescription>{topUpError}</AlertDescription>
                 </Alert>
               ) : null}
-
-              {topUpSuccess ? (
-                <Alert>
-                  <AlertDescription>
-                    {topUpSuccess} Số dư mới: {formatVND(walletBalance)}.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
             </CardContent>
           </Card>
         </form>
       ) : null}
+
+      <WalletTopUpQrDialog
+        token={token}
+        payment={topUpPayment}
+        onCancel={() => setTopUpPayment(null)}
+        onUnauthorized={onUnauthorized}
+        onConfirmed={() => {
+          setTopUpPayment(null);
+          setError(null);
+          setTopUpAmount(null);
+          void loadWallet();
+          window.dispatchEvent(new Event("autowash-auth"));
+        }}
+      />
 
       <label className="flex cursor-pointer select-none items-start gap-3">
         <input

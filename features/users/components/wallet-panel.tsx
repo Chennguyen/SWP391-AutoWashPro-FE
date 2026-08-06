@@ -1,6 +1,25 @@
 "use client";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -9,6 +28,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group";
 import { ApiError } from "@/lib/api-error";
 import {
   ChevronLeft,
@@ -21,9 +44,13 @@ import {
 import { FormEvent, useEffect, useState } from "react";
 import {
   useGetWalletTransactionsQuery,
-  useTopUpWalletMutation,
+  useCreateWalletTopUpMutation,
 } from "../hooks/useUserWallet";
-import { type Wallet } from "../types/user-types";
+import {
+  type Wallet,
+  type WalletTopUpPayment,
+} from "../types/user-types";
+import { WalletTopUpQrDialog } from "./wallet-top-up-qr-dialog";
 
 interface WalletPanelProps {
   token: string;
@@ -121,19 +148,23 @@ export function WalletPanel({
 }: WalletPanelProps) {
   const [amount, setAmount] = useState("500000");
   const [topUpError, setTopUpError] = useState<string | null>(null);
+  const [topUpPayment, setTopUpPayment] =
+    useState<WalletTopUpPayment | null>(null);
   const [pageIndex, setPageIndex] = useState(1);
   const [isUnverified, setIsUnverified] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    if (typeof window !== "undefined") {
+    const timeoutId = window.setTimeout(() => {
+      setMounted(true);
       setIsUnverified(window.localStorage.getItem("is_unverified") === "true");
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   // TanStack Query & Mutation
-  const topUpMutation = useTopUpWalletMutation(token);
+  const topUpMutation = useCreateWalletTopUpMutation(token);
   const txQuery = useGetWalletTransactionsQuery(
     { pageIndex, pageSize: 5 },
     { enabled: mounted && !!token && !isUnverified },
@@ -143,7 +174,7 @@ export function WalletPanel({
   const totalPages = txQuery.data?.pagination?.totalPages || 1;
   const txLoading = txQuery.isLoading;
   const txError = txQuery.error ? txQuery.error.message : null;
-  const saving = topUpMutation.isPending;
+  const saving = topUpMutation.isPending || Boolean(topUpPayment);
 
   async function handleTopUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -157,10 +188,8 @@ export function WalletPanel({
     }
 
     try {
-      await topUpMutation.mutateAsync(parsedAmount);
-      await onRefresh();
-      setPageIndex(1);
-      void txQuery.refetch();
+      const payment = await topUpMutation.mutateAsync(parsedAmount);
+      setTopUpPayment(payment);
     } catch (topUpException) {
       if (topUpException instanceof ApiError && topUpException.status === 401) {
         onUnauthorized();
@@ -176,7 +205,10 @@ export function WalletPanel({
   }
 
   return (
-    <section aria-label="Thông tin ví" className="space-y-6">
+    <section
+      aria-label="Thông tin ví"
+      className="customer-brand-surface flex flex-col gap-6"
+    >
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-950">Thông tin ví</h2>
@@ -187,12 +219,9 @@ export function WalletPanel({
       </div>
 
       {error ? (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : null}
 
       <div className="relative overflow-hidden rounded-lg">
@@ -220,7 +249,7 @@ export function WalletPanel({
               <WalletCards size={22} className="text-[#bca374]" aria-hidden />
             </div>
             {loading && !wallet ? (
-              <div className="mt-8 h-10 w-40 animate-pulse rounded bg-white/15" />
+              <Skeleton className="mt-8 h-10 w-40" />
             ) : (
               <p className="mt-6 text-3xl font-black tracking-normal text-[#fffdf9]">
                 {formatCurrency(wallet?.balance ?? 0)}
@@ -233,70 +262,104 @@ export function WalletPanel({
             ) : null}
           </div>
 
-          <form
-            onSubmit={handleTopUp}
-            className="rounded-lg border border-slate-200 bg-white p-5"
-          >
-            <h3 className="text-sm font-semibold text-slate-800">Nạp tiền</h3>
-            <div className="mt-4">
-              <label
-                htmlFor="wallet-top-up"
-                className="mb-1 block text-sm font-medium text-slate-700"
-              >
-                Số tiền
-              </label>
-              <input
-                id="wallet-top-up"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={amount}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  // Allow only digits
-                  if (/^\d*$/.test(val)) {
-                    // Remove leading zeros, unless it is just "0"
-                    const cleaned = val.replace(/^0+(?!$)/, "");
-                    setAmount(cleaned);
-                  }
-                }}
-                disabled={saving}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {TOP_UP_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setAmount(String(preset))}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+          <form onSubmit={handleTopUp}>
+            <Card className="wallet-top-up-card h-full">
+              <CardHeader>
+                <CardTitle>Nạp tiền vào ví</CardTitle>
+                <CardDescription>
+                  Nhập số tiền để hệ thống tạo mã QR thanh toán.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <FieldGroup>
+                  <Field
+                    data-invalid={Boolean(topUpError)}
+                    data-disabled={saving}
+                  >
+                    <FieldLabel htmlFor="wallet-top-up">Số tiền</FieldLabel>
+                    <Input
+                      id="wallet-top-up"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={amount}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (/^\d*$/.test(value)) {
+                          setAmount(value.replace(/^0+(?!$)/, ""));
+                          setTopUpError(null);
+                        }
+                      }}
+                      disabled={saving}
+                      aria-invalid={Boolean(topUpError)}
+                    />
+                    <FieldDescription>
+                      Hệ thống sẽ tạo QR và chỉ cập nhật số dư sau khi ngân
+                      hàng xác nhận.
+                    </FieldDescription>
+                  </Field>
+
+                  <Field data-disabled={saving}>
+                    <FieldTitle id="wallet-top-up-presets">
+                      Chọn nhanh
+                    </FieldTitle>
+                    <ToggleGroup
+                      aria-labelledby="wallet-top-up-presets"
+                      value={TOP_UP_PRESETS.includes(Number(amount)) ? [amount] : []}
+                      onValueChange={(values) => {
+                        const selectedAmount = values[0];
+                        if (selectedAmount) {
+                          setAmount(String(selectedAmount));
+                          setTopUpError(null);
+                        }
+                      }}
+                      disabled={saving}
+                      variant="outline"
+                      size="sm"
+                      className="flex w-full flex-wrap justify-start"
+                    >
+                      {TOP_UP_PRESETS.map((preset) => (
+                        <ToggleGroupItem key={preset} value={String(preset)}>
+                          {formatCurrency(preset)}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </Field>
+                </FieldGroup>
+
+                {topUpError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{topUpError}</AlertDescription>
+                  </Alert>
+                ) : null}
+              </CardContent>
+              <CardFooter>
+                <Button
+                  type="submit"
+                  disabled={saving || loading || !wallet}
+                  className="w-full sm:w-auto"
                 >
-                  {formatCurrency(preset)}
-                </button>
-              ))}
-            </div>
-
-            {topUpError ? (
-              <div
-                role="alert"
-                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-              >
-                {topUpError}
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-            >
-              <Plus size={16} aria-hidden />
-              {saving ? "Đang nạp..." : "Nạp ví"}
-            </button>
+                  <Plus data-icon="inline-start" aria-hidden />
+                  {topUpMutation.isPending ? "Đang tạo QR..." : "Tạo mã QR"}
+                </Button>
+              </CardFooter>
+            </Card>
           </form>
         </div>
       </div>
+
+      <WalletTopUpQrDialog
+        token={token}
+        payment={topUpPayment}
+        onCancel={() => setTopUpPayment(null)}
+        onUnauthorized={onUnauthorized}
+        onConfirmed={() => {
+          setTopUpPayment(null);
+          setAmount("500000");
+          setPageIndex(1);
+          void onRefresh();
+        }}
+      />
 
       {/* ─── Lịch sử giao dịch ví ─── */}
       <div className="rounded-lg border border-slate-200 bg-white p-5">
