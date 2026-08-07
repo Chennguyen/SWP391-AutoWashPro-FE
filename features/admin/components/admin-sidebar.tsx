@@ -14,6 +14,7 @@ import {
   Users,
   X,
   Award,
+  WalletCards,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
@@ -37,7 +38,10 @@ const NAV_GROUPS = [
   },
   {
     label: "Tăng trưởng",
-    items: [{ label: "Chương trình Loyalty", icon: Award, href: "/admin/loyalty-config" }],
+    items: [
+      { label: "Chương trình Loyalty", icon: Award, href: "/admin/loyalty-config" },
+      { label: "Doanh thu", icon: WalletCards, href: "/admin/revenue" },
+    ],
   },
   {
     label: "Hệ thống",

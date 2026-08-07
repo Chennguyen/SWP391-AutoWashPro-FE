@@ -46,6 +46,7 @@ import {
   type Wallet,
   type WalletTopUpPayment,
 } from "@/features/users/wallet-service";
+import { trackPendingWalletTopUp } from "@/features/users/wallet-top-up-tracker";
 import { WalletTopUpQrDialog } from "@/features/users/components/wallet-top-up-qr-dialog";
 import { ApiError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
@@ -536,6 +537,7 @@ export function ReviewPaymentStep({
     setTopUpLoading(true);
     try {
       const payment = await createWalletTopUp(token, effectiveTopUpAmount);
+      trackPendingWalletTopUp(payment);
       setTopUpPayment(payment);
     } catch (topUpException) {
       if (topUpException instanceof ApiError && topUpException.status === 401) {

@@ -26,7 +26,8 @@ export type WalletTopUpStatus =
   | "Pending"
   | "Succeeded"
   | "Failed"
-  | "Expired";
+  | "Expired"
+  | "Cancelled";
 
 export interface WalletTopUpPayment {
   transactionId: string;

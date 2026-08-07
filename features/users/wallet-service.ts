@@ -75,13 +75,17 @@ function unwrapWalletTopUp(body: WalletTopUpResponse): WalletTopUpRecord {
 }
 
 function normalizeWalletTopUpStatus(status: unknown): WalletTopUpStatus {
-  if (
-    status === "Pending" ||
-    status === "Succeeded" ||
-    status === "Failed" ||
-    status === "Expired"
-  ) {
-    return status;
+  if (typeof status !== "string") {
+    throw new Error("Backend returned an unsupported wallet top-up status.");
+  }
+
+  const normalizedStatus = status.trim().toLowerCase();
+  if (normalizedStatus === "pending") return "Pending";
+  if (normalizedStatus === "succeeded") return "Succeeded";
+  if (normalizedStatus === "failed") return "Failed";
+  if (normalizedStatus === "expired") return "Expired";
+  if (normalizedStatus === "cancelled" || normalizedStatus === "canceled") {
+    return "Cancelled";
   }
 
   throw new Error("Backend returned an unsupported wallet top-up status.");

@@ -18,8 +18,7 @@ import { ApiError } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, RefreshCw, ScanLine } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useRef } from "react";
 import { getWalletTopUpStatus } from "../wallet-service";
 import type {
   WalletTopUpPayment,
@@ -52,16 +51,6 @@ export function WalletTopUpQrDialog({
 }: WalletTopUpQrDialogProps) {
   const queryClient = useQueryClient();
   const confirmedTransactionRef = useRef<string | null>(null);
-  const [expirationState, setExpirationState] = useState<{
-    transactionId: string;
-    expired: boolean;
-  } | null>(null);
-  const transactionId = payment?.transactionId ?? null;
-  const expirationTime = payment ? Date.parse(payment.expiredAt) : Number.NaN;
-  const expirationIsReady = expirationState?.transactionId === transactionId;
-  const isExpiredByTime = Boolean(
-    expirationIsReady && expirationState?.expired,
-  );
 
   const statusQuery = useQuery<WalletTopUpStatusResult, ApiError>({
     queryKey: ["wallet-top-up-status", payment?.transactionId],
@@ -76,16 +65,12 @@ export function WalletTopUpQrDialog({
       return Boolean(
         payment &&
           token &&
-          expirationIsReady &&
-          status === "Pending" &&
-          !isExpiredByTime,
+          status === "Pending",
       );
     },
     refetchInterval: (query) => {
       const status = query.state.data?.status ?? payment?.status;
-      const notExpired =
-        !Number.isFinite(expirationTime) || Date.now() < expirationTime;
-      return status === "Pending" && notExpired ? 3_000 : false;
+      return status === "Pending" ? 3_000 : false;
     },
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: (query) =>
@@ -94,37 +79,8 @@ export function WalletTopUpQrDialog({
     retry: 2,
   });
 
-  const effectiveStatus: WalletTopUpStatus | null = isExpiredByTime
-    ? "Expired"
-    : (statusQuery.data?.status ?? payment?.status ?? null);
-
-  useEffect(() => {
-    if (!transactionId || !Number.isFinite(expirationTime)) return;
-
-    const remainingMilliseconds = expirationTime - Date.now();
-    const readyTimeoutId = window.setTimeout(
-      () =>
-        setExpirationState({
-          transactionId,
-          expired: remainingMilliseconds <= 0,
-        }),
-      0,
-    );
-    const expirationTimeoutId =
-      remainingMilliseconds > 0
-        ? window.setTimeout(
-            () => setExpirationState({ transactionId, expired: true }),
-            remainingMilliseconds,
-          )
-        : null;
-
-    return () => {
-      window.clearTimeout(readyTimeoutId);
-      if (expirationTimeoutId !== null) {
-        window.clearTimeout(expirationTimeoutId);
-      }
-    };
-  }, [expirationTime, transactionId]);
+  const effectiveStatus: WalletTopUpStatus | null =
+    statusQuery.data?.status ?? payment?.status ?? null;
 
   useEffect(() => {
     confirmedTransactionRef.current = null;
@@ -141,10 +97,6 @@ export function WalletTopUpQrDialog({
 
     confirmedTransactionRef.current = payment.transactionId;
     void queryClient.invalidateQueries({ queryKey: ["wallet-transactions"] });
-    toast.success("Nạp tiền thành công", {
-      id: `wallet-top-up-${payment.transactionId}`,
-      description: `${formatCurrency(payment.amount)} đã được cộng vào ví của bạn.`,
-    });
     onConfirmed(payment);
   }, [
     effectiveStatus,
@@ -235,15 +187,15 @@ export function WalletTopUpQrDialog({
                 <AlertTitle>Đang chờ xác nhận</AlertTitle>
                 <AlertDescription>
                   Hệ thống tự động kiểm tra trạng thái giao dịch. Bạn không cần
-                  bấm kiểm tra liên tục.
+                  giữ cửa sổ này mở hoặc bấm kiểm tra liên tục.
                 </AlertDescription>
               </Alert>
             ) : null}
 
-            {effectiveStatus === "Failed" ? (
+            {effectiveStatus === "Failed" || effectiveStatus === "Cancelled" ? (
               <Alert variant="destructive">
                 <AlertCircle aria-hidden />
-                <AlertTitle>Giao dịch thất bại</AlertTitle>
+                <AlertTitle>Giao dịch đã bị hủy</AlertTitle>
                 <AlertDescription>
                   Ví của bạn không bị thay đổi. Vui lòng tạo yêu cầu nạp tiền
                   mới.

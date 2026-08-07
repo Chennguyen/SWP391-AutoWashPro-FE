@@ -6,6 +6,7 @@ import { RankUpgradeCelebration } from "@/features/loyalty/components/rank-upgra
 import { UnverifiedBanner } from "@/features/users/components/unverified-banner";
 import { CustomerAiChatWidget } from "@/features/chatbot/components/customer-ai-chat-widget";
 import { Toaster } from "@/components/ui/sonner";
+import { WalletTopUpStatusMonitor } from "@/features/users/components/wallet-top-up-status-monitor";
 
 /**
  * Bố cục (Layout) CustomerLayout
@@ -16,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
     <NotificationProvider>
+      <WalletTopUpStatusMonitor />
       <div className="flex flex-col min-h-screen bg-background-outer text-slate-900">
         <Suspense fallback={<div className="h-14 bg-[#050505] border-b border-white/10" />}>
           <DashboardSidebar />

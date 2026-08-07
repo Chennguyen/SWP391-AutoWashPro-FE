@@ -14,6 +14,7 @@ import {
   RefreshCw,
   UserRound,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   getAdminBookings,
@@ -41,6 +42,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AdminBookingBulkCancelCard } from "./admin-booking-bulk-cancel-card";
+import { AdminBookingCancelDialog } from "./admin-booking-cancel-dialog";
 
 const PAGE_SIZE = 5;
 const BUSINESS_TIMEZONE_OFFSET = "+07:00";
@@ -127,10 +130,12 @@ function BookingDetailModal({
   booking: initialBooking,
   onClose,
   onCheckIn,
+  onCancel,
 }: {
   booking: AdminBooking;
   onClose: () => void;
   onCheckIn: (booking: AdminBooking) => void;
+  onCancel: (booking: AdminBooking) => void;
 }) {
   const token = useAdminToken();
   const [configs, setConfigs] = useState<LoyaltyPointsConfig | null>(null);
@@ -142,6 +147,9 @@ function BookingDetailModal({
   const checkInStartAt = getBookingStartTimestamp(booking);
   const isBeforeCheckInTime = checkInStartAt !== null && now < checkInStartAt;
   const checkInTooltipId = `check-in-tooltip-${booking.id}`;
+  const canCancelBooking = !["Cancelled", "Đã hủy", "Completed", "Hoàn thành"].includes(
+    booking.status,
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -155,12 +163,17 @@ function BookingDetailModal({
         if (!active) return;
         if (settings) setConfigs(settings);
         if (fullDetail) {
-          const detailReason =
-            fullDetail.cancelReason?.trim() ||
-            (fullDetail as any).reason?.trim() ||
-            (fullDetail as any).Reason?.trim() ||
-            (fullDetail as any).cancellationReason?.trim() ||
-            (fullDetail as any).CancellationReason?.trim();
+          const fullDetailRecord = fullDetail as unknown as Record<string, unknown>;
+          const detailReason = [
+            "cancelReason",
+            "reason",
+            "Reason",
+            "cancellationReason",
+            "CancellationReason",
+          ]
+            .map((key) => fullDetailRecord[key])
+            .find((value): value is string => typeof value === "string" && Boolean(value.trim()))
+            ?.trim();
 
           setDetailedBooking((prev) => ({
             ...initialBooking,
@@ -180,7 +193,7 @@ function BookingDetailModal({
     }
     void loadAuxData();
     return () => { active = false; };
-  }, [token, initialBooking.id]);
+  }, [token, initialBooking]);
 
   useEffect(() => {
     if (checkInStartAt === null) return;
@@ -310,36 +323,45 @@ function BookingDetailModal({
           </div>
         </div>
 
-        {booking.status === "Confirmed" ? (
-          <div className="flex shrink-0 justify-end border-t border-slate-200 bg-white px-5 py-4">
-            <span
-              className={cn(
-                "group relative inline-flex",
-                isBeforeCheckInTime && "cursor-not-allowed",
-              )}
-              tabIndex={isBeforeCheckInTime ? 0 : undefined}
-              aria-describedby={isBeforeCheckInTime ? checkInTooltipId : undefined}
-            >
-              <Button
-                type="button"
-                disabled={isBeforeCheckInTime}
-                onClick={() => onCheckIn(booking)}
-                className="bg-[var(--gold-primary)] font-bold text-[#17130f] hover:bg-[#cdb78d] focus-visible:ring-[rgba(188,163,116,0.35)] disabled:bg-[#5b4e37] disabled:text-[#a09c94] disabled:opacity-100"
-              >
-                <CheckCircle2 data-icon="inline-start" aria-hidden />
-                Check-in
+        {canCancelBooking || booking.status === "Confirmed" ? (
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:justify-end">
+            {canCancelBooking ? (
+              <Button type="button" variant="destructive" onClick={() => onCancel(booking)}>
+                <XCircle data-icon="inline-start" aria-hidden />
+                Hủy booking
               </Button>
+            ) : null}
 
-              {isBeforeCheckInTime ? (
-                <span
-                  id={checkInTooltipId}
-                  role="tooltip"
-                  className="pointer-events-none invisible absolute right-0 bottom-full z-10 mb-2 w-max max-w-[260px] translate-y-1 rounded-[8px] border border-[rgba(188,163,116,0.25)] bg-[#161619] px-3 py-2 text-center text-xs leading-5 font-medium text-[#fffdf9] opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+            {booking.status === "Confirmed" ? (
+              <span
+                className={cn(
+                  "group relative inline-flex",
+                  isBeforeCheckInTime && "cursor-not-allowed",
+                )}
+                tabIndex={isBeforeCheckInTime ? 0 : undefined}
+                aria-describedby={isBeforeCheckInTime ? checkInTooltipId : undefined}
+              >
+                <Button
+                  type="button"
+                  disabled={isBeforeCheckInTime}
+                  onClick={() => onCheckIn(booking)}
+                  className="w-full bg-[var(--gold-primary)] font-bold text-[#17130f] hover:bg-[#cdb78d] focus-visible:ring-[rgba(188,163,116,0.35)] disabled:bg-[#5b4e37] disabled:text-[#a09c94] disabled:opacity-100"
                 >
-                  Chưa đến thời điểm check-in. Có thể check-in từ {formatTime(booking.startTime)} ngày {formatBookingDate(booking.bookingDate)}.
-                </span>
-              ) : null}
-            </span>
+                  <CheckCircle2 data-icon="inline-start" aria-hidden />
+                  Check-in
+                </Button>
+
+                {isBeforeCheckInTime ? (
+                  <span
+                    id={checkInTooltipId}
+                    role="tooltip"
+                    className="pointer-events-none invisible absolute right-0 bottom-full z-10 mb-2 w-max max-w-[260px] translate-y-1 rounded-[8px] border border-[rgba(188,163,116,0.25)] bg-[#161619] px-3 py-2 text-center text-xs leading-5 font-medium text-[#fffdf9] opacity-0 shadow-xl transition duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:visible group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+                  >
+                    Chưa đến thời điểm check-in. Có thể check-in từ {formatTime(booking.startTime)} ngày {formatBookingDate(booking.bookingDate)}.
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -381,6 +403,7 @@ export function AdminBookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<AdminBooking | null>(null);
   const [checkInBooking, setCheckInBooking] = useState<AdminBooking | null>(null);
+  const [cancelBooking, setCancelBooking] = useState<AdminBooking | null>(null);
 
   const filteredBookings = useMemo(() => {
     const keyword = normalizeSearch(searchTerm);
@@ -478,6 +501,11 @@ export function AdminBookingsPage() {
     setCheckInBooking(booking);
   }
 
+  function openCancelDialog(booking: AdminBooking) {
+    setSelectedBooking(null);
+    setCancelBooking(booking);
+  }
+
   async function handleConfirmCheckIn() {
     if (!checkInBooking || checkInMutation.isPending) return;
 
@@ -546,6 +574,12 @@ export function AdminBookingsPage() {
             Tự động làm mới (30s)
           </label>
         }
+      />
+
+      <AdminBookingBulkCancelCard
+        branches={branches}
+        token={token}
+        onCompleted={() => loadBookings(pageIndex).then(() => undefined)}
       />
 
       <form onSubmit={handleFilter} className="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 md:flex-row">
@@ -728,8 +762,16 @@ export function AdminBookingsPage() {
           booking={selectedBooking}
           onClose={() => setSelectedBooking(null)}
           onCheckIn={openCheckInDialog}
+          onCancel={openCancelDialog}
         />
       ) : null}
+
+      <AdminBookingCancelDialog
+        booking={cancelBooking}
+        token={token}
+        onClose={() => setCancelBooking(null)}
+        onCancelled={() => loadBookings(pageIndex).then(() => undefined)}
+      />
 
       <Dialog
         open={checkInBooking !== null}

@@ -23,6 +23,9 @@ import type {
   AdminUser,
   AdminBooking,
   AdminCheckInResult,
+  AdminCancelBookingResult,
+  AdminBulkCancelBookingsRequest,
+  AdminBulkCancelBookingsResult,
   AdminBookingSlot,
   DashboardStats,
   DashboardTodayBooking,
@@ -39,6 +42,9 @@ export type {
   AdminUser,
   AdminBooking,
   AdminCheckInResult,
+  AdminCancelBookingResult,
+  AdminBulkCancelBookingsRequest,
+  AdminBulkCancelBookingsResult,
   AdminBookingSlot,
   DashboardStats,
   RevenueReport,
@@ -1019,8 +1025,63 @@ export async function cancelAdminBooking(
   token: string,
   id: string,
   reason: string,
-): Promise<void> {
-  await axiosInstance.post(`/api/v1/admin/bookings/${encodeURIComponent(id)}/cancel`, { Reason: reason });
+): Promise<AdminCancelBookingResult> {
+  const res = await axiosInstance.post<ApiRecord<unknown>>(
+    `/api/v1/admin/bookings/${encodeURIComponent(id)}/cancel`,
+    { Reason: reason },
+  );
+  const result = asRecord(unwrapRecord(res.data));
+
+  return {
+    id: readString(result, ["id", "Id"]),
+    status: readString(result, ["status", "Status"]) as BookingStatus,
+    cancelledAt: readString(result, ["cancelledAt", "CancelledAt"]),
+    refundApplied: readBoolean(result, ["refundApplied", "RefundApplied"]),
+    refundAmount: readNumber(result, ["refundAmount", "RefundAmount"]),
+    refundTransactionId: readOptionalString(result, [
+      "refundTransactionId",
+      "RefundTransactionId",
+    ]),
+    refundReasonCode: readOptionalString(result, ["refundReasonCode", "RefundReasonCode"]),
+    message: readString(result, ["message", "Message"]),
+  };
+}
+
+/**
+ * Hủy toàn bộ booking đã xác nhận của một chi nhánh trong khoảng ngày được chọn.
+ * Backend tự xác định lý do hủy và chỉ xử lý booking có trạng thái Confirmed.
+ *
+ * @param token Token xác thực của Admin.
+ * @param request Chi nhánh và khoảng ngày theo contract DateOnly của Backend.
+ * @returns Thống kê số booking đã hủy, bỏ qua và số tiền đã hoàn.
+ */
+export async function cancelAdminBookingsByRange(
+  token: string,
+  request: AdminBulkCancelBookingsRequest,
+): Promise<AdminBulkCancelBookingsResult> {
+  const res = await axiosInstance.post<ApiRecord<unknown>>(
+    "/api/v1/admin/cancel-booking-From-To",
+    request,
+  );
+  const result = asRecord(unwrapRecord(res.data));
+
+  return {
+    branchId: readString(result, ["branchId", "BranchId"]),
+    fromDate: readString(result, ["fromDate", "FromDate"]),
+    toDate: readString(result, ["toDate", "ToDate"]),
+    totalBookingCount: readNumber(result, ["totalBookingCount", "TotalBookingCount"]),
+    cancelledBookingCount: readNumber(result, [
+      "cancelledBookingCount",
+      "CancelledBookingCount",
+    ]),
+    refundedBookingCount: readNumber(result, [
+      "refundedBookingCount",
+      "RefundedBookingCount",
+    ]),
+    skippedBookingCount: readNumber(result, ["skippedBookingCount", "SkippedBookingCount"]),
+    totalRefundAmount: readNumber(result, ["totalRefundAmount", "TotalRefundAmount"]),
+    message: readString(result, ["message", "Message"]),
+  };
 }
 
 /**

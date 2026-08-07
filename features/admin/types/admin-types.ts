@@ -70,6 +70,35 @@ export type AdminCheckInResult = {
   message: string;
 };
 
+export type AdminCancelBookingResult = {
+  id: string;
+  status: BookingStatus;
+  cancelledAt: string;
+  refundApplied: boolean;
+  refundAmount: number;
+  refundTransactionId?: string;
+  refundReasonCode?: string;
+  message: string;
+};
+
+export type AdminBulkCancelBookingsRequest = {
+  BranchId: string;
+  FromDate: string;
+  ToDate: string;
+};
+
+export type AdminBulkCancelBookingsResult = {
+  branchId: string;
+  fromDate: string;
+  toDate: string;
+  totalBookingCount: number;
+  cancelledBookingCount: number;
+  refundedBookingCount: number;
+  skippedBookingCount: number;
+  totalRefundAmount: number;
+  message: string;
+};
+
 export type AdminBookingSlot = {
   id?: string;
   time: string;
@@ -130,4 +159,51 @@ export type LoyaltyReport = {
     customerCount: number;
   }>;
   [key: string]: unknown;
+};
+
+export type WalletTopUpTransactionStatus =
+  | "Pending"
+  | "Succeeded"
+  | "Failed"
+  | "Expired";
+
+export type WalletTopUpTransaction = {
+  transactionId: string;
+  customerId: string;
+  customerName: string;
+  email: string;
+  phone: string;
+  amount: number;
+  status: WalletTopUpTransactionStatus | null;
+  provider: string | null;
+  referenceCode: string | null;
+  externalTransactionId: string | null;
+  paidAt: string | null;
+  createdAt: string;
+};
+
+export type WalletTopUpTransactionFilters = {
+  keyword?: string;
+  status?: WalletTopUpTransactionStatus;
+  fromDate?: string;
+  toDate?: string;
+  minAmount?: number;
+  maxAmount?: number;
+};
+
+export type WalletTopUpTransactionQuery = WalletTopUpTransactionFilters & {
+  pageIndex: number;
+  pageSize: number;
+};
+
+export type WalletTopUpTransactionPage = {
+  items: WalletTopUpTransaction[];
+  totalItems: number;
+  pageSize: number;
+  pageIndex: number;
+};
+
+export type WalletTopUpRevenueSummary = {
+  totalRevenue: number;
+  succeededTransactions: number;
 };
