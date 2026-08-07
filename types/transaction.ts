@@ -10,6 +10,7 @@ export interface TransactionItem {
   transactionDate: string;
   createdAt: string;
   updatedAt?: string;
+  status?: number | string | null;
 }
 
 export interface PaginationInfo {

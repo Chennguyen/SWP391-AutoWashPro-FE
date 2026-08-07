@@ -2,6 +2,7 @@ import type { ApiError } from "@/lib/api-error";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   cancelAdminBooking,
+  cancelAdminBookingsByRange,
   checkInAdminBooking,
   completeBooking,
   createBranch,
@@ -23,6 +24,8 @@ import {
 import type {
   AccountStatus,
   AdminBooking,
+  AdminBulkCancelBookingsResult,
+  AdminCancelBookingResult,
   AdminCheckInResult,
   AdminBookingSlot,
   AdminBranch,
@@ -283,10 +286,33 @@ export function useCheckInAdminBookingMutation(token: string) {
 export function useCancelAdminBookingMutation(token: string) {
   const queryClient = useQueryClient();
 
-  return useMutation<void, ApiError, { id: string; reason: string }>({
+  return useMutation<AdminCancelBookingResult, ApiError, { id: string; reason: string }>({
     mutationFn: async ({ id, reason }) => {
       if (!token) throw new Error("No token provided");
-      await cancelAdminBooking(token, id, reason);
+      return await cancelAdminBooking(token, id, reason);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-bookings", token],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-dashboard-stats", token],
+      });
+    },
+  });
+}
+
+export function useCancelAdminBookingsByRangeMutation(token: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    AdminBulkCancelBookingsResult,
+    ApiError,
+    Parameters<typeof cancelAdminBookingsByRange>[1]
+  >({
+    mutationFn: async (request) => {
+      if (!token) throw new Error("No token provided");
+      return await cancelAdminBookingsByRange(token, request);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({

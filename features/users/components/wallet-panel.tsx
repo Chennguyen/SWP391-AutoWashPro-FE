@@ -28,10 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ApiError } from "@/lib/api-error";
 import {
   ChevronLeft,
@@ -43,12 +40,14 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import {
-  useGetWalletTransactionsQuery,
   useCreateWalletTopUpMutation,
+  useGetWalletTopUpStatusQueries,
+  useGetWalletTransactionsQuery,
 } from "../hooks/useUserWallet";
 import {
   type Wallet,
   type WalletTopUpPayment,
+  type WalletTopUpStatus,
 } from "../types/user-types";
 import { WalletTopUpQrDialog } from "./wallet-top-up-qr-dialog";
 
@@ -99,10 +98,12 @@ function getTransactionBadge(type: number | string) {
     t === 1 || String(type).trim().toLowerCase() === "fullpayment";
   const isTopup =
     t === 2 || String(type).trim().toLowerCase() === "wallettopup";
+  const isRefund =
+    t === 3 || String(type).trim().toLowerCase() === "refund";
 
   if (isDeposit)
     return (
-      <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
+      <Badge className="!border-[#6B5527] !bg-[#3A2E16] !text-[#FACC15] hover:!bg-[#3A2E16] font-semibold">
         Đặt cọc
       </Badge>
     );
@@ -118,6 +119,12 @@ function getTransactionBadge(type: number | string) {
         Nạp tiền
       </Badge>
     );
+  if (isRefund)
+    return (
+      <Badge className="!border-[#6D4AA0] !bg-[#2D1B46] !text-[#C084FC] hover:!bg-[#2D1B46] font-semibold">
+        Refund
+      </Badge>
+    );
   return (
     <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">
       {type}
@@ -125,12 +132,68 @@ function getTransactionBadge(type: number | string) {
   );
 }
 
-function getAmountClassAndPrefix(type: number | string) {
+function isWalletTopUp(type: number | string) {
   const t = Number(type);
-  const isTopup =
-    t === 2 || String(type).trim().toLowerCase() === "wallettopup";
-  if (isTopup) return { className: "text-emerald-600 font-bold", prefix: "+" };
-  return { className: "text-red-600 font-bold", prefix: "-" };
+  return t === 2 || String(type).trim().toLowerCase() === "wallettopup";
+}
+
+function normalizeTransactionStatus(
+  status: number | string | null | undefined,
+): WalletTopUpStatus | null {
+  if (status === 0) return "Pending";
+  if (status === 1) return "Succeeded";
+  if (status === 2) return "Failed";
+  if (status === 3) return "Expired";
+  if (typeof status !== "string") return null;
+
+  const normalizedStatus = status.trim().toLowerCase();
+  if (normalizedStatus === "pending") return "Pending";
+  if (normalizedStatus === "succeeded") return "Succeeded";
+  if (normalizedStatus === "failed") return "Failed";
+  if (normalizedStatus === "expired") return "Expired";
+  if (normalizedStatus === "cancelled" || normalizedStatus === "canceled") {
+    return "Cancelled";
+  }
+
+  return null;
+}
+
+function getAmountClassAndPrefix(
+  type: number | string,
+  status: WalletTopUpStatus | null,
+) {
+  const transactionType = Number(type);
+  const isRefund =
+    transactionType === 3 || String(type).trim().toLowerCase() === "refund";
+
+  if (isRefund) {
+    return { className: "font-bold !text-emerald-500", prefix: "+" };
+  }
+
+  if (isWalletTopUp(type)) {
+    return status === "Succeeded"
+      ? { className: "font-bold !text-emerald-500", prefix: "+" }
+      : { className: "font-medium text-muted-foreground", prefix: "" };
+  }
+
+  return { className: "font-bold !text-red-500", prefix: "-" };
+}
+
+function getTransactionStatusBadge(
+  type: number | string,
+  status: WalletTopUpStatus | null,
+  isLoading: boolean,
+  isError: boolean,
+) {
+  if (!isWalletTopUp(type)) return <span className="text-muted-foreground">-</span>;
+  if (status === "Succeeded") return <Badge>Thành công</Badge>;
+  if (status === "Pending") return <Badge variant="secondary">Đang chờ</Badge>;
+  if (status === "Failed") return <Badge variant="destructive">Thất bại</Badge>;
+  if (status === "Expired") return <Badge variant="outline">Hết hạn</Badge>;
+  if (status === "Cancelled") return <Badge variant="destructive">Đã hủy</Badge>;
+  if (isLoading) return <Badge variant="outline">Đang kiểm tra</Badge>;
+  if (isError) return <Badge variant="outline">Chưa xác định</Badge>;
+  return <Badge variant="outline">Chưa xác định</Badge>;
 }
 
 /**
@@ -148,8 +211,9 @@ export function WalletPanel({
 }: WalletPanelProps) {
   const [amount, setAmount] = useState("500000");
   const [topUpError, setTopUpError] = useState<string | null>(null);
-  const [topUpPayment, setTopUpPayment] =
-    useState<WalletTopUpPayment | null>(null);
+  const [topUpPayment, setTopUpPayment] = useState<WalletTopUpPayment | null>(
+    null,
+  );
   const [pageIndex, setPageIndex] = useState(1);
   const [isUnverified, setIsUnverified] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -175,6 +239,28 @@ export function WalletPanel({
   const txLoading = txQuery.isLoading;
   const txError = txQuery.error ? txQuery.error.message : null;
   const saving = topUpMutation.isPending || Boolean(topUpPayment);
+  const topUpTransactions = transactions.filter((transaction) =>
+    isWalletTopUp(transaction.type),
+  );
+  const topUpStatusQueries = useGetWalletTopUpStatusQueries(
+    token,
+    topUpTransactions.map((transaction) => transaction.transactionId),
+  );
+  const topUpStatusByTransactionId = new Map(
+    topUpTransactions.map((transaction, index) => {
+      const statusQuery = topUpStatusQueries[index];
+      return [
+        transaction.transactionId,
+        {
+          status:
+            statusQuery?.data?.status ??
+            normalizeTransactionStatus(transaction.status),
+          isLoading: Boolean(statusQuery?.isPending || statusQuery?.isFetching),
+          isError: Boolean(statusQuery?.isError),
+        },
+      ] as const;
+    }),
+  );
 
   async function handleTopUp(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -182,8 +268,8 @@ export function WalletPanel({
 
     const parsedAmount = parseInt(amount, 10);
 
-    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      setTopUpError("Vui lòng nhập số tiền lớn hơn 0 đồng.");
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 5000) {
+      setTopUpError("Vui lòng nhập số tiền lớn hơn 5.000 đồng.");
       return;
     }
 
@@ -294,8 +380,8 @@ export function WalletPanel({
                       aria-invalid={Boolean(topUpError)}
                     />
                     <FieldDescription>
-                      Hệ thống sẽ tạo QR và chỉ cập nhật số dư sau khi ngân
-                      hàng xác nhận.
+                      Hệ thống sẽ tạo QR và chỉ cập nhật số dư sau khi ngân hàng
+                      xác nhận.
                     </FieldDescription>
                   </Field>
 
@@ -305,7 +391,9 @@ export function WalletPanel({
                     </FieldTitle>
                     <ToggleGroup
                       aria-labelledby="wallet-top-up-presets"
-                      value={TOP_UP_PRESETS.includes(Number(amount)) ? [amount] : []}
+                      value={
+                        TOP_UP_PRESETS.includes(Number(amount)) ? [amount] : []
+                      }
                       onValueChange={(values) => {
                         const selectedAmount = values[0];
                         if (selectedAmount) {
@@ -400,6 +488,9 @@ export function WalletPanel({
                 <TableHead className="w-[100px] text-xs font-bold uppercase text-slate-500">
                   Loại
                 </TableHead>
+                <TableHead className="w-[120px] text-xs font-bold uppercase text-slate-500">
+                  Trạng thái
+                </TableHead>
                 <TableHead className="w-[140px] text-right text-xs font-bold uppercase text-slate-500">
                   Số tiền
                 </TableHead>
@@ -412,7 +503,7 @@ export function WalletPanel({
               {txLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="h-24 text-center text-sm text-slate-500"
                   >
                     <RefreshCw
@@ -425,7 +516,7 @@ export function WalletPanel({
               ) : transactions.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="h-24 text-center text-sm text-slate-500"
                   >
                     Chưa có giao dịch nào được ghi nhận.
@@ -433,7 +524,12 @@ export function WalletPanel({
                 </TableRow>
               ) : (
                 transactions.map((tx) => {
-                  const style = getAmountClassAndPrefix(tx.type);
+                  const statusState = topUpStatusByTransactionId.get(
+                    tx.transactionId,
+                  );
+                  const status =
+                    statusState?.status ?? normalizeTransactionStatus(tx.status);
+                  const style = getAmountClassAndPrefix(tx.type, status);
                   return (
                     <TableRow
                       key={tx.transactionId}
@@ -446,6 +542,14 @@ export function WalletPanel({
                         {formatTxTime(tx.transactionDate || tx.createdAt)}
                       </TableCell>
                       <TableCell>{getTransactionBadge(tx.type)}</TableCell>
+                      <TableCell>
+                        {getTransactionStatusBadge(
+                          tx.type,
+                          status,
+                          statusState?.isLoading ?? false,
+                          statusState?.isError ?? false,
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <span className={style.className}>
                           {style.prefix}
