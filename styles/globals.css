@@ -228,6 +228,16 @@ h6,
   border: 1px solid rgba(188, 163, 116, 0.28);
 }
 
+.customer-brand-surface [data-slot="badge"][data-variant="default"],
+.customer-brand-dialog [data-slot="badge"][data-variant="default"] {
+  color: var(--primary-foreground) !important;
+}
+
+.customer-brand-surface [data-slot="badge"][data-variant="secondary"],
+.customer-brand-dialog [data-slot="badge"][data-variant="secondary"] {
+  color: var(--secondary-foreground) !important;
+}
+
 .booking-brand-surface input[type="date"] {
   color-scheme: dark;
 }
